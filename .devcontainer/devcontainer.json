@@ -1,0 +1,17 @@
+{
+    "name": "Debian Buster",
+
+    "dockerFile": "Dockerfile",
+
+    "extensions": [],
+
+    "settings": {},
+
+    "forwardPorts": [],
+
+    "appPort": [],
+
+    "postCreateCommand": "",
+    
+    "remoteUser": "vscode"
+}
