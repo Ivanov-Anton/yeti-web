@@ -5,8 +5,7 @@ FROM debian:buster
 WORKDIR /workspace
 
 # Install the required packages for your project
-RUN apt-get update && \
-    apt-get install -y package1 package2 package3
+RUN apt-get update
 
 # Clean up the package cache to reduce the image size
 RUN apt-get clean && \
