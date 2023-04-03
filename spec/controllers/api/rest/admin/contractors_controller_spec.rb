@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::ContractorsController, type: :controller do
+RSpec.describe Api::Rest::Admin::ContractorsController, type: :controller do
   let(:user) { create :admin_user }
   let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: user.id }).token }
 
@@ -22,6 +20,9 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
   end
 
   describe 'GET index with filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     before { create_list :contractor, 2, vendor: true }
 
     it_behaves_like :jsonapi_filter_by_name do
@@ -30,6 +31,9 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :vendor }
 
     it_behaves_like :jsonapi_filters_by_string_field, :name
@@ -47,10 +51,10 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
         let!(:suitable_record) { create :customer }
         let!(:other_record) { create :vendor }
 
-        before { subject_request }
+        before { subject }
 
-        it { is_expected.to include suitable_record.id.to_s }
-        it { is_expected.not_to include other_record.id.to_s }
+        it { expect(response_ids).to include suitable_record.id.to_s }
+        it { expect(response_ids).not_to include other_record.id.to_s }
       end
 
       context 'not equal operator' do
@@ -59,10 +63,10 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
         let!(:suitable_record) { create :vendor }
         let!(:other_record) { create :customer }
 
-        before { subject_request }
+        before { subject }
 
-        it { is_expected.to include suitable_record.id.to_s }
-        it { is_expected.not_to include other_record.id.to_s }
+        it { expect(response_ids).to include suitable_record.id.to_s }
+        it { expect(response_ids).not_to include other_record.id.to_s }
       end
     end
 
@@ -74,10 +78,10 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
         let!(:suitable_record) { create :customer }
         let!(:other_record) { create :vendor }
 
-        before { subject_request }
+        before { subject }
 
-        it { is_expected.to include suitable_record.id.to_s }
-        it { is_expected.not_to include other_record.id.to_s }
+        it { expect(response_ids).to include suitable_record.id.to_s }
+        it { expect(response_ids).not_to include other_record.id.to_s }
       end
 
       context 'not equal operator' do
@@ -86,10 +90,10 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
         let!(:suitable_record) { create :vendor }
         let!(:other_record) { create :customer }
 
-        before { subject_request }
+        before { subject }
 
-        it { is_expected.to include suitable_record.id.to_s }
-        it { is_expected.not_to include other_record.id.to_s }
+        it { expect(response_ids).to include suitable_record.id.to_s }
+        it { expect(response_ids).not_to include other_record.id.to_s }
       end
     end
   end
@@ -161,13 +165,6 @@ describe Api::Rest::Admin::ContractorsController, type: :controller do
 
       it { expect(response.status).to eq(422) }
       it { expect(contractor.reload.vendor).to_not eq(false) }
-    end
-
-    context 'when attributes are not updatable' do
-      let(:attributes) { { 'external-id': 200 } }
-
-      it { expect(response.status).to eq(400) }
-      it { expect(contractor.reload.external_id).to_not eq(200) }
     end
   end
 

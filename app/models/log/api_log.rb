@@ -4,23 +4,28 @@
 #
 # Table name: logs.api_requests
 #
-#  id               :integer          not null, primary key
-#  created_at       :datetime         not null
-#  path             :string
-#  method           :string
-#  status           :integer
-#  controller       :string
+#  id               :bigint(8)        not null, primary key
 #  action           :string
-#  page_duration    :float
+#  controller       :string
 #  db_duration      :float
+#  method           :string
+#  page_duration    :float
 #  params           :text
+#  path             :string
 #  request_body     :text
-#  response_body    :text
 #  request_headers  :text
+#  response_body    :text
 #  response_headers :text
+#  status           :integer(4)
+#  created_at       :datetime         not null
+#
+# Indexes
+#
+#  api_requests_created_at_idx  (created_at)
+#  api_requests_id_idx          (id)
 #
 
-class Log::ApiLog < ActiveRecord::Base
+class Log::ApiLog < ApplicationRecord
   self.table_name = 'logs.api_requests'
   self.primary_key = :id
 

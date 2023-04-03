@@ -4,22 +4,29 @@
 #
 # Table name: sys.sensors
 #
-#  id               :integer          not null, primary key
+#  id               :integer(2)       not null, primary key
 #  name             :string           not null
-#  mode_id          :integer          not null
 #  source_interface :string
-#  target_mac       :macaddr
-#  use_routing      :boolean          not null
-#  target_ip        :inet
 #  source_ip        :inet
-#  target_port      :integer
-#  hep_capture_id   :integer
+#  target_ip        :inet
+#  target_mac       :macaddr
+#  target_port      :integer(4)
+#  use_routing      :boolean          not null
+#  hep_capture_id   :integer(4)
+#  mode_id          :integer(4)       not null
+#
+# Indexes
+#
+#  sensors_name_key  (name) UNIQUE
+#
+# Foreign Keys
+#
+#  sensors_mode_id_fkey  (mode_id => sensor_modes.id)
 #
 
-require 'spec_helper'
 require 'shared_examples/shared_examples_for_events'
 
-describe System::Sensor do
+RSpec.describe System::Sensor do
   let(:mode_id) { 1 }
   let(:source_ip) { '192.168.0.1' }
   let(:target_ip) { '192.168.0.2' }
@@ -43,13 +50,13 @@ describe System::Sensor do
 
   describe '#create' do
     subject do
-      FactoryGirl.create(:sensor,
-                         name: 'Experimental sensor',
-                         mode_id: mode_id,
-                         source_ip: source_ip,
-                         target_ip: target_ip,
-                         source_interface: source_interface,
-                         target_mac: target_mac)
+      FactoryBot.create(:sensor,
+                        name: 'Experimental sensor',
+                        mode_id: mode_id,
+                        source_ip: source_ip,
+                        target_ip: target_ip,
+                        source_interface: source_interface,
+                        target_mac: target_mac)
     end
 
     context 'with valid input data' do
@@ -101,17 +108,17 @@ describe System::Sensor do
         let(:source_interface) { nil }
         let(:target_mac) { nil }
         before do
-          FactoryGirl.create(:sensor,
-                             name: 'Experimental sensor',
-                             mode_id: mode_id,
-                             source_ip: source_ip,
-                             target_ip: target_ip,
-                             source_interface: source_interface,
-                             target_mac: target_mac)
+          FactoryBot.create(:sensor,
+                            name: 'Experimental sensor',
+                            mode_id: mode_id,
+                            source_ip: source_ip,
+                            target_ip: target_ip,
+                            source_interface: source_interface,
+                            target_mac: target_mac)
         end
 
         it 'rise error' do
-          expect { subject }.to raise_error
+          expect { subject }.to raise_error(ActiveRecord::RecordInvalid)
         end
       end
     end

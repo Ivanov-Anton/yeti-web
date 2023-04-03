@@ -4,13 +4,17 @@
 #
 # Table name: reports.vendor_traffic_report_schedulers
 #
-#  id          :integer          not null, primary key
-#  created_at  :datetime
-#  period_id   :integer          not null
-#  vendor_id   :integer          not null
-#  send_to     :integer          is an Array
+#  id          :integer(4)       not null, primary key
 #  last_run_at :datetime
 #  next_run_at :datetime
+#  send_to     :integer(4)       is an Array
+#  created_at  :datetime
+#  period_id   :integer(4)       not null
+#  vendor_id   :integer(4)       not null
+#
+# Foreign Keys
+#
+#  vendor_traffic_report_schedulers_period_id_fkey  (period_id => scheduler_periods.id)
 #
 
 class Report::VendorTrafficScheduler < Cdr::Base
@@ -18,7 +22,7 @@ class Report::VendorTrafficScheduler < Cdr::Base
 
   belongs_to :vendor, -> { where(vendor: true) }, class_name: 'Contractor', foreign_key: :vendor_id
   belongs_to :period, class_name: 'Report::SchedulerPeriod', foreign_key: :period_id
-  validates_presence_of :vendor, :period
+  validates :vendor, :period, presence: true
 
   include Hints
 

@@ -3,9 +3,13 @@
 class Api::Rest::Admin::ContractorResource < BaseResource
   attributes :name, :enabled, :vendor, :customer, :description, :address, :phones, :external_id
 
+  paginator :paged
+
   has_one :smtp_connection, class_name: 'System::SmtpConnection'
 
   filter :name
+
+  relationship_filter :smtp_connection
 
   ransack_filter :name, type: :string
   ransack_filter :enabled, type: :boolean
@@ -26,10 +30,11 @@ class Api::Rest::Admin::ContractorResource < BaseResource
       address
       phones
       smtp_connection
+      external_id
     ]
   end
 
   def self.creatable_fields(context)
-    updatable_fields(context) + [:external_id]
+    updatable_fields(context)
   end
 end

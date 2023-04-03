@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :'network-types'
 
   describe 'GET /api/rest/customer/v1/network-types' do
@@ -12,14 +10,12 @@ describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
 
     let(:json_api_request_query) { nil }
 
+    before { create_list(:network_type, 2) }
     let!(:network_types) do
-      [
-        FactoryGirl.create(:network_type).reload,
-        FactoryGirl.create(:network_type).reload
-      ]
+      System::NetworkType.all.to_a
     end
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     include_examples :returns_json_api_collection do
       let(:json_api_collection_ids) { network_types.map(&:uuid) }
@@ -34,9 +30,9 @@ describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
     let(:json_api_request_path) { "#{super()}/#{record_id}" }
     let(:record_id) { network_type.uuid }
 
-    let!(:network_type) { FactoryGirl.create(:network_type).reload }
+    let!(:network_type) { FactoryBot.create(:network_type).reload }
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     include_examples :returns_json_api_record do
       let(:json_api_record_id) { network_type.uuid }
@@ -54,7 +50,7 @@ describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
     let(:json_api_request_data) { super().merge(id: record_id) }
     let(:json_api_request_attributes) { { name: 'new name' } }
 
-    let!(:network_type) { FactoryGirl.create(:network_type).reload }
+    let!(:network_type) { FactoryBot.create(:network_type).reload }
 
     include_examples :raises_exception, ActionController::RoutingError
   end
@@ -69,7 +65,7 @@ describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
     let(:json_api_request_data) { super().merge(id: record_id) }
     let(:json_api_request_attributes) { { name: 'new name' } }
 
-    let!(:network_type) { FactoryGirl.create(:network_type).reload }
+    let!(:network_type) { FactoryBot.create(:network_type).reload }
 
     include_examples :raises_exception, ActionController::RoutingError
   end
@@ -82,7 +78,7 @@ describe Api::Rest::Customer::V1::NetworkTypesController, type: :request do
     let(:json_api_request_path) { "#{super()}/#{record_id}" }
     let(:record_id) { network_type.uuid }
 
-    let!(:network_type) { FactoryGirl.create(:network_type).reload }
+    let!(:network_type) { FactoryBot.create(:network_type).reload }
 
     include_examples :raises_exception, ActionController::RoutingError
   end

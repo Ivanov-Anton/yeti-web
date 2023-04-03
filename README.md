@@ -1,37 +1,63 @@
-## Welcome to YETI
-[![Build Status](https://api.travis-ci.org/yeti-switch/yeti-web.svg?branch=master)](https://travis-ci.org/yeti-switch/yeti-web)
+# Welcome to YETI
+![Tests](https://github.com/yeti-switch/yeti-web/workflows/Tests/badge.svg?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/yeti-switch/yeti-web/badge.svg?branch=master)](https://coveralls.io/github/yeti-switch/yeti-web?branch=master)
+[![Made in Ukraine](https://img.shields.io/badge/made_in-ukraine-ffd700.svg?labelColor=0057b7)](https://stand-with-ukraine.pp.ua)
 
+
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct-team.svg)](https://stand-with-ukraine.pp.ua)
 
 
 # Contributing, Development setup
 
+## Ruby
 
-It is strongly recommended to use PostgreSQL version 11.
+You have to use Ruby version 2.7 with installed bundler.
+
+## Postgresql
+
+It is strongly recommended to use PostgreSQL version 13.
 The easiest way to install it - is to use Debian Linux and follow official PostgreSQL instruction
 https://www.postgresql.org/download/linux/debian/
 
 You need to install:
 
 ```sh
-sudo apt-get install postgresql-11 postgresql-contrib-11 postgresql-11-prefix postgresql-11-pgq3
-sudo apt-get install -t stretch-pgdg libpq-dev
+curl https://pkg.yeti-switch.org/key.gpg | sudo apt-key add -
+curl https://www.postgresql.org/media/keys/ACCC4CF8.asc	| sudo apt-key add -
+sudo add-apt-repository "deb http://pkg.yeti-switch.org/debian/buster unstable main"
+sudo add-apt-repository "deb http://deb.debian.org/debian buster main buster non-free"
+sudo add-apt-repository "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main"
+sudo apt-get install postgresql-13 postgresql-contrib-13 postgresql-13-prefix postgresql-13-pgq3 postgresql-13-pgq-ext postgresql-13-yeti postgresql-13-pllua
+sudo apt-get install -t buster-pgdg libpq-dev
 ```
-In addition you need to compile or install from .deb package Yeti PostgreSQL extension https://github.com/yeti-switch/yeti-pg-ext
+In addition you need to compile or install from .deb package Yeti PostgreSQL extension `postgresql-13-yeti` https://github.com/yeti-switch/yeti-pg-ext
 
-Then fork and clone yeti-web repository and run:
+## Preparing yeti-web application
+
+Fork and clone yeti-web repository and run:
 
 ```sh
 bundle install
 ```
 
-Then create `config/database.yml`, example is `database.yml.example`. Notice this project uses two databases main "yeti" and second database "cdr"
+Then create `config/database.yml`, example is `config/database.yml.development`. Notice this project uses two databases main "yeti" and second database "cdr"
+
+Then create `config/yeti_web.yml`, example is `config/yeti_web.yml.development`.
+
+To disable the creation of new versions via paper_trail for some model please fill the array under key `versioning_disable_for_models` in the `config/yeti_web.yml`
+
+Сreate `config/policy_roles.yml`, example is `config/policy_roles.yml.distr` or disable policy feature by changing following lines in `config/yeti_web.yml`:
+
+```yaml
+role_policy:
+  when_no_config: allow
+  when_no_policy_class: allow
+```
 
 And run command to create development database:
 
 ```sh
-RAILS_ENV=development bundle exec rake db:create db:structure:load db:migrate
-RAILS_ENV=development bundle exec rake db:second_base:create db:second_base:structure:load db:second_base:migrate
-RAILS_ENV=development bundle exec rake db:seed
+RAILS_ENV=development bundle exec rake db:create db:schema:load db:migrate db:seed
 ```
 
 Then start rails server `bundle exec rails s` and login to http://localhost:3000/ with
@@ -40,14 +66,12 @@ login `admin` and password `111111`
 Then prepare test database(do not use db:test:prepare).
 
 ```sh
-RAILS_ENV=test bundle exec rake db:create db:structure:load db:migrate
-RAILS_ENV=test bundle exec rake db:second_base:create db:second_base:structure:load db:second_base:migrate
-RAILS_ENV=test bundle exec rake db:seed
+RAILS_ENV=test bundle exec rake db:drop db:create db:schema:load db:migrate db:seed
 ```
 
-This project has CDR-database, configured as SecondDatabase
-https://github.com/customink/secondbase
-And all commands should be run explicitly by calling "db:second_base:*" commands.
+This project has CDR-database, configured as cdr
+see https://guides.rubyonrails.org/active_record_multiple_databases.html
+And all commands should be run explicitly by calling "db:*:cdr" commands.
 
 NOTICE: Test DB needs seeds, actually only PGQ seed.
 
@@ -57,7 +81,7 @@ And run tests:
 bundle exec rspec
 ```
 
-# Migrations
+## Migrations
 
 When you run several migrations in a row, you may wish to stop at some point. In this case you should add `stop_step` method to the migration:
 
@@ -83,14 +107,12 @@ IGNORE_STOPS=true bundle exec rake db:migrate
 ## Migrations that insert rows into yeti database
 
 ```bash
-RAILS_ENV=test bundle exec rake db:create db:structure:load
-RAILS_ENV=test bundle exec rake db:second_base:create db:second_base:structure:load
-RAILS_ENV=test bundle exec rake db:seed
+RAILS_ENV=test bundle exec rake db:create db:schema:load db:seed
 # create migration inside db/migrations
 RAILS_ENV=test bundle exec rake db:migrate
 # SCHEMA_NAME - schema of table into which you've inserted row(s)
 # YETI_TEST_DB_NAME - yeti test database name on local machine
-pg_dump --column-inserts --data-only --schema=sys --file=db/seeds/main/SCHEMA_NAME.sql YETI_TEST_DB_NAME
+pg_dump --column-inserts --data-only --schema=SCHEMA_NAME --file=db/seeds/main/SCHEMA_NAME.sql YETI_TEST_DB_NAME
 ```
 
 ## Use Docker Postgres for development
@@ -104,7 +126,7 @@ For development purpouse it is convinient to use PostgreSQL from Docker image. H
 * Run following commands in terminal from `yeti-web` projects directory
 
   ```
-  sudo docker build -t yeti_postgres -f ci/pgsql.Dockerfile .
+  sudo docker build -t yeti_postgres -f ci/pg13.Dockerfile .
   ```
 
 * Start the Postgres Server using docker image, with remapped port to 3010 and volume "yetiPgData" to persist data after docker container stops:
@@ -121,4 +143,4 @@ For development purpouse it is convinient to use PostgreSQL from Docker image. H
   port: 3010
   ```
 
-* Initialize database with instructions described in [Contributing, Development setup](#contributing-development-setup) section(db:create, db:structure:load, etc.)
+* Initialize database with instructions described in [Contributing, Development setup](#contributing-development-setup) section(db:create, db:schema:load, etc.)

@@ -4,16 +4,18 @@
 #
 # Table name: sys.lua_scripts
 #
-#  id         :integer          not null, primary key
+#  id         :integer(2)       not null, primary key
 #  name       :string           not null
 #  source     :string           not null
 #  created_at :datetime         not null
 #  updated_at :datetime         not null
 #
+# Indexes
+#
+#  lua_scripts_name_key  (name) UNIQUE
+#
 
-require 'spec_helper'
-
-describe System::LuaScript, type: :model do
+RSpec.describe System::LuaScript, type: :model do
   describe 'validations' do
     subject do
       described_class.create(name: 'lua script', source: '...')

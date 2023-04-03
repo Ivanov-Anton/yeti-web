@@ -1,15 +1,13 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Routing Group', type: :feature do
+RSpec.describe 'Create new Routing Group', type: :feature do
   include_context :login_as_admin
 
   before do
-    visit new_routing_group_path
+    visit new_routing_routing_group_path
   end
 
-  include_context :fill_form, 'new_routing_group' do
+  include_context :fill_form, 'new_routing_routing_group' do
     let(:attributes) do
       {
         name: 'test routing group'
@@ -20,7 +18,7 @@ describe 'Create new Routing Group', type: :feature do
       click_on_submit
       expect(page).to have_css('.flash_notice', text: 'Routing group was successfully created.')
 
-      expect(RoutingGroup.last).to have_attributes(
+      expect(Routing::RoutingGroup.last).to have_attributes(
         name: attributes[:name]
       )
     end

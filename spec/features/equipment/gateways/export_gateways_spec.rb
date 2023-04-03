@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Export Gateways', type: :feature do
+RSpec.describe 'Export Gateways', type: :feature do
   include_context :login_as_admin
 
   before { create(:gateway) }
@@ -13,7 +11,7 @@ describe 'Export Gateways', type: :feature do
     create :gateway,
            contractor: contractor,
            gateway_group: create(:gateway_group, vendor: contractor),
-           pop: Pop.take,
+           pop: create(:pop),
            session_refresh_method: SessionRefreshMethod.take,
            sensor: create(:sensor),
            orig_disconnect_policy: create(:disconnect_policy),
@@ -67,11 +65,14 @@ describe 'Export Gateways', type: :feature do
         ['Transport protocol name',            item.transport_protocol.name],
         ['Host',                               item.host],
         ['Port',                               item.port.to_s],
-        ['Use registered aor',                 item.use_registered_aor.to_s],
+        ['Registered aor mode name',           item.registered_aor_mode_name.to_s],
         ['Resolve ruri',                       item.resolve_ruri.to_s],
-        ['Diversion policy name',              item.diversion_policy.name],
+        ['Diversion send mode name',           item.diversion_send_mode.name],
+        ['Diversion domain',                   item.diversion_domain.to_s],
         ['Diversion rewrite rule',             item.diversion_rewrite_rule.to_s],
         ['Diversion rewrite result',           item.diversion_rewrite_result.to_s],
+        ['Pai send mode name', item.pai_send_mode_name],
+        ['Pai domain', item.pai_domain.to_s],
         ['Src name rewrite rule',              item.src_name_rewrite_rule.to_s],
         ['Src name rewrite result',            item.src_name_rewrite_result.to_s],
         ['Src rewrite rule',                   item.src_rewrite_rule.to_s],
@@ -107,11 +108,8 @@ describe 'Export Gateways', type: :feature do
         ['Dns srv failover timer',             item.dns_srv_failover_timer.to_s],
         ['Sdp c location name',                item.sdp_c_location.name],
         ['Codec group name',                   item.codec_group.name],
-        ['Anonymize sdp',                      item.anonymize_sdp.to_s],
         ['Proxy media',                        item.proxy_media.to_s],
         ['Single codec in 200ok',              item.single_codec_in_200ok.to_s],
-        ['Transparent seqno',                  item.transparent_seqno.to_s],
-        ['Transparent ssrc',                   item.transparent_ssrc.to_s],
         ['Force symmetric rtp',                item.force_symmetric_rtp.to_s],
         ['Symmetric rtp nonstop',              item.symmetric_rtp_nonstop.to_s],
         ['Symmetric rtp ignore rtcp',          item.symmetric_rtp_ignore_rtcp.to_s],
@@ -135,7 +133,8 @@ describe 'Export Gateways', type: :feature do
         ['Preserve anonymous from domain',     item.preserve_anonymous_from_domain.to_s],
         ['Termination dst numberlist name',    item.termination_dst_numberlist.name],
         ['Termination src numberlist name',    item.termination_src_numberlist.name],
-        ['Lua script name',                    item.lua_script.name]
+        ['Lua script name',                    item.lua_script.name],
+        ['Force cancel routeset', item.force_cancel_routeset.to_s]
       ]
     )
   end

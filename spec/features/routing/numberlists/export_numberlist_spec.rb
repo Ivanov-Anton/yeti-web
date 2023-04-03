@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Export Numberlist', type: :feature do
+RSpec.describe 'Export Numberlist', type: :feature do
   include_context :login_as_admin
   include_context :init_routing_tag_collection
 
@@ -13,7 +11,7 @@ describe 'Export Numberlist', type: :feature do
   let!(:item) do
     create(:numberlist,
            tag_action: Routing::TagAction.take,
-           tag_action_value: [@tag_ua.id, @tag_us.id])
+           tag_action_value: [tag_ua.id, tag_us.id])
   end
 
   before do
@@ -27,8 +25,8 @@ describe 'Export Numberlist', type: :feature do
       [
         ['Id', item.id.to_s],
         ['Name', item.name],
-        ['Mode name', item.mode.name],
-        ['Default action name', item.default_action.name],
+        ['Mode name', item.mode_name],
+        ['Default action name', item.default_action_name],
         ['Default src rewrite rule', item.default_src_rewrite_rule.to_s],
         ['Default src rewrite result', item.default_src_rewrite_result.to_s],
         ['Default dst rewrite rule', item.default_dst_rewrite_rule.to_s],

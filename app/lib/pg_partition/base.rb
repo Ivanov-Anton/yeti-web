@@ -31,12 +31,17 @@ module PgPartition
 
     def add_partition(table_name, interval_type, time)
       options = partition_options(interval_type, time)
-      add_partition_for_range(table_name, options)
+      add_partition_for_range(table_name, **options)
     end
 
     def add_partition_for_range(table_name, prefix:, from:, to:)
+      date_from = from.to_date
+      date_to = to.to_date
       existed_partition = partitions(table_name).detect do |r|
-        r[:date_from].to_date == from.to_date && r[:date_to].to_date == to.to_date
+        partition_date_from = r[:date_from].to_date
+        partition_date_to = r[:date_to].to_date
+
+        partition_date_from <= date_from && partition_date_to >= date_to
       end
       return if existed_partition.present?
 

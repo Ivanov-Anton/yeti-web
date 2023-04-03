@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Export Routing Groups', type: :feature do
+RSpec.describe 'Export Routing Groups', type: :feature do
   include_context :login_as_admin
 
   before { create(:routing_group) }
@@ -12,7 +10,7 @@ describe 'Export Routing Groups', type: :feature do
   end
 
   before do
-    visit routing_groups_path(format: :csv)
+    visit routing_routing_groups_path(format: :csv)
   end
 
   subject { CSV.parse(page.body).slice(0, 2).transpose }

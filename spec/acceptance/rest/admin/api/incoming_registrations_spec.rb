@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'IncomingRegistrations' do
+RSpec.resource 'IncomingRegistrations' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -12,7 +11,7 @@ resource 'IncomingRegistrations' do
   let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: user.id }).token }
   let(:type) { 'incoming-registrations' }
 
-  before { FactoryGirl.create(:node) }
+  before { FactoryBot.create(:node) }
   include_context :incoming_registrations_stub_helpers
 
   get '/api/rest/admin/incoming-registrations' do

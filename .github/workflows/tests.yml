@@ -1,0 +1,248 @@
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+jobs:
+  gems-caching:
+    name: GEMs caching
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    steps:
+      - uses: actions/checkout@v2
+      - name: Fetching gems cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+      - name: install gems
+        run: make gems-test
+      - name: install gems for pgq
+        run: make pgq-processors-gems
+      - name: Caching gems
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+
+  lint:
+    name: Rubocop and bundle audit
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    needs: gems-caching
+    steps:
+      - uses: actions/checkout@v2
+      - name: use cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+      - name: Rubocop and bundle audit
+        run: make lint
+
+  database_consistency:
+    name: Check the consistency of the database constraints with the application validations
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    services:
+      db:
+        image: ghcr.io/yeti-switch/yeti-web/pgsql:13
+    needs: gems-caching
+    steps:
+      - uses: actions/checkout@v2
+      - name: use cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+      - name: Check the consistency of the database constraints with the application validations
+        continue-on-error: true
+        run: make database_consistency
+        env:
+          YETI_DB_HOST: db
+          YETI_DB_PORT: 5432
+          CDR_DB_HOST: db
+          CDR_DB_PORT: 5432
+
+      - name: Save artifacts
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: database_consistency-artifacts
+          if-no-files-found: ignore
+          path: |
+            log/
+
+  brakeman:
+    name: Brakeman
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    needs: gems-caching
+    steps:
+      - uses: actions/checkout@v2
+      - name: use cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+      - name: brakeman
+        continue-on-error: true
+        run: make brakeman
+
+  pgq-processors:
+    name: PqQ processors tests
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    services:
+      db:
+        image: ghcr.io/yeti-switch/yeti-web/pgsql:13
+
+    needs: gems-caching
+    steps:
+      - uses: actions/checkout@v2
+      - name: use cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+      - name: Run test-pgq-processors
+        run: make test-pgq-processors
+        env:
+          YETI_DB_HOST: db
+          YETI_DB_PORT: 5432
+          CDR_DB_HOST: db
+          CDR_DB_PORT: 5432
+
+  rspec:
+    name: Rspec tests
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    services:
+      db:
+        image: ghcr.io/yeti-switch/yeti-web/pgsql:13
+
+    needs: gems-caching
+    strategy:
+      fail-fast: false
+      matrix:
+        # Set N number of parallel jobs you want to run tests on.
+        # Use higher number if you have slow tests to split them on more parallel jobs.
+        # Remember to update ci_node_index below to 0..N-1
+        ci_node_total: [6]
+        # set N-1 indexes for parallel jobs
+        # When you run 2 parallel jobs then first job will have index 0, the second job will have index 1 etc
+        ci_node_index: [0, 1, 2, 3, 4, 5]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: use cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+
+      - name: Run rspec
+        run: make rspec
+        env:
+          PARALLEL_TEST_PROCESSORS: ${{ matrix.ci_node_total }}
+          TEST_GROUP: ${{ matrix.ci_node_index }}
+          YETI_DB_HOST: db
+          YETI_DB_PORT: 5432
+          CDR_DB_HOST: db
+          CDR_DB_PORT: 5432
+
+      - name: Save artifacts
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: rspec-artifacts-${{matrix.ci_node_index}}
+          if-no-files-found: ignore
+          path: |
+            tmp/capybara
+            coverage
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
+    needs:
+      - gems-caching
+      - rspec
+    steps:
+      - uses: actions/checkout@v2
+      - name: use cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            vendor
+            pgq-processors/vendor
+            .bundle
+            pgq-processors/.bundle
+            /opt/yeti-web/vendor/rbenv
+          key: gems-${{runner.os}}-${{hashFiles('Gemfile.lock')}}-${{hashFiles('pgq-processors/Gemfile.lock')}}-${{hashFiles('.ruby-version')}}
+      - name: Download Coverage Outputs
+        uses: actions/download-artifact@v3
+        with:
+          path: coverage
+
+      - name: Merge Coverage results
+        run: make coverage_report
+
+      - name: Code Coverage Report
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage/coverage.xml
+          badge: true
+          fail_below_min: true
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+          thresholds: '60 80'
+
+      - name: Adding coverage report to summary
+        run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+#      - name: Add Coverage PR Comment
+#        uses: marocchino/sticky-pull-request-comment@v2
+#        if: github.event_name == 'pull_request'
+#        with:
+#          recreate: true
+#          path: code-coverage-results.md
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

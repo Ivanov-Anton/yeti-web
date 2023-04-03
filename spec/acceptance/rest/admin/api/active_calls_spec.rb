@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'ActiveCalls' do
+RSpec.resource 'ActiveCalls' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -13,7 +12,7 @@ resource 'ActiveCalls' do
   let(:type) { 'active-calls' }
 
   include_context :active_calls_stub_helpers do
-    let!(:node) { FactoryGirl.create(:node) }
+    let!(:node) { FactoryBot.create(:node) }
     let(:active_call_attrs) { [:filled, node_id: node.id] }
   end
 

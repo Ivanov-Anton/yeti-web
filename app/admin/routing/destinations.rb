@@ -1,57 +1,30 @@
 # frozen_string_literal: true
 
 ActiveAdmin.register Routing::Destination, as: 'Destination' do
-  menu parent: 'Routing', priority: 41
+  menu parent: 'Routing', priority: 45
 
   acts_as_audit
   acts_as_clone
   acts_as_safe_destroy
-  acts_as_status
+  acts_as_status(show_count: false)
   acts_as_quality_stat
   acts_as_stats_actions
   acts_as_async_destroy('Routing::Destination')
-  acts_as_async_update('Routing::Destination',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           prefix: 'text',
-                           dst_number_min_length: 'text',
-                           dst_number_max_length: 'text',
-                           routing_tag_mode_id: Routing::RoutingTagMode.pluck(:name, :id),
-                           reject_calls: boolean_select,
-                           quality_alarm: boolean_select,
-                           rateplan_id: Rateplan.pluck(:name, :id),
-                           valid_from: 'datepicker',
-                           valid_till: 'datepicker',
-                           rate_policy_id: DestinationRatePolicy.pluck(:name, :id),
-                           initial_interval: 'text',
-                           initial_rate: 'text',
-                           next_interval: 'text',
-                           next_rate: 'text',
-                           use_dp_intervals: boolean_select,
-                           connect_fee: 'text',
-                           profit_control_mode_id: Routing::RateProfitControlMode.pluck(:name, :id),
-                           dp_margin_fixed: 'text',
-                           dp_margin_percent: 'text',
-                           asr_limit: 'text',
-                           acd_limit: 'text',
-                           short_calls_limit: 'text'
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::Destination
 
   acts_as_delayed_job_lock
 
   decorate_with DestinationDecorator
 
   acts_as_export :id, :enabled, :prefix, :dst_number_min_length, :dst_number_max_length,
-                 [:rateplan_name, proc { |row| row.rateplan.try(:name) }],
+                 [:rate_group_name, proc { |row| row.rate_group.try(:name) }],
                  :reject_calls,
-                 [:rate_policy_name, proc { |row| row.rate_policy.try(:name) }],
+                 :rate_policy_name,
                  :initial_interval, :next_interval,
                  :use_dp_intervals,
                  :initial_rate, :next_rate, :connect_fee,
                  :dp_margin_fixed, :dp_margin_percent,
-                 [:profit_control_mode_name, proc { |row| row.profit_control_mode.try(:name) }],
+                 :profit_control_mode_name,
                  :valid_from, :valid_till,
                  :asr_limit, :acd_limit, :short_calls_limit, :reverse_billing,
                  [:routing_tag_names, proc { |row| row.model.routing_tags.map(&:name).join(', ') }],
@@ -61,47 +34,59 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
                  skip_columns: [:routing_tag_ids]
 
   scope :low_quality
+  scope :time_valid
 
   filter :id
   filter :uuid_equals, label: 'UUID'
   filter :enabled, as: :select, collection: [['Yes', true], ['No', false]]
   filter :prefix
   filter :routing_for_contains, as: :string, input_html: { class: 'search_filter_string' }
-  filter :rateplan, input_html: { class: 'chosen' }
+  filter :rate_group, input_html: { class: 'chosen' }
+  filter :rate_group_rateplans_id_eq, as: :select, input_html: { class: 'chosen' }, label: 'Rateplan', collection: -> { Routing::Rateplan.all }
   filter :reject_calls, as: :select, collection: [['Yes', true], ['No', false]]
   filter :initial_rate
   filter :next_rate
   filter :connect_fee
-  filter :network_prefix_country_id_eq,
-         label: 'Country',
-         input_html: { class: 'chosen',
-                       onchange: remote_chosen_request(:get, 'system_countries/get_networks', { country_id: '$(this).val()' }, :q_network_prefix_network_id_eq) },
-         as: :select, collection: -> { System::Country.all }
 
-  filter :network_prefix_network_id_eq,
-         label: 'Network',
-         input_html: { class: 'chosen' },
+  filter :network_prefix_country_id_eq,
          as: :select,
-         collection: lambda {
-           begin
-             System::Country.find(assigns['search'].network_prefix_country_id_eq).networks
-           rescue StandardError
-             []
-           end
-         }
+         label: 'Country',
+         input_html: {
+           class: 'chosen network_prefix_country_id_eq-filter'
+         },
+         collection: -> { System::Country.order(:name) }
+
+  association_ajax_filter :network_prefix_network_id_eq,
+                          label: 'Network',
+                          scope: -> { System::Network.order(:name) },
+                          path: '/system_networks/search',
+                          input_html: {
+                            'data-path-params': { 'q[country_id_eq]': '.network_prefix_country_id_eq-filter' }.to_json,
+                            'data-required-param': 'q[country_id_eq]'
+                          },
+                          fill_params: lambda {
+                            { country_id_eq: params.dig(:q, :network_prefix_country_id_eq) }
+                          }
 
   filter :external_id_eq, label: 'EXTERNAL_ID'
+  filter :valid_from, as: :date_time_range
+  filter :valid_till, as: :date_time_range
+  filter :rate_policy_id_eq, input_html: { class: 'chosen' }, collection: Routing::DestinationRatePolicy::POLICIES.invert
+  boolean_filter :reverse_billing
+  filter :initial_interval
+  filter :next_interval
+  filter :asr_limit
+  filter :acd_limit
+  filter :short_calls_limit
 
-  acts_as_filter_by_routing_tag_ids
+  acts_as_filter_by_routing_tag_ids routing_tag_ids_count: true
 
-  permit_params :enabled, :prefix, :dst_number_min_length, :dst_number_max_length, :rateplan_id, :next_rate, :connect_fee,
+  permit_params :enabled, :prefix, :dst_number_min_length, :dst_number_max_length, :rate_group_id, :next_rate, :connect_fee,
                 :initial_interval, :next_interval, :dp_margin_fixed,
                 :dp_margin_percent, :rate_policy_id, :reverse_billing, :initial_rate,
                 :reject_calls, :use_dp_intervals, :test, :profit_control_mode_id,
                 :valid_from, :valid_till, :asr_limit, :acd_limit, :short_calls_limit, :batch_prefix,
                 :reverse_billing, :routing_tag_mode_id, routing_tag_ids: []
-
-  includes :rateplan, :rate_policy, :profit_control_mode, :routing_tag_mode, network_prefix: %i[country network]
 
   action_item :show_rates, only: [:show] do
     link_to 'Show Rates', destination_destination_next_rates_path(resource.id)
@@ -122,10 +107,19 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       end
       super
     end
+
+    # Better not to use includes, because it generates select count(*) from (select distinct ...) queries and such queries very slow
+    # see https://github.com/rails/rails/issues/42331
+    # https://github.com/yeti-switch/yeti-web/pull/985
+    #
+    # preload have more controllable behavior, but sorting by associated tables not possible
+    def scoped_collection
+      super.preload(:rate_group, :routing_tag_mode, network_prefix: %i[country network])
+    end
   end
 
   member_action :clear_quality_alarm do
-    resource.clear_quality_alarm
+    DestinationQualityCheck.new(resource.model).clear_quality_alarm
     flash[:notice] = "#{active_admin_config.resource_label} Alarm cleared"
     redirect_back fallback_location: root_path
   end
@@ -145,21 +139,21 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
     column :dst_number_length do |c|
       c.dst_number_min_length == c.dst_number_max_length ? c.dst_number_min_length.to_s : "#{c.dst_number_min_length}..#{c.dst_number_max_length}"
     end
-    column :country, sortable: 'countries.name' do |row|
-      auto_link row.network_prefix.try!(:country)
+    column :country do |row|
+      auto_link row.network_prefix&.country
     end
-    column :network, sortable: 'networks.name' do |row|
-      auto_link row.network_prefix.try!(:network)
+    column :network do |row|
+      auto_link row.network_prefix&.network
     end
 
     column :reject_calls
     column :quality_alarm
-    column :rateplan, sortable: 'rateplans.name'
+    column :rate_group
     column :routing_tags
     column :valid_from, &:decorated_valid_from
     column :valid_till, &:decorated_valid_till
 
-    column :rate_policy
+    column :rate_policy, &:rate_policy_name
     column :reverse_billing
 
     ## fixed price
@@ -173,7 +167,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
     # cost + X ( $ or % )
     column :dp_margin_fixed
     column :dp_margin_percent
-    column :profit_control_mode
+    column :profit_control_mode, &:profit_control_mode_name
     column :external_id
 
     column :asr_limit
@@ -184,7 +178,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   end
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
       if f.object.new_record? # allow multiple prefixes delimited by comma in NEW form.
         f.input :batch_prefix, label: 'Prefix',
@@ -197,17 +191,17 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       f.input :dst_number_max_length
       f.input :enabled
       f.input :reject_calls
-      f.input :rateplan, input_html: { class: 'chosen' }
+      f.input :rate_group, input_html: { class: 'chosen' }
 
       f.input :routing_tag_ids, as: :select,
-                                collection: DestinationDecorator.decorate(f.object).routing_tag_options,
+                                collection: routing_tag_options,
                                 include_hidden: false,
                                 input_html: { class: 'chosen', multiple: true }
       f.input :routing_tag_mode
 
       f.input :valid_from, as: :date_time_picker
       f.input :valid_till, as: :date_time_picker
-      f.input :rate_policy
+      f.input :rate_policy_id, as: :select, include_blank: false, collection: Routing::DestinationRatePolicy::POLICIES.invert
       f.input :reverse_billing
       f.input :initial_interval
       f.input :next_interval
@@ -217,7 +211,11 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       f.input :initial_rate
       f.input :next_rate
       f.input :connect_fee
-      f.input :profit_control_mode, hint: 'Leave it empty to inherit Profit control mode from Rateplan'
+      f.input :profit_control_mode_id,
+              as: :select,
+              include_blank: true,
+              collection: Routing::RateProfitControlMode::MODES.invert,
+              hint: 'Leave it empty to inherit Profit control mode from Rateplan'
     end
 
     f.inputs 'Dialpeer based rating configuration' do
@@ -248,12 +246,12 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
           row :network
           row :reject_calls
           row :quality_alarm
-          row :rateplan
+          row :rate_group
           row :routing_tags
           row :routing_tag_mode
           row :valid_from, &:decorated_valid_from
           row :valid_till, &:decorated_valid_till
-          row :rate_policy
+          row :rate_policy, &:rate_policy_name
           row :reverse_billing
           row :initial_interval
           row :next_interval
@@ -265,7 +263,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
             row :initial_rate
             row :next_rate
             row :connect_fee
-            row :profit_control_mode
+            row :profit_control_mode, &:profit_control_mode_name
           end
         end
         panel 'Dialpeer based rating configuration' do

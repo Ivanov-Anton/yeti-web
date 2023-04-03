@@ -4,15 +4,15 @@
 #
 # Table name: stats.active_calls
 #
-#  id         :integer          not null, primary key
-#  node_id    :integer          not null
-#  count      :integer          not null
+#  id         :bigint(8)        not null, primary key
+#  count      :integer(4)       not null
 #  created_at :datetime
+#  node_id    :integer(4)       not null
 #
 
 class Stats::ActiveCall < Stats::Base
   self.table_name = 'stats.active_calls'
-  belongs_to :node
+  belongs_to :node, optional: true
 
   include ::Chart
   self.chart_entity_column = :node_id

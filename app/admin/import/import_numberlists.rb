@@ -2,8 +2,10 @@
 
 ActiveAdmin.register Importing::Numberlist, as: 'Numberlist Imports' do
   filter :name
-  filter :mode
-  filter :default_action
+
+  filter :mode_id_eq, label: 'Mode', as: :select, collection: Routing::Numberlist::MODES.invert
+  filter :default_action_id_eq, label: 'Default action', as: :select, collection: Routing::Numberlist::DEFAULT_ACTIONS.invert
+
   boolean_filter :is_changed
 
   acts_as_import_preview
@@ -16,8 +18,6 @@ ActiveAdmin.register Importing::Numberlist, as: 'Numberlist Imports' do
     end
   end
 
-  includes :mode, :default_action, :lua_script
-
   index do
     selectable_column
     actions
@@ -28,18 +28,14 @@ ActiveAdmin.register Importing::Numberlist, as: 'Numberlist Imports' do
     column :is_changed
 
     column :name
-    column :mode
-    column :default_action
+    column :mode, &:mode_display_name
+    column :default_action, &:default_action_display_name
     column :default_src_rewrite_rule
     column :default_src_rewrite_result
     column :default_dst_rewrite_rule
     column :default_dst_rewrite_result
     column :tag_action
-    column :tag_action_value do |row|
-      if row.tag_action_value.present?
-        Routing::RoutingTag.where(id: row.tag_action_value).pluck(:name).join(', ')
-      end
-    end
+    column :tag_action_value
     column :lua_script
   end
 end

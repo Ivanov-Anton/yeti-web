@@ -4,12 +4,14 @@
 #
 # Table name: sys.sensor_modes
 #
-#  id   :integer          not null, primary key
+#  id   :integer(4)       not null, primary key
 #  name :string           not null
 #
 
-class System::SensorMode < Yeti::ActiveRecord
+class System::SensorMode < ApplicationRecord
   self.table_name = 'sys.sensor_modes'
+
+  validates :name, presence: true, uniqueness: true
 
   # mode_id constants from this table
   IP_IP       = 1  # IP-IP encapsulation

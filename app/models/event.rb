@@ -4,16 +4,20 @@
 #
 # Table name: events
 #
-#  id         :integer          not null, primary key
+#  id         :integer(4)       not null, primary key
 #  command    :string           not null
-#  retries    :integer          default(0), not null
-#  node_id    :integer          not null
+#  last_error :string
+#  retries    :integer(4)       default(0), not null
 #  created_at :datetime         not null
 #  updated_at :datetime
-#  last_error :string
+#  node_id    :integer(4)       not null
+#
+# Foreign Keys
+#
+#  events_node_id_fkey  (node_id => nodes.id)
 #
 
-class Event < ActiveRecord::Base
+class Event < ApplicationRecord
   belongs_to :node
 
   CMD = {
@@ -23,7 +27,8 @@ class Event < ActiveRecord::Base
     reload_sensors: 'request.sensors.reload',
     reload_radius_auth_profiles: 'request.radius.authorization.profiles.reload',
     reload_radius_acc_profiles: 'request.radius.accounting.profiles.reload',
-    reload_incoming_auth: 'request.auth.credentials.reload'
+    reload_incoming_auth: 'request.auth.credentials.reload',
+    reload_sip_options_probers: 'request.options_prober.reload'
   }.freeze
 
   def self.reload_registrations(options = {})
@@ -59,6 +64,16 @@ class Event < ActiveRecord::Base
 
   def self.reload_incoming_auth
     create_events_for_nodes CMD[__method__]
+  end
+
+  def self.reload_sip_options_probers(node_id: nil, pop_id: nil)
+    scope = Node.all
+    if node_id
+      scope = scope.where(id: node_id)
+    elsif pop_id
+      scope = scope.where(pop_id: pop_id)
+    end
+    create_events_for_nodes CMD[:reload_sip_options_probers], scope
   end
 
   def self.create_events_for_nodes(command, node_scope = nil)

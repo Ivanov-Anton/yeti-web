@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::System::NetworksController, type: :controller do
+RSpec.describe Api::Rest::Admin::System::NetworksController, type: :controller do
   let(:admin_user) { create :admin_user }
   let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: admin_user.id }).token }
 
@@ -14,6 +12,8 @@ describe Api::Rest::Admin::System::NetworksController, type: :controller do
 
   describe 'GET index' do
     let!(:networks) do
+      System::NetworkPrefix.delete_all
+      System::Network.delete_all
       [
         create(:network),
         create(:network, name: 'US AMC Mobile')
@@ -138,7 +138,7 @@ describe Api::Rest::Admin::System::NetworksController, type: :controller do
       }
     end
 
-    let!(:network_type) { FactoryGirl.create(:network_type) }
+    let!(:network_type) { FactoryBot.create(:network_type) }
 
     it 'network should be created' do
       expect { subject }.to change { System::Network.count }.by(1)
@@ -166,11 +166,11 @@ describe Api::Rest::Admin::System::NetworksController, type: :controller do
       }
     end
 
-    let!(:network) { create(:network) }
+    let!(:network) { System::Network.take! }
     let!(:network_type) { create(:network_type) }
 
     it 'network name should be changed' do
-      expect { subject }.to change { network.reload.name }.from('US Eagle Mobile').to('US AMC Mobile')
+      expect { subject }.to change { network.reload.name }.from(network.name).to('US AMC Mobile')
     end
 
     it 'network network_type should be changed' do

@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Node', type: :feature do
+RSpec.describe 'Create new Node', type: :feature do
   include_context :login_as_admin
 
   before do
@@ -13,10 +11,9 @@ describe 'Create new Node', type: :feature do
   include_context :fill_form, 'new_node' do
     let(:attributes) do
       {
+        id: 1,
         name: 'test Node',
         pop_id: @pop.name,
-        signalling_ip: '1.2.3.4',
-        signalling_port: 5060,
         rpc_endpoint: '10.10.10.10:7080'
       }
     end
@@ -27,10 +24,9 @@ describe 'Create new Node', type: :feature do
       expect(page).to have_css('.flash_notice', text: 'Node was successfully created.')
 
       expect(Node.last).to have_attributes(
+        id: attributes[:id],
         name: attributes[:name],
         pop_id: @pop.id,
-        signalling_ip: attributes[:signalling_ip],
-        signalling_port: attributes[:signalling_port],
         rpc_endpoint: attributes[:rpc_endpoint]
       )
     end

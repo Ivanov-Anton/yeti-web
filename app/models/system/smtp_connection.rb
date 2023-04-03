@@ -4,18 +4,22 @@
 #
 # Table name: sys.smtp_connections
 #
-#  id            :integer          not null, primary key
-#  name          :string           not null
-#  host          :string           not null
-#  port          :integer          default(25), not null
-#  from_address  :string           not null
-#  auth_user     :string
+#  id            :integer(4)       not null, primary key
 #  auth_password :string
-#  global        :boolean          default(TRUE), not null
 #  auth_type     :string           default("plain"), not null
+#  auth_user     :string
+#  from_address  :string           not null
+#  global        :boolean          default(TRUE), not null
+#  host          :string           not null
+#  name          :string           not null
+#  port          :integer(4)       default(25), not null
+#
+# Indexes
+#
+#  smtp_connections_name_key  (name) UNIQUE
 #
 
-class System::SmtpConnection < Yeti::ActiveRecord
+class System::SmtpConnection < ApplicationRecord
   self.table_name = 'sys.smtp_connections'
 
   module CONST
@@ -24,13 +28,13 @@ class System::SmtpConnection < Yeti::ActiveRecord
     freeze
   end
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
   has_many :contractors, dependent: :restrict_with_error
 
-  validates_presence_of :name, :host, :port, :from_address
-  validates_format_of :from_address, with: /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i
-  validates_uniqueness_of :name
+  validates :name, :host, :port, :from_address, presence: true
+  validates :from_address, format: { with: /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i }
+  validates :name, uniqueness: true
   validates :auth_type, inclusion: { in: CONST::AUTH_TYPES }
 
   def display_name
@@ -52,6 +56,6 @@ class System::SmtpConnection < Yeti::ActiveRecord
   end
 
   def self.global
-    where(global: true).take
+    find_by(global: true)
   end
 end

@@ -1,10 +1,7 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::CdrsController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::CdrsController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :cdrs
-  after { Cdr::Cdr.destroy_all }
 
   let(:account) { create(:account, contractor: customer) }
 
@@ -19,6 +16,8 @@ describe Api::Rest::Customer::V1::CdrsController, type: :request do
       get json_api_request_path, params: json_api_request_query, headers: json_api_request_headers
     end
     let(:json_api_request_query) { nil }
+
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     context 'account_ids is empty' do
       let(:cdrs) { Cdr::Cdr.where(customer_id: customer.id, is_last_cdr: true) }
@@ -215,6 +214,188 @@ describe Api::Rest::Customer::V1::CdrsController, type: :request do
         end
       end
     end
+
+    context 'with ransack filters' do
+      let(:factory) { :cdr }
+      let(:trait) { :with_id_and_uuid }
+      let(:factory_attrs) { { customer: customer } }
+      let(:pk) { :uuid }
+
+      it_behaves_like :jsonapi_filters_by_datetime_field, :time_start
+      it_behaves_like :jsonapi_filters_by_number_field, :destination_next_rate
+      it_behaves_like :jsonapi_filters_by_number_field, :destination_fee
+      it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_next_rate
+      it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_fee
+      it_behaves_like :jsonapi_filters_by_string_field, :time_limit
+      it_behaves_like :jsonapi_filters_by_number_field, :internal_disconnect_code
+      it_behaves_like :jsonapi_filters_by_string_field, :internal_disconnect_reason
+      it_behaves_like :jsonapi_filters_by_number_field, :disconnect_initiator_id
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_price
+      it_behaves_like :jsonapi_filters_by_number_field, :vendor_price
+      it_behaves_like :jsonapi_filters_by_number_field, :duration
+      it_behaves_like :jsonapi_filters_by_boolean_field, :success
+      it_behaves_like :jsonapi_filters_by_number_field, :profit
+      it_behaves_like :jsonapi_filters_by_string_field, :dst_prefix_in
+      it_behaves_like :jsonapi_filters_by_string_field, :dst_prefix_out
+      it_behaves_like :jsonapi_filters_by_string_field, :src_prefix_in
+      it_behaves_like :jsonapi_filters_by_string_field, :src_prefix_out
+      it_behaves_like :jsonapi_filters_by_datetime_field, :time_connect
+      it_behaves_like :jsonapi_filters_by_datetime_field, :time_end
+      it_behaves_like :jsonapi_filters_by_string_field, :sign_orig_ip
+      it_behaves_like :jsonapi_filters_by_number_field, :sign_orig_port
+      it_behaves_like :jsonapi_filters_by_string_field, :sign_orig_local_ip
+      it_behaves_like :jsonapi_filters_by_number_field, :sign_orig_local_port
+      it_behaves_like :jsonapi_filters_by_string_field, :sign_term_ip
+      it_behaves_like :jsonapi_filters_by_number_field, :sign_term_port
+      it_behaves_like :jsonapi_filters_by_string_field, :sign_term_local_ip
+      it_behaves_like :jsonapi_filters_by_number_field, :sign_term_local_port
+      it_behaves_like :jsonapi_filters_by_string_field, :orig_call_id
+      it_behaves_like :jsonapi_filters_by_string_field, :term_call_id
+      it_behaves_like :jsonapi_filters_by_number_field, :vendor_invoice_id
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_invoice_id
+      it_behaves_like :jsonapi_filters_by_string_field, :local_tag
+      it_behaves_like :jsonapi_filters_by_number_field, :destination_initial_rate
+      it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_initial_rate
+      it_behaves_like :jsonapi_filters_by_number_field, :destination_initial_interval
+      it_behaves_like :jsonapi_filters_by_number_field, :destination_next_interval
+      it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_initial_interval
+      it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_next_interval
+      it_behaves_like :jsonapi_filters_by_number_field, :routing_attempt
+      it_behaves_like :jsonapi_filters_by_number_field, :lega_disconnect_code
+      it_behaves_like :jsonapi_filters_by_string_field, :lega_disconnect_reason
+      it_behaves_like :jsonapi_filters_by_number_field, :node_id
+      it_behaves_like :jsonapi_filters_by_string_field, :src_name_in
+      it_behaves_like :jsonapi_filters_by_string_field, :src_name_out
+      it_behaves_like :jsonapi_filters_by_string_field, :diversion_in
+      it_behaves_like :jsonapi_filters_by_string_field, :diversion_out
+      it_behaves_like :jsonapi_filters_by_number_field, :legb_disconnect_code
+      it_behaves_like :jsonapi_filters_by_string_field, :legb_disconnect_reason
+      it_behaves_like :jsonapi_filters_by_number_field, :dump_level_id
+      it_behaves_like :jsonapi_filters_by_inet_field, :auth_orig_ip
+      it_behaves_like :jsonapi_filters_by_number_field, :auth_orig_port
+      it_behaves_like :jsonapi_filters_by_string_field, :global_tag
+      it_behaves_like :jsonapi_filters_by_number_field, :dst_country_id
+      it_behaves_like :jsonapi_filters_by_number_field, :dst_network_id
+      it_behaves_like :jsonapi_filters_by_string_field, :src_prefix_routing
+      it_behaves_like :jsonapi_filters_by_string_field, :dst_prefix_routing
+      it_behaves_like :jsonapi_filters_by_number_field, :routing_delay
+      it_behaves_like :jsonapi_filters_by_number_field, :pdd
+      it_behaves_like :jsonapi_filters_by_number_field, :rtt
+      it_behaves_like :jsonapi_filters_by_boolean_field, :early_media_present
+      it_behaves_like :jsonapi_filters_by_number_field, :lnp_database_id
+      it_behaves_like :jsonapi_filters_by_string_field, :lrn
+      it_behaves_like :jsonapi_filters_by_string_field, :destination_prefix
+      it_behaves_like :jsonapi_filters_by_string_field, :dialpeer_prefix
+      it_behaves_like :jsonapi_filters_by_boolean_field, :audio_recorded
+      it_behaves_like :jsonapi_filters_by_string_field, :ruri_domain
+      it_behaves_like :jsonapi_filters_by_string_field, :to_domain
+      it_behaves_like :jsonapi_filters_by_string_field, :from_domain
+      it_behaves_like :jsonapi_filters_by_number_field, :src_area_id
+      it_behaves_like :jsonapi_filters_by_number_field, :dst_area_id
+      it_behaves_like :jsonapi_filters_by_number_field, :auth_orig_transport_protocol_id
+      it_behaves_like :jsonapi_filters_by_number_field, :sign_orig_transport_protocol_id
+      it_behaves_like :jsonapi_filters_by_number_field, :sign_term_transport_protocol_id
+      it_behaves_like :jsonapi_filters_by_string_field, :core_version
+      it_behaves_like :jsonapi_filters_by_string_field, :yeti_version
+      it_behaves_like :jsonapi_filters_by_string_field, :lega_user_agent
+      it_behaves_like :jsonapi_filters_by_string_field, :legb_user_agent
+      it_behaves_like :jsonapi_filters_by_uuid_field, :uuid
+      it_behaves_like :jsonapi_filters_by_string_field, :pai_in
+      it_behaves_like :jsonapi_filters_by_string_field, :ppi_in
+      it_behaves_like :jsonapi_filters_by_string_field, :privacy_in
+      it_behaves_like :jsonapi_filters_by_string_field, :rpid_in
+      it_behaves_like :jsonapi_filters_by_string_field, :rpid_privacy_in
+      it_behaves_like :jsonapi_filters_by_string_field, :pai_out
+      it_behaves_like :jsonapi_filters_by_string_field, :ppi_out
+      it_behaves_like :jsonapi_filters_by_string_field, :privacy_out
+      it_behaves_like :jsonapi_filters_by_string_field, :rpid_out
+      it_behaves_like :jsonapi_filters_by_string_field, :rpid_privacy_out
+      it_behaves_like :jsonapi_filters_by_boolean_field, :destination_reverse_billing
+      it_behaves_like :jsonapi_filters_by_boolean_field, :dialpeer_reverse_billing
+      it_behaves_like :jsonapi_filters_by_boolean_field, :is_redirected
+      it_behaves_like :jsonapi_filters_by_boolean_field, :customer_account_check_balance
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_auth_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_acc_vat
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_acc_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :vendor_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :vendor_acc_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :orig_gw_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :term_gw_external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :failed_resource_type_id
+      it_behaves_like :jsonapi_filters_by_number_field, :failed_resource_id
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_price_no_vat
+      it_behaves_like :jsonapi_filters_by_number_field, :customer_duration
+      it_behaves_like :jsonapi_filters_by_number_field, :vendor_duration
+    end
+
+    context 'with include account' do
+      let!(:cdrs) do
+        create_list(:cdr, 2, customer_acc: account)
+        Cdr::Cdr.where(customer_id: customer.id, is_last_cdr: true).to_a
+      end
+      let(:json_api_request_query) do
+        { include: 'account' }
+      end
+
+      it 'responds with included accounts' do
+        subject
+        cdrs.each do |cdr|
+          data = response_json[:data].detect { |item| item[:id] == cdr.uuid }
+          expect(data[:relationships][:account][:data]).to eq(
+                                                             id: cdr.customer_acc.uuid,
+                                                             type: 'accounts'
+                                                           )
+        end
+        cdrs_accounts = cdrs.map(&:customer_acc).uniq
+        expect(response_json[:included]).to match_array(
+                                              cdrs_accounts.map do |account|
+                                                hash_including(id: account.uuid, type: 'accounts')
+                                              end
+                                            )
+      end
+
+      it 'returns records of this customer' do
+        subject
+        expect(response.status).to eq(200)
+        actual_ids = response_json[:data].map { |data| data[:id] }
+        expect(actual_ids).to match_array cdrs.map(&:uuid)
+      end
+    end
+
+    context 'with include auth-orig-transport-protocol' do
+      let!(:cdrs) do
+        create_list(:cdr, 2, customer_acc: account)
+        Cdr::Cdr.where(customer_id: customer.id, is_last_cdr: true).to_a
+      end
+      let(:json_api_request_query) do
+        { include: 'auth-orig-transport-protocol' }
+      end
+
+      it 'responds with included transport-protocols' do
+        subject
+        cdrs.each do |cdr|
+          data = response_json[:data].detect { |item| item[:id] == cdr.uuid }
+          expect(data[:relationships][:'auth-orig-transport-protocol'][:data]).to eq(
+                                                             id: cdr.auth_orig_transport_protocol.id.to_s,
+                                                             type: 'transport-protocols'
+                                                           )
+        end
+        cdrs_transport_protocols = cdrs.map(&:auth_orig_transport_protocol).uniq
+        expect(response_json[:included]).to match_array(
+                                              cdrs_transport_protocols.map do |transport_protocol|
+                                                hash_including(id: transport_protocol.id.to_s, type: 'transport-protocols')
+                                              end
+                                            )
+      end
+
+      it 'returns records of this customer' do
+        subject
+        expect(response.status).to eq(200)
+        actual_ids = response_json[:data].map { |data| data[:id] }
+        expect(actual_ids).to match_array cdrs.map(&:uuid)
+      end
+    end
   end
 
   describe 'GET /api/rest/customer/v1/cdrs/{id}' do
@@ -234,7 +415,7 @@ describe Api::Rest::Customer::V1::CdrsController, type: :request do
       Cdr::Cdr.where(customer_id: customer.id, is_last_cdr: true).take
     end
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     it 'returns record with expected attributes' do
       subject
@@ -272,16 +453,9 @@ describe Api::Rest::Customer::V1::CdrsController, type: :request do
           'local-tag': cdr.local_tag,
           'lega-disconnect-code': cdr.lega_disconnect_code,
           'lega-disconnect-reason': cdr.lega_disconnect_reason,
-          'lega-rx-payloads': cdr.lega_rx_payloads,
-          'lega-tx-payloads': cdr.lega_tx_payloads,
           'auth-orig-transport-protocol-id': cdr.auth_orig_transport_protocol_id,
           'auth-orig-ip': cdr.auth_orig_ip,
           'auth-orig-port': cdr.auth_orig_port,
-          'lega-rx-bytes': cdr.lega_rx_bytes,
-          'lega-tx-bytes': cdr.lega_tx_bytes,
-          'lega-rx-decode-errs': cdr.lega_rx_decode_errs,
-          'lega-rx-no-buf-errs': cdr.lega_rx_no_buf_errs,
-          'lega-rx-parse-errs': cdr.lega_rx_parse_errs,
           'src-prefix-routing': cdr.src_prefix_routing,
           'dst-prefix-routing': cdr.dst_prefix_routing,
           'destination-prefix': cdr.destination_prefix

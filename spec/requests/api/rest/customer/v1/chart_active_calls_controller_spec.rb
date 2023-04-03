@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::ChartActiveCallsController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::ChartActiveCallsController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :chart_active_calls
 
   let!(:account) { create(:account, contractor: customer).reload }
@@ -43,29 +41,48 @@ describe Api::Rest::Customer::V1::ChartActiveCallsController, type: :request do
     end
 
     let(:json_api_request_attributes) do
-      { 'from-time': '2019-01-01 00:00:00', 'to-time': '2019-01-02 00:00:00' }
+      {
+        'from-time': Time.zone.parse('2019-01-01 00:00:00').iso8601(3),
+        'to-time': Time.zone.parse('2019-01-02 00:00:00').iso8601(3)
+      }
     end
     let(:json_api_relationships) do
       { account: { data: { id: account.uuid, type: 'accounts' } } }
     end
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization, success_status: 201
 
     context 'success' do
       include_examples :returns_json_api_record, relationships: [:account], status: 201 do
         let(:json_api_record_id) { be_present }
         let(:json_api_record_attributes) do
           {
-            'from-time': Time.parse('2019-01-01 00:00:00').iso8601(3),
-            'to-time': Time.parse('2019-01-02 00:00:00').iso8601(3),
+            'from-time': Time.zone.parse('2019-01-01 00:00:00').iso8601(3),
+            'to-time': Time.zone.parse('2019-01-02 00:00:00').iso8601(3),
             'originated-calls': [
-              { x: 10, y: Time.parse('2019-01-01 00:00:01').utc.to_s(:db) },
-              { x: 17, y: Time.parse('2019-01-01 15:15:00').utc.to_s(:db) }
+              { y: 10, x: Time.zone.parse('2019-01-01 00:00:01').iso8601(3) },
+              { y: 17, x: Time.zone.parse('2019-01-01 15:15:00').iso8601(3) }
             ],
             'terminated-calls': [
-              { x: 15, y: Time.parse('2019-01-01 00:00:01').utc.to_s(:db) },
-              { x: 13, y: Time.parse('2019-01-01 15:15:00').utc.to_s(:db) }
+              { y: 15, x: Time.zone.parse('2019-01-01 00:00:01').iso8601(3) },
+              { y: 13, x: Time.zone.parse('2019-01-01 15:15:00').iso8601(3) }
             ]
+          }
+        end
+      end
+    end
+
+    context 'without from-time and to-time', freeze_time: true do
+      let(:json_api_request_attributes) { {} }
+
+      include_examples :returns_json_api_record, relationships: [:account], status: 201 do
+        let(:json_api_record_id) { be_present }
+        let(:json_api_record_attributes) do
+          {
+            'from-time': 24.hours.ago.iso8601(3),
+            'to-time': Time.current.iso8601(3),
+            'originated-calls': [],
+            'terminated-calls': []
           }
         end
       end

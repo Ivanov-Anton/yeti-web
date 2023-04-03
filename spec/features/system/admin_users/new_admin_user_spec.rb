@@ -1,15 +1,13 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Admin User', type: :feature, js: true do
+RSpec.describe 'Create new Admin User', type: :feature, js: true do
   subject do
     aa_form.submit
   end
 
   active_admin_form_for AdminUser, 'new'
   include_context :login_as_admin do
-    let(:admin_user) { FactoryGirl.create(:admin_user, roles: ['root']) }
+    let(:admin_user) { FactoryBot.create(:admin_user, roles: ['root']) }
   end
 
   before do

@@ -2,24 +2,13 @@
 
 ActiveAdmin.register Contractor do
   menu parent: 'Billing', priority: 2
-
+  search_support!
   acts_as_audit
   acts_as_clone
   acts_as_safe_destroy
   acts_as_status
   acts_as_async_destroy('Contractor')
-  acts_as_async_update('Contractor',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           vendor: boolean_select,
-                           customer: boolean_select,
-                           description: 'text',
-                           address: 'text',
-                           phones: 'text',
-                           smtp_connection_id: System::SmtpConnection.pluck(:name, :id)
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::Contractor
 
   acts_as_delayed_job_lock
 
@@ -35,18 +24,6 @@ ActiveAdmin.register Contractor do
   permit_params :name, :enabled, :vendor, :customer, :description, :address, :phones, :tech_contact, :fin_contact, :smtp_connection_id
 
   includes :smtp_connection
-
-  # TODO: check this endpoint is need
-  collection_action :is_vendor do
-    @contractors = Contractor.where(vendor: params[:vendor_flag])
-    render plain: view_context.options_from_collection_for_select(@contractors, :id, :display_name)
-  end
-
-  collection_action :get_accounts do
-    contractor =  Contractor.find(params[:contractor_id])
-    @accounts = contractor.accounts
-    render plain: view_context.options_from_collection_for_select(@accounts, :id, :display_name)
-  end
 
   index do
     selectable_column
@@ -97,7 +74,7 @@ ActiveAdmin.register Contractor do
   end
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
       f.input :name
       f.input :enabled
@@ -113,10 +90,14 @@ ActiveAdmin.register Contractor do
 
   filter :id
   filter :name
-  filter :enabled, as: :select, collection: [['Yes', true], ['No', false]]
-  filter :vendor, as: :select, collection: [['Yes', true], ['No', false]]
-  filter :customer, as: :select, collection: [['Yes', true], ['No', false]]
+  filter :address
+  filter :description
+  filter :phones
   filter :external_id
+  filter :smtp_connection, input_html: { class: 'chosen' }, collection: proc { System::SmtpConnection.pluck(:name, :id) }
+  boolean_filter :enabled
+  boolean_filter :vendor
+  boolean_filter :customer
 
   sidebar :links, only: %i[show edit] do
     ul do

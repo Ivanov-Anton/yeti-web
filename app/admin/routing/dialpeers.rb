@@ -6,55 +6,20 @@ ActiveAdmin.register Dialpeer do
   acts_as_audit
   acts_as_clone
   acts_as_safe_destroy
-  acts_as_status
+  acts_as_status(show_count: false)
   acts_as_stat
   acts_as_quality_stat
-  acts_as_lock
+  acts_as_lock DialpeerQualityCheck
   acts_as_stats_actions
   acts_as_async_destroy('Dialpeer')
-  acts_as_async_update('Dialpeer',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           prefix: 'text',
-                           dst_number_min_length: 'text',
-                           dst_number_max_length: 'text',
-                           routing_tag_mode_id: Routing::RoutingTagMode.pluck(:name, :id),
-                           routing_group_id: RoutingGroup.pluck(:name, :id),
-                           priority: 'text',
-                           force_hit_rate: 'text',
-                           exclusive_route: boolean_select,
-                           initial_interval: 'text',
-                           initial_rate: 'text',
-                           next_interval: 'text',
-                           next_rate: 'text',
-                           connect_fee: 'text',
-                           lcr_rate_multiplier: 'text',
-                           gateway_id: Gateway.pluck(:name, :id),
-                           gateway_group_id: GatewayGroup.pluck(:name, :id),
-                           vendor_id: Contractor.vendors.pluck(:name, :id),
-                           account_id: Account.pluck(:name, :id),
-                           routeset_discriminator_id: Routing::RoutesetDiscriminator.pluck(:name, :id),
-                           valid_from: 'datepicker',
-                           valid_till: 'datepicker',
-                           asr_limit: 'text',
-                           acd_limit: 'text',
-                           short_calls_limit: 'text',
-                           capacity: 'text',
-                           src_name_rewrite_rule: 'text',
-                           src_name_rewrite_result: 'text',
-                           src_rewrite_rule: 'text',
-                           src_rewrite_result: 'text',
-                           dst_rewrite_rule: 'text',
-                           dst_rewrite_result: 'text'
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::Dialpeer
 
   acts_as_delayed_job_lock
 
   decorate_with DialpeerDecorator
 
   scope :locked
+  scope :expired
 
   # "Id","Enabled","Prefix","Rateplan","Rate","Connect Fee"
   acts_as_export :id, :enabled, :locked, :prefix, :priority, :force_hit_rate, :exclusive_route,
@@ -90,10 +55,17 @@ ActiveAdmin.register Dialpeer do
       end
       super
     end
-  end
 
-  includes :gateway, :gateway_group, :routing_group, :routing_tag_mode, :vendor, :account, :statistic, :routeset_discriminator,
-           network_prefix: %i[country network]
+    # Better not to use includes, because it generates select count(*) from (select distinct ...) queries and such queries very slow
+    # see https://github.com/rails/rails/issues/42331
+    # https://github.com/yeti-switch/yeti-web/pull/985
+    #
+    # preload have more controllable behavior, but sorting by associated tables not possible
+    def scoped_collection
+      super.preload(:gateway, :gateway_group, :routing_group, :routing_tag_mode, :vendor, :account, :statistic,
+                    :routeset_discriminator, network_prefix: %i[country network])
+    end
+  end
 
   action_item :show_rates, only: [:show] do
     link_to 'Show Rates', dialpeer_dialpeer_next_rates_path(resource.id)
@@ -118,13 +90,13 @@ ActiveAdmin.register Dialpeer do
     column :dst_number_length do |c|
       c.dst_number_min_length == c.dst_number_max_length ? c.dst_number_min_length.to_s : "#{c.dst_number_min_length}..#{c.dst_number_max_length}"
     end
-    column :country, sortable: 'countries.name' do |row|
-      auto_link row.network_prefix.try!(:country)
+    column :country do |row|
+      auto_link row.network_prefix&.country
     end
-    column :network, sortable: 'networks.name' do |row|
-      auto_link row.network_prefix.try!(:network)
+    column :network do |row|
+      auto_link row.network_prefix&.network
     end
-    column :routing_group, sortable: 'routing_groups.name'
+    column :routing_group
     column :routing_tags
     column :priority
     column :force_hit_rate
@@ -136,16 +108,16 @@ ActiveAdmin.register Dialpeer do
     column :connect_fee
     column :reverse_billing
     column :lcr_rate_multiplier
-    column :gateway, sortable: 'gateways.name' do |c|
+    column :gateway do |c|
       auto_link(c.gateway, c.gateway.decorated_termination_display_name) unless c.gateway.nil?
     end
     column :gateway_group do |c|
       auto_link(c.gateway_group, c.gateway_group.decorated_display_name) unless c.gateway_group.nil?
     end
-    column :vendor, sortable: 'contractor.name' do |c|
+    column :vendor do |c|
       auto_link(c.vendor, c.vendor.decorated_vendor_display_name)
     end
-    column :account, sortable: 'accounts.id' do |c|
+    column :account do |c|
       auto_link(c.account, c.account.decorated_vendor_display_name)
     end
     column :routeset_discriminator
@@ -154,18 +126,18 @@ ActiveAdmin.register Dialpeer do
 
     column :capacity
 
-    column :calls, sortable: 'dialpeers_stats.calls' do |row|
+    column :calls do |row|
       row.statistic.try(:calls)
     end
-    column :total_duration, sortable: 'dialpeers_stats.total_duration' do |row|
+    column :total_duration do |row|
       "#{row.statistic.try(:total_duration) || 0} sec."
     end
 
-    column :asr, sortable: 'dialpeers_stats.asr' do |row|
+    column :asr do |row|
       row.statistic.try(:asr)
     end
     column :asr_limit
-    column :acd, sortable: 'dialpeers_stats.acd' do |row|
+    column :acd do |row|
       row.statistic.try(:acd)
     end
     column :acd_limit
@@ -178,14 +150,21 @@ ActiveAdmin.register Dialpeer do
     column :external_id
   end
 
-  filter :id
+  filter :id, filters: %i[equals greater_than less_than in_string]
   filter :prefix
   filter :routing_for_contains, as: :string, input_html: { class: 'search_filter_string' }
   filter :enabled, as: :select, collection: [['Yes', true], ['No', false]]
-  filter :vendor, input_html: { class: 'chosen' }
-  filter :account, input_html: { class: 'chosen' }
+  contractor_filter :vendor_id_eq, label: 'Vendor', path_params: { q: { vendor_eq: true } }
+  account_filter :account_id_eq
+
   filter :routeset_discriminator, input_html: { class: 'chosen' }
-  filter :gateway, input_html: { class: 'chosen' }
+  filter :gateway,
+         input_html: { class: 'chosen-ajax', 'data-path': '/gateways/search' },
+         collection: proc {
+           resource_id = params.fetch(:q, {})[:gateway_id_eq]
+           resource_id ? Gateway.where(id: resource_id) : []
+         }
+
   filter :gateway_group, input_html: { class: 'chosen' }
   filter :routing_group, input_html: { class: 'chosen' }
   filter :routing_group_routing_plans_id_eq, as: :select, input_html: { class: 'chosen' }, label: 'Routing Plan', collection: -> { Routing::RoutingPlan.all }
@@ -198,31 +177,39 @@ ActiveAdmin.register Dialpeer do
   filter :statistic_asr, as: :numeric
   filter :statistic_acd, as: :numeric
   filter :force_hit_rate
-  filter :network_prefix_country_id_eq,
-         label: 'Country',
-         input_html: { class: 'chosen',
-                       onchange: remote_chosen_request(:get, 'system_countries/get_networks', { country_id: '$(this).val()' }, :q_network_prefix_network_id_eq) },
-         as: :select, collection: -> { System::Country.all }
 
-  filter :network_prefix_network_id_eq,
-         label: 'Network',
-         input_html: { class: 'chosen' },
+  filter :network_prefix_country_id_eq,
          as: :select,
-         collection: lambda {
-           begin
-                 System::Country.find(assigns['search'].network_prefix_country_id_eq).networks
-           rescue StandardError
-             []
-               end
-         }
+         label: 'Country',
+         input_html: {
+           class: 'chosen network_prefix_country_id_eq-filter'
+         },
+         collection: -> { System::Country.order(:name) }
+
+  association_ajax_filter :network_prefix_network_id_eq,
+                          label: 'Network',
+                          scope: -> { System::Network.order(:name) },
+                          path: '/system_networks/search',
+                          input_html: {
+                            'data-path-params': { 'q[country_id_eq]': '.network_prefix_country_id_eq-filter' }.to_json,
+                            'data-required-param': 'q[country_id_eq]'
+                          },
+                          fill_params: lambda {
+                            { country_id_eq: params.dig(:q, :network_prefix_country_id_eq) }
+                          }
+
   filter :created_at, as: :date_time_range
   filter :external_id
   filter :exclusive_route, as: :select, collection: [['Yes', true], ['No', false]]
 
-  acts_as_filter_by_routing_tag_ids
+  filter :initial_rate
+  filter :next_rate
+  filter :connect_fee
+
+  acts_as_filter_by_routing_tag_ids routing_tag_ids_count: true
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
       if f.object.new_record? # allow multiple prefixes delimited by comma in NEW form.
         f.input :batch_prefix, label: 'Prefix',
@@ -236,23 +223,25 @@ ActiveAdmin.register Dialpeer do
       f.input :enabled
       f.input :routing_group, input_html: { class: 'chosen' }
 
-      f.input :routing_tag_ids, as: :select,
-                                collection: DialpeerDecorator.decorate(f.object).routing_tag_options,
-                                multiple: true,
-                                include_hidden: false,
-                                input_html: { class: 'chosen' }
-      f.input :routing_tag_mode
+      f.input :routing_tag_ids,
+              as: :select,
+              label: 'Routing tags',
+              collection: routing_tag_options,
+              multiple: true,
+              include_hidden: false,
+              input_html: { class: 'chosen' }
 
-      f.input :vendor,  collection: Contractor.vendors,
-                        input_html: {
-                          class: 'chosen',
-                          onchange: remote_chosen_request(:get, with_contractor_accounts_path, { contractor_id: '$(this).val()' }, :dialpeer_account_id) +
-                                    remote_chosen_request(:get, for_termination_gateways_path, { contractor_id: '$(this).val()' }, :dialpeer_gateway_id) +
-                                    remote_chosen_request(:get, with_contractor_gateway_groups_path, { contractor_id: '$(this).val()' }, :dialpeer_gateway_group_id)
-                        }
-      f.input :account, collection: (f.object.vendor.nil? ? [] : f.object.vendor.accounts),
-                        include_blank: false,
-                        input_html: { class: 'chosen' }
+      f.input :routing_tag_mode
+      f.contractor_input :vendor_id, label: 'Vendor'
+
+      f.account_input :account_id,
+                      fill_params: { contractor_id_eq: f.object.vendor_id },
+                      fill_required: :contractor_id_eq,
+                      input_html: {
+                        'data-path-params': { 'q[contractor_id_eq]': '.vendor_id-input' }.to_json,
+                        'data-required-param': 'q[contractor_id_eq]'
+                      }
+
       f.input :routeset_discriminator, include_blank: false, input_html: { class: 'chosen' }
       f.input :priority
       f.input :force_hit_rate
@@ -265,13 +254,25 @@ ActiveAdmin.register Dialpeer do
       f.input :connect_fee
       f.input :reverse_billing
 
-      f.input :gateway, collection: (f.object.vendor.nil? ? [] : f.object.vendor.for_termination_gateways),
-                        include_blank: 'None',
-                        input_html: { class: 'chosen' }
+      f.association_ajax_input :gateway_id,
+                               label: 'Gateway',
+                               scope: Gateway.order(:name),
+                               path: '/gateways/search',
+                               fill_params: { termination_contractor_id_eq: f.object.vendor_id },
+                               input_html: {
+                                 'data-path-params': { 'q[termination_contractor_id_eq]': '.vendor_id-input' }.to_json,
+                                 'data-required-param': 'q[termination_contractor_id_eq]'
+                               }
 
-      f.input :gateway_group, collection: (f.object.vendor.nil? ? [] : f.object.vendor.gateway_groups),
-                              include_blank: 'None',
-                              input_html: { class: 'chosen' }
+      f.association_ajax_input :gateway_group_id,
+                               label: 'Gateway Group',
+                               scope: GatewayGroup.order(:name),
+                               path: '/gateway_groups/search',
+                               fill_params: { vendor_id_eq: f.object.vendor_id },
+                               input_html: {
+                                 'data-path-params': { 'q[vendor_id_eq]': '.vendor_id-input' }.to_json,
+                                 'data-required-param': 'q[vendor_id_eq]'
+                               }
 
       f.input :valid_from, as: :date_time_picker
       f.input :valid_till, as: :date_time_picker

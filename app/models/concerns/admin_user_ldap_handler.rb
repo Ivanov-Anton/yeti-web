@@ -4,7 +4,7 @@ module AdminUserLdapHandler
   extend ActiveSupport::Concern
 
   included do
-    devise :ldap_authenticatable, :trackable
+    devise :ldap_authenticatable, :trackable, :ip_allowable
     before_update :get_ldap_attributes
     before_validation :get_ldap_attributes, on: :create
     include LdapPasswordHelper
@@ -13,7 +13,7 @@ module AdminUserLdapHandler
   end
 
   def get_ldap_attributes
-    new_email =  Devise::LDAP::Adapter.get_ldap_param(username, 'mail').try!(:first)
+    new_email =  Devise::LDAP::Adapter.get_ldap_param(username, 'mail')&.first
     self.email = new_email if new_email
     new_roles =  Devise::LDAP::Adapter.get_ldap_param(username, 'roles')
     self.roles = new_roles ? Array.wrap(new_roles) : default_ldap_roles

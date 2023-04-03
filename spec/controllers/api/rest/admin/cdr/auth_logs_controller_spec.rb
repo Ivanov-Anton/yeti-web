@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::Cdr::AuthLogsController, type: :controller do
+RSpec.describe Api::Rest::Admin::Cdr::AuthLogsController, type: :controller do
   include_context :jsonapi_admin_headers
 
   after { Cdr::AuthLog.destroy_all }
@@ -11,7 +9,7 @@ describe Api::Rest::Admin::Cdr::AuthLogsController, type: :controller do
     let!(:auth_logs) do
       create_list :auth_log, 12, :with_id, request_time: 20.minutes.ago.utc
     end
-    subject { get :index, params: { filter: filters, page: { number: page_number, size: 10 } } }
+    subject { get :index, params: { filter: filters, page: { number: page_number, size: 10 }, sort: 'id' } }
     let(:filters) do
       {}
     end
@@ -70,7 +68,7 @@ describe Api::Rest::Admin::Cdr::AuthLogsController, type: :controller do
 
       context 'by request_time_lteq' do
         let(:filters) do
-          { 'request-time-lteq' => 21.minute.ago.utc }
+          { 'request-time-lteq' => 21.minutes.ago.utc }
         end
 
         let!(:auth_log) do
@@ -90,6 +88,9 @@ describe Api::Rest::Admin::Cdr::AuthLogsController, type: :controller do
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :auth_log }
     let(:trait) { :with_id }
 

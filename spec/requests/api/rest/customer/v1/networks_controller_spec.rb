@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::NetworksController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::NetworksController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :networks
 
   describe 'GET /api/rest/customer/v1/networks' do
@@ -12,14 +10,18 @@ describe Api::Rest::Customer::V1::NetworksController, type: :request do
 
     let(:json_api_request_query) { nil }
 
+    before do
+      System::NetworkPrefix.delete_all
+      System::Network.delete_all
+    end
     let!(:networks) do
       [
-        FactoryGirl.create(:network, name: 'US').reload,
-        FactoryGirl.create(:network, name: 'Canada').reload
+        FactoryBot.create(:network, name: 'US').reload,
+        FactoryBot.create(:network, name: 'Canada').reload
       ]
     end
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     include_examples :returns_json_api_collection do
       let(:json_api_collection_ids) { networks.map(&:uuid) }
@@ -34,9 +36,9 @@ describe Api::Rest::Customer::V1::NetworksController, type: :request do
     let(:json_api_request_path) { "#{super()}/#{record_id}" }
     let(:record_id) { network.uuid }
 
-    let!(:network) { FactoryGirl.create(:network, name: 'US').reload }
+    let!(:network) { System::Network.find_by!(name: 'UNITED STATES') }
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     include_examples :returns_json_api_record, relationships: [:'network-type'] do
       let(:json_api_record_id) { network.uuid }
@@ -68,7 +70,7 @@ describe Api::Rest::Customer::V1::NetworksController, type: :request do
     let(:json_api_request_data) { super().merge(id: record_id) }
     let(:json_api_request_attributes) { { name: 'new name' } }
 
-    let!(:network) { FactoryGirl.create(:network, name: 'US').reload }
+    let!(:network) { System::Network.find_by!(name: 'UNITED STATES') }
 
     include_examples :raises_exception, ActionController::RoutingError
   end
@@ -83,7 +85,7 @@ describe Api::Rest::Customer::V1::NetworksController, type: :request do
     let(:json_api_request_data) { super().merge(id: record_id) }
     let(:json_api_request_attributes) { { name: 'new name' } }
 
-    let!(:network) { FactoryGirl.create(:network, name: 'US').reload }
+    let!(:network) { System::Network.find_by!(name: 'UNITED STATES') }
 
     include_examples :raises_exception, ActionController::RoutingError
   end
@@ -96,7 +98,7 @@ describe Api::Rest::Customer::V1::NetworksController, type: :request do
     let(:json_api_request_path) { "#{super()}/#{record_id}" }
     let(:record_id) { network.uuid }
 
-    let!(:network) { FactoryGirl.create(:network, name: 'US').reload }
+    let!(:network) { System::Network.find_by!(name: 'UNITED STATES') }
 
     include_examples :raises_exception, ActionController::RoutingError
   end

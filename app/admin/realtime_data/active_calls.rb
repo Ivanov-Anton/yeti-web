@@ -35,51 +35,31 @@ ActiveAdmin.register RealtimeData::ActiveCall, as: 'Active Calls' do
          input_html: { class: 'chosen' },
          if: proc { !request.xhr? }
 
-  filter :vendor_id_eq,
-         as: :select,
-         collection: proc { Contractor.vendors },
-         label: 'Vendor',
-         input_html: {
-           class: 'chosen',
-           onchange: remote_chosen_request(:get, with_contractor_accounts_path, { contractor_id: '$(this).val()' }, :q_vendor_acc_id_eq)
-         },
-         if: proc { !request.xhr? }
-
-  filter :customer_id_eq,
-         as: :select,
-         collection: proc { Contractor.customers },
-         label: 'Customer',
-         input_html: {
-           class: 'chosen',
-           onchange: remote_chosen_request(:get, with_contractor_accounts_path, { contractor_id: '$(this).val()' }, :q_customer_acc_id_eq)
-         },
-         if: proc { !request.xhr? }
-
-  filter :vendor_acc_id_eq,
-         as: :select,
-         collection: [],
-         label: 'Vendor Account',
-         input_html: { class: 'chosen' }
-
-  filter :customer_acc_id_eq,
-         as: :select,
-         collection: [],
-         label: 'Customer Account',
-         input_html: { class: 'chosen' }
+  contractor_filter :vendor_id_eq, label: 'Vendor', path_params: { q: { vendor_eq: true } }
+  contractor_filter :customer_id_eq, label: 'Customer', path_params: { q: { customer_eq: true } }
+  account_filter :vendor_acc_id_eq, label: 'Vendor Account', path_params: { q: { contractor_vendor_eq: true } }
+  account_filter :customer_acc_id_eq, label: 'Customer Account', path_params: { q: { contractor_customer_eq: true } }
 
   filter :orig_gw_id_eq,
          as: :select,
-         collection: proc { Gateway.originations },
+         collection: proc {
+           resource_id = params.fetch(:q, {})[:orig_gw_id_eq]
+           resource_id ? Gateway.where(id: resource_id) : []
+         },
          label: 'Orig GW',
-         input_html: { class: 'chosen' },
-         if: proc { !request.xhr? }
+         input_html: { class: 'chosen-ajax', 'data-path': '/gateways/search?q[allow_origination_eq]=true' }
 
   filter :term_gw_id_eq,
          as: :select,
-         collection: proc { Gateway.terminations },
+         collection: proc {
+           resource_id = params.fetch(:q, {})[:term_gw_id_eq]
+           resource_id ? Gateway.where(id: resource_id) : []
+         },
          label: 'Term GW',
-         input_html: { class: 'chosen' },
-         if: proc { !request.xhr? }
+         input_html: {
+           class: 'chosen-ajax',
+           'data-path': '/gateways/search?q[allow_termination_eq]=true'
+         }
 
   filter :duration, as: :numeric
 
@@ -88,7 +68,7 @@ ActiveAdmin.register RealtimeData::ActiveCall, as: 'Active Calls' do
     ids.each do |node_id_with_local_tag|
       node_id, local_tag = node_id_with_local_tag.split('*')
       Node.find(node_id).drop_call(local_tag)
-    rescue YetisNode::Error => e
+    rescue NodeApi::Error => e
       Rails.logger.warn { e.message }
     end
     flash[:notice] = 'Terminated!'
@@ -100,11 +80,12 @@ ActiveAdmin.register RealtimeData::ActiveCall, as: 'Active Calls' do
     Node.find(node_id).drop_call(local_tag)
     flash[:notice] = "#{params[:id]} was terminated"
     redirect_to action: :index
-  rescue YetisNode::Error => e
+  rescue NodeApi::Error => e
     flash[:notice] = "#{params[:id]} was terminated"
     redirect_to action: :index
   rescue StandardError => e
     Rails.logger.error { "<#{e.class}>: #{e.message}\n#{e.backtrace.join("\n")}" }
+    CaptureError.capture(e, tags: { component: 'AdminUI' }, extra: { params: params.to_unsafe_h })
     flash[:warning] = e.message
     redirect_to action: :index
   end
@@ -122,12 +103,13 @@ ActiveAdmin.register RealtimeData::ActiveCall, as: 'Active Calls' do
       index!
     rescue StandardError => e
       flash.now[:warning] = e.message
+      CaptureError.capture(e, tags: { component: 'AdminUI' })
       raise e
     end
 
     def show
       show!
-    rescue YetisNode::Error => e
+    rescue NodeApi::Error => e
       flash[:warning] = e.message
       redirect_to_back
     end
@@ -242,7 +224,9 @@ ActiveAdmin.register RealtimeData::ActiveCall, as: 'Active Calls' do
     end
   end
 
-  index do
+  index blank_slate_content: lambda {
+                               GuiConfig::FILTER_MISSED_TEXT if GuiConfig.active_calls_require_filter
+                             } do
     selectable_column
     actions do |resource|
       item 'Terminate',
@@ -301,28 +285,5 @@ ActiveAdmin.register RealtimeData::ActiveCall, as: 'Active Calls' do
     column :legB_remote_port
     column :node, :node_link
     column :pop, :pop_link
-  end
-
-  index as: :list_with_content, default: true, download_links: false, partial: 'shared/active_calls_top_chart',
-        blank_slate_content: lambda {
-          GuiConfig::FILTER_MISSED_TEXT if GuiConfig.active_calls_require_filter
-        } do
-
-    selectable_column
-    actions do |resource|
-      item 'Terminate',
-           url_for(action: :drop, id: resource.id),
-           method: :post,
-           class: 'member_link delete_link',
-           data: { confirm: I18n.t('active_admin.delete_confirmation') }
-    end
-
-    column :customer, :customer_link
-    column :vendor, :vendor_link
-    column :duration
-    column :dst_number, :dst_prefix_routing
-    column :dst_network, :dst_network_link
-    column :origination_rate, :destination_next_rate
-    column :termination_rate, :dialpeer_next_rate
   end
 end

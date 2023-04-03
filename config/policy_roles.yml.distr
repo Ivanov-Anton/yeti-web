@@ -90,7 +90,22 @@ user:
     change: true
     remove: true
     perform: true
+  Equipment/StirShaken/TrustedRepository:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  Equipment/StirShaken/TrustedCertificate:
+    read: true
+    change: true
+    remove: true
+    perform: true
   Equipment/Registration:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  Equipment/SipOptionsProber:
     read: true
     change: true
     remove: true
@@ -140,7 +155,12 @@ user:
     change: true
     remove: true
     perform: true
-  Rateplan:
+  Routing/Rateplan:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  Routing/RateGroup:
     read: true
     change: true
     remove: true
@@ -160,7 +180,7 @@ user:
     change: true
     remove: true
     perform: true
-  RoutingGroup:
+  Routing/RoutingGroup:
     read: true
     change: true
     remove: true
@@ -196,6 +216,16 @@ user:
     remove: true
     perform: true
   Cdr/Cdr:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  RtpStatistics/RxStream:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  RtpStatistics/TxStream:
     read: true
     change: true
     remove: true
@@ -310,7 +340,7 @@ user:
     change: true
     remove: true
     perform: true
-  BaseJob:
+  System/CronJob:
     read: true
     change: true
     remove: true
@@ -335,7 +365,7 @@ user:
     change: true
     remove: true
     perform: true
-  Notification/Alert:
+  System/EventSubscription:
     read: true
     change: true
     remove: true
@@ -376,6 +406,11 @@ user:
     remove: true
     perform: true
   RealtimeData/IncomingRegistration:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  RealtimeData/SipOptionsProber:
     read: true
     change: true
     remove: true
@@ -445,7 +480,7 @@ user:
     change: true
     remove: true
     perform: true
-  Routing/RateplanDuplicator:
+  Routing/RateGroupDuplicator:
     read: true
     change: true
     remove: true
@@ -525,6 +560,11 @@ user:
     change: true
     remove: true
     perform: true
+  Importing/RateGroup:
+    read: true
+    change: true
+    remove: true
+    perform: true
   Importing/Registration:
     read: true
     change: true
@@ -541,6 +581,11 @@ user:
     remove: true
     perform: true
   Partition/Log:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  RateManagement:
     read: true
     change: true
     remove: true

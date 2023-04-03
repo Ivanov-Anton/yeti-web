@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Customer Traffic Scheduler', type: :feature, js: true do
+RSpec.describe 'Create new Customer Traffic Scheduler', type: :feature, js: true do
   subject do
     aa_form.submit
   end
@@ -10,14 +8,14 @@ describe 'Create new Customer Traffic Scheduler', type: :feature, js: true do
   active_admin_form_for Report::CustomerTrafficScheduler, 'new'
   include_context :login_as_admin
 
-  let!(:customer) { FactoryGirl.create(:customer, name: 'John Doe') }
+  let!(:customer) { FactoryBot.create(:customer, name: 'John Doe') }
   before do
-    FactoryGirl.create(:customer)
-    FactoryGirl.create(:vendor)
+    FactoryBot.create(:customer)
+    FactoryBot.create(:vendor)
     visit new_customer_traffic_scheduler_path
 
     aa_form.select_value 'Period', 'Hourly'
-    aa_form.select_chosen 'Customer', customer.name
+    aa_form.search_chosen 'Customer', customer.name, ajax: true
   end
 
   it 'creates record' do

@@ -2,136 +2,174 @@
 
 # == Schema Information
 #
-# Table name: gateways
+# Table name: class4.gateways
 #
-#  id                               :integer          not null, primary key
-#  host                             :string
-#  port                             :integer
-#  src_rewrite_rule                 :string
-#  dst_rewrite_rule                 :string
+#  id                               :integer(4)       not null, primary key
 #  acd_limit                        :float            default(0.0), not null
-#  asr_limit                        :float            default(0.0), not null
-#  enabled                          :boolean          not null
-#  name                             :string           not null
-#  auth_enabled                     :boolean          default(FALSE), not null
-#  auth_user                        :string
-#  auth_password                    :string
-#  term_outbound_proxy              :string
-#  term_next_hop_for_replies        :boolean          default(FALSE), not null
-#  term_use_outbound_proxy          :boolean          default(FALSE), not null
-#  contractor_id                    :integer          not null
-#  allow_termination                :boolean          default(TRUE), not null
+#  allow_1xx_without_to_tag         :boolean          default(FALSE), not null
 #  allow_origination                :boolean          default(TRUE), not null
-#  anonymize_sdp                    :boolean          default(TRUE), not null
-#  proxy_media                      :boolean          default(FALSE), not null
-#  transparent_seqno                :boolean          default(FALSE), not null
-#  transparent_ssrc                 :boolean          default(FALSE), not null
-#  sst_enabled                      :boolean          default(FALSE)
-#  sst_minimum_timer                :integer          default(50), not null
-#  sst_maximum_timer                :integer          default(50), not null
-#  sst_accept501                    :boolean          default(TRUE), not null
-#  session_refresh_method_id        :integer          default(3), not null
-#  sst_session_expires              :integer          default(50)
-#  term_force_outbound_proxy        :boolean          default(FALSE), not null
-#  locked                           :boolean          default(FALSE), not null
+#  allow_termination                :boolean          default(TRUE), not null
+#  asr_limit                        :float            default(0.0), not null
+#  auth_enabled                     :boolean          default(FALSE), not null
+#  auth_from_domain                 :string
+#  auth_from_user                   :string
+#  auth_password                    :string
+#  auth_user                        :string
 #  codecs_payload_order             :string           default("")
 #  codecs_prefer_transcoding_for    :string           default("")
-#  src_rewrite_result               :string
-#  dst_rewrite_result               :string
-#  termination_capacity             :integer
-#  term_next_hop                    :string
-#  orig_next_hop                    :string
-#  orig_append_headers_req          :string
-#  term_append_headers_req          :string
 #  dialog_nat_handling              :boolean          default(TRUE), not null
-#  orig_force_outbound_proxy        :boolean          default(FALSE), not null
-#  orig_use_outbound_proxy          :boolean          default(FALSE), not null
-#  orig_outbound_proxy              :string
-#  prefer_existing_codecs           :boolean          default(TRUE), not null
-#  force_symmetric_rtp              :boolean          default(TRUE), not null
-#  transparent_dialog_id            :boolean          default(FALSE), not null
-#  sdp_alines_filter_type_id        :integer          default(0), not null
-#  sdp_alines_filter_list           :string
-#  gateway_group_id                 :integer
-#  orig_disconnect_policy_id        :integer
-#  term_disconnect_policy_id        :integer
-#  diversion_policy_id              :integer          default(1), not null
-#  diversion_rewrite_rule           :string
+#  diversion_domain                 :string
 #  diversion_rewrite_result         :string
-#  src_name_rewrite_rule            :string
-#  src_name_rewrite_result          :string
-#  priority                         :integer          default(100), not null
-#  pop_id                           :integer
-#  codec_group_id                   :integer          default(1), not null
-#  single_codec_in_200ok            :boolean          default(FALSE), not null
-#  ringing_timeout                  :integer
-#  symmetric_rtp_nonstop            :boolean          default(FALSE), not null
-#  symmetric_rtp_ignore_rtcp        :boolean          default(FALSE), not null
-#  resolve_ruri                     :boolean          default(FALSE), not null
-#  force_dtmf_relay                 :boolean          default(FALSE), not null
-#  relay_options                    :boolean          default(FALSE), not null
-#  rtp_ping                         :boolean          default(FALSE), not null
+#  diversion_rewrite_rule           :string
+#  dns_srv_failover_timer           :integer(4)       default(2000), not null
+#  dst_rewrite_result               :string
+#  dst_rewrite_rule                 :string
+#  enabled                          :boolean          not null
+#  fake_180_timer                   :integer(2)
 #  filter_noaudio_streams           :boolean          default(FALSE), not null
-#  relay_reinvite                   :boolean          default(FALSE), not null
-#  sdp_c_location_id                :integer          default(2), not null
-#  auth_from_user                   :string
-#  auth_from_domain                 :string
+#  force_cancel_routeset            :boolean          default(FALSE), not null
+#  force_dtmf_relay                 :boolean          default(FALSE), not null
+#  force_one_way_early_media        :boolean          default(FALSE), not null
+#  force_symmetric_rtp              :boolean          default(TRUE), not null
+#  host                             :string
+#  incoming_auth_password           :string
+#  incoming_auth_username           :string
+#  is_shared                        :boolean          default(FALSE), not null
+#  locked                           :boolean          default(FALSE), not null
+#  max_30x_redirects                :integer(2)       default(0), not null
+#  max_transfers                    :integer(2)       default(0), not null
+#  name                             :string           not null
+#  orig_append_headers_reply        :string           is an Array
+#  orig_append_headers_req          :string
+#  orig_force_outbound_proxy        :boolean          default(FALSE), not null
+#  orig_next_hop                    :string
+#  orig_outbound_proxy              :string
+#  orig_use_outbound_proxy          :boolean          default(FALSE), not null
+#  origination_capacity             :integer(2)
+#  pai_domain                       :string
+#  port                             :integer(4)
+#  prefer_existing_codecs           :boolean          default(TRUE), not null
+#  preserve_anonymous_from_domain   :boolean          default(FALSE), not null
+#  priority                         :integer(4)       default(100), not null
+#  proxy_media                      :boolean          default(TRUE), not null
 #  relay_hold                       :boolean          default(FALSE), not null
-#  rtp_timeout                      :integer          default(30), not null
+#  relay_options                    :boolean          default(FALSE), not null
 #  relay_prack                      :boolean          default(FALSE), not null
-#  rtp_relay_timestamp_aligning     :boolean          default(FALSE), not null
-#  allow_1xx_without_to_tag         :boolean          default(FALSE), not null
-#  sip_timer_b                      :integer          default(8000), not null
-#  dns_srv_failover_timer           :integer          default(2000), not null
-#  rtp_force_relay_cn               :boolean          default(TRUE), not null
-#  sensor_id                        :integer
-#  sensor_level_id                  :integer          default(1), not null
-#  dtmf_send_mode_id                :integer          default(1), not null
-#  dtmf_receive_mode_id             :integer          default(1), not null
+#  relay_reinvite                   :boolean          default(FALSE), not null
 #  relay_update                     :boolean          default(FALSE), not null
-#  suppress_early_media             :boolean          default(FALSE), not null
+#  resolve_ruri                     :boolean          default(FALSE), not null
+#  ringing_timeout                  :integer(4)
+#  rtp_acl                          :inet             is an Array
+#  rtp_force_relay_cn               :boolean          default(TRUE), not null
+#  rtp_interface_name               :string
+#  rtp_ping                         :boolean          default(FALSE), not null
+#  rtp_relay_timestamp_aligning     :boolean          default(FALSE), not null
+#  rtp_timeout                      :integer(4)       default(30), not null
+#  sdp_alines_filter_list           :string
 #  send_lnp_information             :boolean          default(FALSE), not null
 #  short_calls_limit                :float            default(1.0), not null
-#  origination_capacity             :integer
-#  force_one_way_early_media        :boolean          default(FALSE), not null
-#  radius_accounting_profile_id     :integer
+#  single_codec_in_200ok            :boolean          default(FALSE), not null
+#  sip_interface_name               :string
+#  sip_timer_b                      :integer(4)       default(8000), not null
+#  src_name_rewrite_result          :string
+#  src_name_rewrite_rule            :string
+#  src_rewrite_result               :string
+#  src_rewrite_rule                 :string
+#  sst_accept501                    :boolean          default(TRUE), not null
+#  sst_enabled                      :boolean          default(FALSE)
+#  sst_maximum_timer                :integer(4)       default(50), not null
+#  sst_minimum_timer                :integer(4)       default(50), not null
+#  sst_session_expires              :integer(4)       default(50)
+#  suppress_early_media             :boolean          default(FALSE), not null
+#  symmetric_rtp_ignore_rtcp        :boolean          default(FALSE), not null
+#  symmetric_rtp_nonstop            :boolean          default(FALSE), not null
+#  term_append_headers_req          :string
+#  term_force_outbound_proxy        :boolean          default(FALSE), not null
+#  term_next_hop                    :string
+#  term_next_hop_for_replies        :boolean          default(FALSE), not null
+#  term_outbound_proxy              :string
+#  term_use_outbound_proxy          :boolean          default(FALSE), not null
+#  termination_capacity             :integer(2)
 #  transit_headers_from_origination :string
 #  transit_headers_from_termination :string
-#  external_id                      :integer
-#  fake_180_timer                   :integer
-#  sip_interface_name               :string
-#  rtp_interface_name               :string
-#  transport_protocol_id            :integer          default(1), not null
-#  term_proxy_transport_protocol_id :integer          default(1), not null
-#  orig_proxy_transport_protocol_id :integer          default(1), not null
-#  rel100_mode_id                   :integer          default(4), not null
-#  is_shared                        :boolean          default(FALSE), not null
-#  max_30x_redirects                :integer          default(0), not null
-#  max_transfers                    :integer          default(0), not null
-#  incoming_auth_username           :string
-#  incoming_auth_password           :string
-#  rx_inband_dtmf_filtering_mode_id :integer          default(1), not null
-#  tx_inband_dtmf_filtering_mode_id :integer          default(1), not null
-#  weight                           :integer          default(100), not null
-#  sip_schema_id                    :integer          default(1), not null
-#  network_protocol_priority_id     :integer          default(0), not null
-#  media_encryption_mode_id         :integer          default(0), not null
-#  preserve_anonymous_from_domain   :boolean          default(FALSE), not null
-#  termination_src_numberlist_id    :integer
-#  termination_dst_numberlist_id    :integer
-#  lua_script_id                    :integer
-#  use_registered_aor               :boolean          default(FALSE), not null
+#  try_avoid_transcoding            :boolean          default(FALSE), not null
+#  weight                           :integer(2)       default(100), not null
+#  codec_group_id                   :integer(4)       default(1), not null
+#  contractor_id                    :integer(4)       not null
+#  diversion_send_mode_id           :integer(2)       default(1), not null
+#  dtmf_receive_mode_id             :integer(2)       default(1), not null
+#  dtmf_send_mode_id                :integer(2)       default(1), not null
+#  external_id                      :bigint(8)
+#  gateway_group_id                 :integer(4)
+#  lua_script_id                    :integer(2)
+#  media_encryption_mode_id         :integer(2)       default(0), not null
+#  network_protocol_priority_id     :integer(2)       default(0), not null
+#  orig_disconnect_policy_id        :integer(4)
+#  orig_proxy_transport_protocol_id :integer(2)       default(1), not null
+#  pai_send_mode_id                 :integer(2)       default(0), not null
+#  pop_id                           :integer(4)
+#  radius_accounting_profile_id     :integer(2)
+#  registered_aor_mode_id           :integer(2)       default(0), not null
+#  rel100_mode_id                   :integer(2)       default(4), not null
+#  rx_inband_dtmf_filtering_mode_id :integer(2)       default(1), not null
+#  sdp_alines_filter_type_id        :integer(4)       default(0), not null
+#  sdp_c_location_id                :integer(4)       default(2), not null
+#  sensor_id                        :integer(2)
+#  sensor_level_id                  :integer(2)       default(1), not null
+#  session_refresh_method_id        :integer(4)       default(3), not null
+#  sip_schema_id                    :integer(2)       default(1), not null
+#  term_disconnect_policy_id        :integer(4)
+#  term_proxy_transport_protocol_id :integer(2)       default(1), not null
+#  termination_dst_numberlist_id    :integer(2)
+#  termination_src_numberlist_id    :integer(2)
+#  transparent_dialog_id            :boolean          default(FALSE), not null
+#  transport_protocol_id            :integer(2)       default(1), not null
+#  tx_inband_dtmf_filtering_mode_id :integer(2)       default(1), not null
+#
+# Indexes
+#
+#  gateways_contractor_id_idx  (contractor_id)
+#  gateways_name_unique        (name) UNIQUE
+#
+# Foreign Keys
+#
+#  gateways_codec_group_id_fkey                    (codec_group_id => codec_groups.id)
+#  gateways_contractor_id_fkey                     (contractor_id => contractors.id)
+#  gateways_diversion_send_mode_id_fkey            (diversion_send_mode_id => gateway_diversion_send_modes.id)
+#  gateways_dtmf_receive_mode_id_fkey              (dtmf_receive_mode_id => dtmf_receive_modes.id)
+#  gateways_dtmf_send_mode_id_fkey                 (dtmf_send_mode_id => dtmf_send_modes.id)
+#  gateways_gateway_group_id_fkey                  (gateway_group_id => gateway_groups.id)
+#  gateways_lua_script_id_fkey                     (lua_script_id => lua_scripts.id)
+#  gateways_media_encryption_mode_id_fkey          (media_encryption_mode_id => gateway_media_encryption_modes.id)
+#  gateways_network_protocol_priority_id_fkey      (network_protocol_priority_id => gateway_network_protocol_priorities.id)
+#  gateways_orig_disconnect_policy_id_fkey         (orig_disconnect_policy_id => disconnect_policy.id)
+#  gateways_orig_proxy_transport_protocol_id_fkey  (orig_proxy_transport_protocol_id => transport_protocols.id)
+#  gateways_pop_id_fkey                            (pop_id => pops.id)
+#  gateways_radius_accounting_profile_id_fkey      (radius_accounting_profile_id => radius_accounting_profiles.id)
+#  gateways_rel100_mode_id_fkey                    (rel100_mode_id => gateway_rel100_modes.id)
+#  gateways_rx_inband_dtmf_filtering_mode_id_fkey  (rx_inband_dtmf_filtering_mode_id => gateway_inband_dtmf_filtering_modes.id)
+#  gateways_sdp_alines_filter_type_id_fkey         (sdp_alines_filter_type_id => filter_types.id)
+#  gateways_sdp_c_location_id_fkey                 (sdp_c_location_id => sdp_c_location.id)
+#  gateways_sensor_id_fkey                         (sensor_id => sensors.id)
+#  gateways_sensor_level_id_fkey                   (sensor_level_id => sensor_levels.id)
+#  gateways_session_refresh_method_id_fkey         (session_refresh_method_id => session_refresh_methods.id)
+#  gateways_sip_schema_id_fkey                     (sip_schema_id => sip_schemas.id)
+#  gateways_term_disconnect_policy_id_fkey         (term_disconnect_policy_id => disconnect_policy.id)
+#  gateways_term_proxy_transport_protocol_id_fkey  (term_proxy_transport_protocol_id => transport_protocols.id)
+#  gateways_transport_protocol_id_fkey             (transport_protocol_id => transport_protocols.id)
+#  gateways_tx_inband_dtmf_filtering_mode_id_fkey  (tx_inband_dtmf_filtering_mode_id => gateway_inband_dtmf_filtering_modes.id)
 #
 
-require 'spec_helper'
-
-describe Gateway, type: :model do
-  it do
-    should validate_numericality_of(:max_30x_redirects).is_less_than_or_equal_to(Yeti::ActiveRecord::PG_MAX_SMALLINT)
-    should validate_numericality_of(:max_transfers).is_less_than_or_equal_to(Yeti::ActiveRecord::PG_MAX_SMALLINT)
-    should validate_numericality_of(:origination_capacity).is_less_than_or_equal_to(Yeti::ActiveRecord::PG_MAX_SMALLINT)
-    should validate_numericality_of(:termination_capacity).is_less_than_or_equal_to(Yeti::ActiveRecord::PG_MAX_SMALLINT)
-    should validate_numericality_of(:fake_180_timer).is_less_than_or_equal_to(Yeti::ActiveRecord::PG_MAX_SMALLINT)
+RSpec.describe Gateway, type: :model do
+  it 'validates correctly' do
+    is_expected.to validate_numericality_of(:max_30x_redirects).is_less_than_or_equal_to(ApplicationRecord::PG_MAX_SMALLINT)
+    is_expected.to validate_numericality_of(:max_transfers).is_less_than_or_equal_to(ApplicationRecord::PG_MAX_SMALLINT)
+    is_expected.to validate_numericality_of(:origination_capacity).is_less_than_or_equal_to(ApplicationRecord::PG_MAX_SMALLINT)
+    is_expected.to validate_numericality_of(:termination_capacity).is_less_than_or_equal_to(ApplicationRecord::PG_MAX_SMALLINT)
+    is_expected.to validate_numericality_of(:fake_180_timer).is_less_than_or_equal_to(ApplicationRecord::PG_MAX_SMALLINT)
+    is_expected.to validate_presence_of(:rtp_timeout)
+    is_expected.to validate_numericality_of(:rtp_timeout).is_less_than_or_equal_to(Gateway::RTP_TIMEOUT_MAX)
+    is_expected.to validate_numericality_of(:rtp_timeout).is_greater_than_or_equal_to(Gateway::RTP_TIMEOUT_MIN)
   end
 
   shared_examples :validation_error_on_is_shared_change do
@@ -175,7 +213,7 @@ describe Gateway, type: :model do
     end
   end
 
-  context 'scope :for_termination' do
+  context 'scope :termination_contractor_id_eq' do
     before do
       # in scope
       @record = create(:gateway, is_shared: false, allow_termination: true, name: 'b-gateway')
@@ -195,7 +233,7 @@ describe Gateway, type: :model do
     let(:vendor) { @record.vendor }
 
     subject do
-      described_class.for_termination(vendor.id)
+      described_class.termination_contractor_id_eq(vendor.id)
     end
 
     it 'allow_termination is mandatory, then look for shared or vendors gateways, order by name' do
@@ -208,8 +246,8 @@ describe Gateway, type: :model do
       described_class.create(create_params)
     end
 
-    let!(:vendor) { FactoryGirl.create(:vendor) }
-    let!(:codec_group) { FactoryGirl.create(:codec_group) }
+    let!(:vendor) { FactoryBot.create(:vendor) }
+    let!(:codec_group) { FactoryBot.create(:codec_group) }
 
     let(:create_params) do
       {
@@ -239,7 +277,7 @@ describe Gateway, type: :model do
       record.update(update_params)
     end
 
-    let!(:record) { FactoryGirl.create(:gateway, record_attrs) }
+    let!(:record) { FactoryBot.create(:gateway, record_attrs) }
     let(:record_attrs) { { enabled: false } }
 
     context 'without incoming_auth' do
@@ -326,7 +364,7 @@ describe Gateway, type: :model do
       record.destroy
     end
 
-    let!(:record) { FactoryGirl.create(:gateway, record_attrs) }
+    let!(:record) { FactoryBot.create(:gateway, record_attrs) }
     let(:record_attrs) { { enabled: false } }
 
     context 'without incoming_auth' do
@@ -341,6 +379,86 @@ describe Gateway, type: :model do
       include_examples :changes_records_qty_of, described_class, by: -1
       include_examples :destroys_record
       include_examples :calls_event_with, :reload_incoming_auth
+    end
+
+    context 'when Gateway is linked to RateManagement Project' do
+      let!(:projects) { FactoryBot.create_list(:rate_management_project, 3, :filled, gateway: record, vendor: record.vendor) }
+
+      it 'should raise validation error' do
+        subject
+
+        error_message = "Can't be deleted because linked to Rate Management Project(s) ##{projects.map(&:id).join(', #')}"
+        expect(record.errors.to_a).to contain_exactly error_message
+
+        expect(Gateway).to be_exists(record.id)
+      end
+    end
+
+    context 'when Gateway is linked to RateManagement Pricelist Item' do
+      let(:new_gateway) { FactoryBot.create(:gateway) }
+      let(:project) { FactoryBot.create(:rate_management_project, :filled, vendor: new_gateway.vendor, gateway: new_gateway) }
+      let!(:pricelists) do
+        FactoryBot.create_list(:rate_management_pricelist, 2, pricelist_state, project: project)
+      end
+      let(:pricelist_state) { :new }
+      let!(:pricelist_items) do
+        [
+          FactoryBot.create_list(:rate_management_pricelist_item, 2, :filed_from_project, pricelist: pricelists[0], gateway: record),
+          FactoryBot.create_list(:rate_management_pricelist_item, 2, :filed_from_project, pricelist: pricelists[1], gateway: record)
+        ].flatten
+      end
+
+      it 'should raise validation error' do
+        subject
+
+        error_message = "Can't be deleted because linked to not applied Rate Management Pricelist(s) ##{pricelists.map(&:id).join(', #')}"
+        expect(record.errors.to_a).to contain_exactly error_message
+
+        expect(Gateway).to be_exists(record.id)
+      end
+
+      context 'when pricelist has dialpeers_detected state' do
+        let(:pricelist_state) { :dialpeers_detected }
+
+        it 'should raise validation error' do
+          subject
+
+          error_message = "Can't be deleted because linked to not applied Rate Management Pricelist(s) ##{pricelists.map(&:id).join(', #')}"
+          expect(record.errors.to_a).to contain_exactly error_message
+
+          expect(Gateway).to be_exists(record.id)
+        end
+      end
+
+      context 'when pricelist has applied state' do
+        let(:pricelist_state) { :applied }
+
+        it 'should delete gateway' do
+          expect { subject }.not_to raise_error
+          expect(Gateway).not_to be_exists(record.id)
+
+          pricelist_items.each do |item|
+            expect(item.reload.gateway_id).to be_nil
+          end
+        end
+      end
+    end
+
+    context 'when Gateway is linked to RateManagement Project and Pricelist Items' do
+      let!(:project) { FactoryBot.create(:rate_management_project, :filled, gateway: record, vendor: record.vendor) }
+      let!(:pricelist) { FactoryBot.create(:rate_management_pricelist, project: project, items_qty: 1) }
+
+      it 'should raise validation error' do
+        subject
+
+        error_messages = [
+          "Can't be deleted because linked to Rate Management Project(s) ##{project.id}",
+          "Can't be deleted because linked to not applied Rate Management Pricelist(s) ##{pricelist.id}"
+        ]
+        expect(record.errors).to contain_exactly *error_messages
+
+        expect(described_class).to be_exists(record.id)
+      end
     end
   end
 end

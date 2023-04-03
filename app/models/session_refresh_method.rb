@@ -4,11 +4,11 @@
 #
 # Table name: session_refresh_methods
 #
-#  id    :integer          not null, primary key
-#  value :string           not null
+#  id    :integer(4)       not null, primary key
 #  name  :string
+#  value :string           not null
 #
 
-class SessionRefreshMethod < ActiveRecord::Base
+class SessionRefreshMethod < ApplicationRecord
   has_many :gateways
 end

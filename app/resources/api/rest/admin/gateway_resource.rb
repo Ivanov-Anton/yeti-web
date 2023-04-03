@@ -2,7 +2,8 @@
 
 class Api::Rest::Admin::GatewayResource < ::BaseResource
   attributes :name, :enabled, :priority, :weight, :acd_limit, :asr_limit, :allow_origination, :allow_termination, :sst_enabled,
-             :host, :port, :resolve_ruri, :diversion_rewrite_rule, :diversion_rewrite_result,
+             :host, :port, :resolve_ruri,
+             :diversion_domain, :diversion_rewrite_rule, :diversion_rewrite_result,
              :src_name_rewrite_rule, :src_name_rewrite_result, :src_rewrite_rule, :src_rewrite_result,
              :dst_rewrite_rule, :dst_rewrite_result, :auth_enabled, :auth_user, :auth_password, :auth_from_user,
              :auth_from_domain, :term_use_outbound_proxy, :term_force_outbound_proxy, :term_outbound_proxy,
@@ -10,17 +11,21 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
              :sdp_alines_filter_list, :ringing_timeout, :relay_options, :relay_reinvite, :relay_hold, :relay_prack,
              :relay_update, :suppress_early_media, :fake_180_timer, :transit_headers_from_origination,
              :transit_headers_from_termination, :sip_interface_name, :allow_1xx_without_to_tag, :sip_timer_b,
-             :dns_srv_failover_timer, :anonymize_sdp, :proxy_media, :single_codec_in_200ok, :transparent_seqno,
-             :transparent_ssrc, :force_symmetric_rtp, :symmetric_rtp_nonstop, :symmetric_rtp_ignore_rtcp,
+             :dns_srv_failover_timer, :proxy_media, :single_codec_in_200ok,
+             :force_symmetric_rtp, :symmetric_rtp_nonstop, :symmetric_rtp_ignore_rtcp,
              :force_dtmf_relay, :rtp_ping, :rtp_timeout, :filter_noaudio_streams, :rtp_relay_timestamp_aligning,
-             :rtp_force_relay_cn
+             :rtp_force_relay_cn, :preserve_anonymous_from_domain, :registered_aor_mode_id,
+             :incoming_auth_username, :incoming_auth_password, :origination_capacity, :termination_capacity,
+             :force_cancel_routeset
+
+  paginator :paged
 
   has_one :contractor
   has_one :session_refresh_method
   has_one :sdp_alines_filter_type, class_name: 'FilterType'
   has_one :term_disconnect_policy, class_name: 'DisconnectPolicy'
   has_one :gateway_group
-  has_one :diversion_policy
+  has_one :diversion_send_mode, class_name: 'Equipment::GatewayDiversionSendMode'
   has_one :pop
   has_one :codec_group
   has_one :sdp_c_location, class_name: 'SdpCLocation'
@@ -40,6 +45,29 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
 
   filter :name # DEPRECATED
 
+  relationship_filter :contractor
+  relationship_filter :session_refresh_method
+  relationship_filter :sdp_alines_filter_type
+  relationship_filter :term_disconnect_policy
+  relationship_filter :gateway_group
+  relationship_filter :diversion_send_mode
+  relationship_filter :pop
+  relationship_filter :codec_group
+  relationship_filter :sdp_c_location
+  relationship_filter :sensor
+  relationship_filter :sensor_level
+  relationship_filter :dtmf_receive_mode
+  relationship_filter :dtmf_send_mode
+  relationship_filter :transport_protocol
+  relationship_filter :term_proxy_transport_protocol
+  relationship_filter :orig_proxy_transport_protocol
+  relationship_filter :rel100_mode
+  relationship_filter :rx_inband_dtmf_filtering_mode
+  relationship_filter :tx_inband_dtmf_filtering_mode
+  relationship_filter :network_protocol_priority
+  relationship_filter :media_encryption_mode
+  relationship_filter :sip_schema
+
   ransack_filter :host, type: :string
   ransack_filter :port, type: :number
   ransack_filter :src_rewrite_rule, type: :string
@@ -56,10 +84,7 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
   ransack_filter :term_use_outbound_proxy, type: :boolean
   ransack_filter :allow_termination, type: :boolean
   ransack_filter :allow_origination, type: :boolean
-  ransack_filter :anonymize_sdp, type: :boolean
   ransack_filter :proxy_media, type: :boolean
-  ransack_filter :transparent_seqno, type: :boolean
-  ransack_filter :transparent_ssrc, type: :boolean
   ransack_filter :sst_enabled, type: :boolean
   ransack_filter :sst_minimum_timer, type: :number
   ransack_filter :sst_maximum_timer, type: :number
@@ -83,6 +108,7 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
   ransack_filter :prefer_existing_codecs, type: :boolean
   ransack_filter :force_symmetric_rtp, type: :boolean
   ransack_filter :sdp_alines_filter_list, type: :string
+  ransack_filter :diversion_domain, type: :string
   ransack_filter :diversion_rewrite_rule, type: :string
   ransack_filter :diversion_rewrite_result, type: :string
   ransack_filter :src_name_rewrite_rule, type: :string
@@ -125,7 +151,10 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
   ransack_filter :max_transfers, type: :number
   ransack_filter :incoming_auth_username, type: :string
   ransack_filter :incoming_auth_password, type: :string
+  ransack_filter :preserve_anonymous_from_domain, type: :boolean
+  ransack_filter :registered_aor_mode_id, type: :number
   ransack_filter :weight, type: :number
+  ransack_filter :force_cancel_routeset, type: :boolean
 
   def self.updatable_fields(_context)
     %i[
@@ -158,7 +187,8 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
       host
       port
       resolve_ruri
-      diversion_policy
+      diversion_send_mode
+      diversion_domain
       diversion_rewrite_rule
       diversion_rewrite_result
       src_name_rewrite_rule
@@ -194,11 +224,8 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
       allow_1xx_without_to_tag
       sip_timer_b
       dns_srv_failover_timer
-      anonymize_sdp
       proxy_media
       single_codec_in_200ok
-      transparent_seqno
-      transparent_ssrc
       force_symmetric_rtp
       symmetric_rtp_nonstop
       symmetric_rtp_ignore_rtcp
@@ -211,6 +238,13 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
       network_protocol_priority
       media_encryption_mode
       sip_schema
+      preserve_anonymous_from_domain
+      registered_aor_mode_id
+      origination_capacity
+      termination_capacity
+      incoming_auth_username
+      incoming_auth_password
+      force_cancel_routeset
     ]
   end
 

@@ -4,12 +4,18 @@
 #
 # Table name: class4.routing_tag_modes
 #
-#  id   :integer          not null, primary key
+#  id   :integer(2)       not null, primary key
 #  name :string           not null
 #
+# Indexes
+#
+#  routing_tag_modes_name_key  (name) UNIQUE
+#
 
-class Routing::RoutingTagMode < Yeti::ActiveRecord
+class Routing::RoutingTagMode < ApplicationRecord
   self.table_name = 'class4.routing_tag_modes'
+
+  validates :name, presence: true, uniqueness: true
 
   module CONST
     OR = 0

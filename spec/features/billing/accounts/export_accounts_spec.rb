@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Export Accounts', type: :feature do
+RSpec.describe 'Export Accounts', type: :feature do
   include_context :login_as_admin
 
   before { create(:account) }
@@ -27,8 +25,6 @@ describe 'Export Accounts', type: :feature do
         ['Vat',                     item.vat.to_s],
         ['Min balance',             item.min_balance.to_s],
         ['Max balance',             item.max_balance.to_s],
-        ['Balance low threshold',   item.balance_low_threshold.to_s],
-        ['Balance high threshold',  item.balance_high_threshold.to_s],
         ['Destination rate limit',  item.destination_rate_limit.to_s],
         ['Max call duration',       item.max_call_duration.to_s],
         ['Origination capacity',    item.origination_capacity.to_s],

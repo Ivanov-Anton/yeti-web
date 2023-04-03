@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'Networks', document: :customer_v1 do
+RSpec.resource 'Networks', document: :customer_v1 do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
 
   let(:api_access) { create :api_access }
   let(:customer) { api_access.customer }
-  let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: api_access.id }).token }
+  include_context :customer_v1_cookie_helpers
+  let(:auth_token) { build_customer_token(api_access.id, expiration: 1.minute.from_now) }
   let(:type) { 'networks' }
 
-  let!(:network) { FactoryGirl.create(:network, name: 'US').reload }
+  let!(:network) { System::Network.find_by!(name: 'UNITED STATES') }
 
   get '/api/rest/customer/v1/networks' do
     jsonapi_filters Api::Rest::Customer::V1::NetworkResource._allowed_filters

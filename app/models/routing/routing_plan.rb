@@ -2,51 +2,80 @@
 
 # == Schema Information
 #
-# Table name: routing_plans
+# Table name: class4.routing_plans
 #
-#  id                     :integer          not null, primary key
-#  name                   :string           not null
-#  sorting_id             :integer          default(1), not null
-#  rate_delta_max         :decimal(, )      default(0.0), not null
-#  use_lnp                :boolean          default(FALSE), not null
-#  max_rerouting_attempts :integer          default(10), not null
+#  id                          :integer(4)       not null, primary key
+#  max_rerouting_attempts      :integer(2)       default(10), not null
+#  name                        :string           not null
+#  rate_delta_max              :decimal(, )      default(0.0), not null
+#  use_lnp                     :boolean          default(FALSE), not null
+#  validate_dst_number_format  :boolean          default(FALSE), not null
+#  validate_dst_number_network :boolean          default(FALSE), not null
+#  validate_src_number_format  :boolean          default(FALSE), not null
+#  validate_src_number_network :boolean          default(FALSE), not null
+#  external_id                 :bigint(8)
+#  sorting_id                  :integer(4)       default(1), not null
+#
+# Indexes
+#
+#  routing_plans_external_id_key  (external_id) UNIQUE
+#  routing_plans_name_key         (name) UNIQUE
 #
 
-class Routing::RoutingPlan < Yeti::ActiveRecord
-  has_and_belongs_to_many :routing_groups, join_table: 'class4.routing_plan_groups', class_name: 'RoutingGroup'
+class Routing::RoutingPlan < ApplicationRecord
+  self.table_name = 'class4.routing_plans'
+
+  SORTING_LCR_PRIO_CONTROL = 1
+  SORTING_LCR_NOCONTROL = 2
+  SORTING_PRIO_LCR_CONTROL = 3
+  SORTING_LCRD_PRIO_CONTROL = 4
+  SORTING_TESTING = 5
+  SORTING_STATIC_LCR_CONTROL = 6
+  SORTING_STATIC_ONLY_NOCONTROL = 7
+  SORTINGS = {
+    SORTING_LCR_PRIO_CONTROL => 'LCR,Prio, ACD&ASR control',
+    SORTING_LCR_NOCONTROL => 'LCR, No ACD&ASR control',
+    SORTING_PRIO_LCR_CONTROL => 'Prio,LCR, ACD&ASR control',
+    SORTING_LCRD_PRIO_CONTROL => 'LCRD, Prio, ACD&ASR control',
+    SORTING_TESTING => 'Route testing',
+    SORTING_STATIC_LCR_CONTROL => 'QD-Static, LCR, ACD&ASR control',
+    SORTING_STATIC_ONLY_NOCONTROL => 'Static only, No ACD&ASR control'
+  }.freeze
+  SORTINGS_WITH_STATIC_ROUTES = [SORTING_STATIC_LCR_CONTROL, SORTING_STATIC_ONLY_NOCONTROL].freeze
+
+  has_and_belongs_to_many :routing_groups, join_table: 'class4.routing_plan_groups', class_name: 'Routing::RoutingGroup'
   has_many :customers_auths, class_name: 'CustomersAuth', foreign_key: :routing_plan_id, dependent: :restrict_with_error
   has_many :static_routes, class_name: 'Routing::RoutingPlanStaticRoute',
                            foreign_key: :routing_plan_id, dependent: :delete_all
 
   has_many :lnp_rules, class_name: 'Lnp::RoutingPlanLnpRule', foreign_key: :routing_plan_id, dependent: :delete_all
-  belongs_to :sorting
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
-  validates_presence_of :name, :max_rerouting_attempts
-  validates_uniqueness_of :name, allow_blank: false
-  validates_numericality_of :max_rerouting_attempts, greater_than: 0, less_than_or_equal_to: 10, allow_nil: false, only_integer: true
+  validates :name, :max_rerouting_attempts, presence: true
+  validates :name, uniqueness: { allow_blank: false }
+  validates :max_rerouting_attempts, numericality: { greater_than: 0, less_than_or_equal_to: 10, allow_nil: false, only_integer: true }
+  validates :external_id, uniqueness: { allow_blank: true }
 
-  scope :having_static_routes, -> { joins(:sorting).merge(Sorting.with_static_routes) }
+  validates :sorting_id, inclusion: { in: SORTINGS.keys }, allow_nil: false
+
+  scope :having_static_routes, -> { where(sorting_id: SORTINGS_WITH_STATIC_ROUTES) }
 
   def display_name
     "#{name} | #{id}"
   end
 
-  # #todo: remove this
-  # def use_lnp_sym
-  #   self.use_lnp ?  :true : :false
-  # end
+  def sorting_name
+    SORTINGS[sorting_id]
+  end
 
   def use_static_routes?
-    sorting.use_static_routes?
+    SORTINGS_WITH_STATIC_ROUTES.include?(sorting_id)
   end
 
   def have_routing_groups?
     routing_groups.count > 0
   end
-
-  #  after_update :delete_static_routes, if: proc {|obj| obj.sorting_id_changed? }
 
   private
 

@@ -4,173 +4,174 @@
 #
 # Table name: data_import.import_gateways
 #
-#  host                               :string
-#  port                               :integer
-#  src_rewrite_rule                   :string
-#  dst_rewrite_rule                   :string
+#  id                                 :integer(4)       not null, primary key
 #  acd_limit                          :float
-#  asr_limit                          :float
-#  enabled                            :boolean
-#  name                               :string
-#  auth_enabled                       :boolean
-#  auth_user                          :string
-#  auth_password                      :string
-#  term_outbound_proxy                :string
-#  term_next_hop_for_replies          :boolean
-#  term_use_outbound_proxy            :boolean
-#  contractor_id                      :integer
-#  allow_termination                  :boolean
+#  allow_1xx_without_to_tag           :boolean
 #  allow_origination                  :boolean
-#  anonymize_sdp                      :boolean
-#  proxy_media                        :boolean
-#  transparent_seqno                  :boolean
-#  transparent_ssrc                   :boolean
-#  sst_enabled                        :boolean
-#  sst_minimum_timer                  :integer
-#  sst_maximum_timer                  :integer
-#  sst_accept501                      :boolean
-#  session_refresh_method_id          :integer
-#  sst_session_expires                :integer
-#  term_force_outbound_proxy          :boolean
-#  locked                             :boolean
+#  allow_termination                  :boolean
+#  asr_limit                          :float
+#  auth_enabled                       :boolean
+#  auth_from_domain                   :string
+#  auth_from_user                     :string
+#  auth_password                      :string
+#  auth_user                          :string
+#  codec_group_name                   :string
 #  codecs_payload_order               :string
 #  codecs_prefer_transcoding_for      :string
-#  src_rewrite_result                 :string
-#  dst_rewrite_result                 :string
-#  term_next_hop                      :string
-#  orig_next_hop                      :string
-#  orig_append_headers_req            :string
-#  term_append_headers_req            :string
-#  dialog_nat_handling                :boolean
-#  orig_force_outbound_proxy          :boolean
-#  orig_use_outbound_proxy            :boolean
-#  orig_outbound_proxy                :string
-#  prefer_existing_codecs             :boolean
-#  force_symmetric_rtp                :boolean
-#  transparent_dialog_id              :boolean
-#  sdp_alines_filter_type_id          :integer
-#  sdp_alines_filter_list             :string
-#  gateway_group_id                   :integer
-#  orig_disconnect_policy_id          :integer
-#  term_disconnect_policy_id          :integer
-#  diversion_policy_id                :integer
-#  diversion_rewrite_rule             :string
-#  diversion_rewrite_result           :string
-#  src_name_rewrite_rule              :string
-#  src_name_rewrite_result            :string
-#  priority                           :integer
-#  pop_id                             :integer
-#  id                                 :integer          not null, primary key
-#  o_id                               :integer
-#  gateway_group_name                 :string
 #  contractor_name                    :string
-#  pop_name                           :string
-#  session_refresh_method_name        :string
-#  sdp_alines_filter_type_name        :string
-#  orig_disconnect_policy_name        :string
-#  term_disconnect_policy_name        :string
-#  diversion_policy_name              :string
-#  error_string                       :string
-#  codec_group_id                     :integer
-#  codec_group_name                   :string
-#  single_codec_in_200ok              :boolean
-#  ringing_timeout                    :integer
-#  symmetric_rtp_nonstop              :boolean
-#  symmetric_rtp_ignore_rtcp          :boolean
-#  resolve_ruri                       :boolean
-#  force_dtmf_relay                   :boolean
-#  relay_options                      :boolean
-#  rtp_ping                           :boolean
-#  filter_noaudio_streams             :boolean
-#  relay_reinvite                     :boolean
-#  sdp_c_location_id                  :integer
-#  sdp_c_location_name                :string
-#  auth_from_user                     :string
-#  auth_from_domain                   :string
-#  relay_hold                         :boolean
-#  rtp_timeout                        :integer
-#  relay_prack                        :boolean
-#  rtp_relay_timestamp_aligning       :boolean
-#  allow_1xx_without_to_tag           :boolean
-#  sip_timer_b                        :integer
-#  dns_srv_failover_timer             :integer
-#  rtp_force_relay_cn                 :boolean
-#  sensor_id                          :integer
-#  sensor_name                        :string
-#  sensor_level_id                    :integer
-#  sensor_level_name                  :string
-#  dtmf_send_mode_id                  :integer
-#  dtmf_send_mode_name                :string
-#  dtmf_receive_mode_id               :integer
+#  dialog_nat_handling                :boolean
+#  diversion_domain                   :string
+#  diversion_rewrite_result           :string
+#  diversion_rewrite_rule             :string
+#  diversion_send_mode_name           :string
+#  dns_srv_failover_timer             :integer(4)
+#  dst_rewrite_result                 :string
+#  dst_rewrite_rule                   :string
 #  dtmf_receive_mode_name             :string
-#  transport_protocol_id              :integer
-#  term_proxy_transport_protocol_id   :integer
-#  orig_proxy_transport_protocol_id   :integer
-#  transport_protocol_name            :string
-#  term_proxy_transport_protocol_name :string
-#  orig_proxy_transport_protocol_name :string
-#  short_calls_limit                  :float
-#  origination_capacity               :integer
-#  termination_capacity               :integer
-#  rel100_mode_id                     :integer
-#  rel100_mode_name                   :string
-#  is_shared                          :boolean
-#  incoming_auth_username             :string
-#  incoming_auth_password             :string
-#  relay_update                       :boolean
-#  suppress_early_media               :boolean
-#  send_lnp_information               :boolean
+#  dtmf_send_mode_name                :string
+#  enabled                            :boolean
+#  error_string                       :string
+#  filter_noaudio_streams             :boolean
+#  force_cancel_routeset              :boolean
+#  force_dtmf_relay                   :boolean
 #  force_one_way_early_media          :boolean
-#  max_30x_redirects                  :integer
-#  rx_inband_dtmf_filtering_mode_id   :integer
-#  rx_inband_dtmf_filtering_mode_name :string
-#  tx_inband_dtmf_filtering_mode_id   :integer
-#  tx_inband_dtmf_filtering_mode_name :string
-#  weight                             :integer
-#  sip_schema_id                      :integer
-#  sip_schema_name                    :string
-#  network_protocol_priority_id       :integer
-#  network_protocol_priority_name     :string
-#  media_encryption_mode_id           :integer
-#  media_encryption_mode_name         :string
-#  preserve_anonymous_from_domain     :boolean
-#  termination_src_numberlist_id      :integer
-#  termination_src_numberlist_name    :string
-#  termination_dst_numberlist_id      :integer
-#  termination_dst_numberlist_name    :string
-#  lua_script_id                      :integer
-#  lua_script_name                    :string
-#  use_registered_aor                 :boolean
+#  force_symmetric_rtp                :boolean
+#  gateway_group_name                 :string
+#  host                               :string
+#  incoming_auth_password             :string
+#  incoming_auth_username             :string
 #  is_changed                         :boolean
+#  is_shared                          :boolean
+#  locked                             :boolean
+#  lua_script_name                    :string
+#  max_30x_redirects                  :integer(4)
+#  media_encryption_mode_name         :string
+#  name                               :string
+#  network_protocol_priority_name     :string
+#  orig_append_headers_req            :string
+#  orig_disconnect_policy_name        :string
+#  orig_force_outbound_proxy          :boolean
+#  orig_next_hop                      :string
+#  orig_outbound_proxy                :string
+#  orig_proxy_transport_protocol_name :string
+#  orig_use_outbound_proxy            :boolean
+#  origination_capacity               :integer(2)
+#  pop_name                           :string
+#  port                               :integer(4)
+#  prefer_existing_codecs             :boolean
+#  preserve_anonymous_from_domain     :boolean
+#  priority                           :integer(4)
+#  proxy_media                        :boolean
+#  registered_aor_mode_name           :string
+#  rel100_mode_name                   :string
+#  relay_hold                         :boolean
+#  relay_options                      :boolean
+#  relay_prack                        :boolean
+#  relay_reinvite                     :boolean
+#  relay_update                       :boolean
+#  resolve_ruri                       :boolean
+#  ringing_timeout                    :integer(4)
+#  rtp_force_relay_cn                 :boolean
+#  rtp_ping                           :boolean
+#  rtp_relay_timestamp_aligning       :boolean
+#  rtp_timeout                        :integer(4)
+#  rx_inband_dtmf_filtering_mode_name :string
+#  sdp_alines_filter_list             :string
+#  sdp_alines_filter_type_name        :string
+#  sdp_c_location_name                :string
+#  send_lnp_information               :boolean
+#  sensor_level_name                  :string
+#  sensor_name                        :string
+#  session_refresh_method_name        :string
+#  short_calls_limit                  :float
+#  single_codec_in_200ok              :boolean
+#  sip_schema_name                    :string
+#  sip_timer_b                        :integer(4)
+#  src_name_rewrite_result            :string
+#  src_name_rewrite_rule              :string
+#  src_rewrite_result                 :string
+#  src_rewrite_rule                   :string
+#  sst_accept501                      :boolean
+#  sst_enabled                        :boolean
+#  sst_maximum_timer                  :integer(4)
+#  sst_minimum_timer                  :integer(4)
+#  sst_session_expires                :integer(4)
+#  suppress_early_media               :boolean
+#  symmetric_rtp_ignore_rtcp          :boolean
+#  symmetric_rtp_nonstop              :boolean
+#  term_append_headers_req            :string
+#  term_disconnect_policy_name        :string
+#  term_force_outbound_proxy          :boolean
+#  term_next_hop                      :string
+#  term_next_hop_for_replies          :boolean
+#  term_outbound_proxy                :string
+#  term_proxy_transport_protocol_name :string
+#  term_use_outbound_proxy            :boolean
+#  termination_capacity               :integer(2)
+#  termination_dst_numberlist_name    :string
+#  termination_src_numberlist_name    :string
+#  transport_protocol_name            :string
+#  try_avoid_transcoding              :boolean
+#  tx_inband_dtmf_filtering_mode_name :string
+#  weight                             :integer(2)
+#  codec_group_id                     :integer(4)
+#  contractor_id                      :integer(4)
+#  diversion_send_mode_id             :integer(2)
+#  dtmf_receive_mode_id               :integer(2)
+#  dtmf_send_mode_id                  :integer(2)
+#  gateway_group_id                   :integer(4)
+#  lua_script_id                      :integer(2)
+#  media_encryption_mode_id           :integer(2)
+#  network_protocol_priority_id       :integer(2)
+#  o_id                               :integer(4)
+#  orig_disconnect_policy_id          :integer(4)
+#  orig_proxy_transport_protocol_id   :integer(2)
+#  pop_id                             :integer(4)
+#  registered_aor_mode_id             :integer(2)
+#  rel100_mode_id                     :integer(2)
+#  rx_inband_dtmf_filtering_mode_id   :integer(2)
+#  sdp_alines_filter_type_id          :integer(4)
+#  sdp_c_location_id                  :integer(4)
+#  sensor_id                          :integer(2)
+#  sensor_level_id                    :integer(2)
+#  session_refresh_method_id          :integer(4)
+#  sip_schema_id                      :integer(2)
+#  term_disconnect_policy_id          :integer(4)
+#  term_proxy_transport_protocol_id   :integer(2)
+#  termination_dst_numberlist_id      :integer(2)
+#  termination_src_numberlist_id      :integer(2)
+#  transparent_dialog_id              :boolean
+#  transport_protocol_id              :integer(2)
+#  tx_inband_dtmf_filtering_mode_id   :integer(2)
 #
 
 class Importing::Gateway < Importing::Base
   self.table_name = 'data_import.import_gateways'
   attr_accessor :file
 
-  belongs_to :contractor, class_name: '::Contractor'
-  belongs_to :session_refresh_method, class_name: '::SessionRefreshMethod'
-  belongs_to :sdp_alines_filter_type, class_name: '::FilterType', foreign_key: :sdp_alines_filter_type_id
-  belongs_to :orig_disconnect_policy, class_name: '::DisconnectPolicy', foreign_key: :orig_disconnect_policy_id
-  belongs_to :term_disconnect_policy, class_name: '::DisconnectPolicy', foreign_key: :term_disconnect_policy_id
-  belongs_to :gateway_group, class_name: '::GatewayGroup'
-  belongs_to :diversion_policy, class_name: '::DiversionPolicy'
-  belongs_to :pop, class_name: '::Pop'
-  belongs_to :codec_group, class_name: '::CodecGroup'
-  belongs_to :sdp_c_location, class_name: '::SdpCLocation'
-  belongs_to :sensor, class_name: '::System::Sensor', foreign_key: :sensor_id
-  belongs_to :sensor_level, class_name: '::System::SensorLevel', foreign_key: :sensor_level_id
-  belongs_to :dtmf_receive_mode, class_name: '::System::DtmfReceiveMode', foreign_key: :dtmf_receive_mode_id
-  belongs_to :dtmf_send_mode, class_name: '::System::DtmfSendMode', foreign_key: :dtmf_send_mode_id
-  belongs_to :transport_protocol, class_name: '::Equipment::TransportProtocol', foreign_key: :transport_protocol_id
-  belongs_to :term_proxy_transport_protocol, class_name: '::Equipment::TransportProtocol', foreign_key: :term_proxy_transport_protocol_id
-  belongs_to :orig_proxy_transport_protocol, class_name: '::Equipment::TransportProtocol', foreign_key: :orig_proxy_transport_protocol_id
-  belongs_to :rel100_mode, class_name: '::Equipment::GatewayRel100Mode', foreign_key: :rel100_mode_id
-  belongs_to :rx_inband_dtmf_filtering_mode, class_name: '::Equipment::GatewayInbandDtmfFilteringMode', foreign_key: :rx_inband_dtmf_filtering_mode_id
-  belongs_to :tx_inband_dtmf_filtering_mode, class_name: '::Equipment::GatewayInbandDtmfFilteringMode', foreign_key: :tx_inband_dtmf_filtering_mode_id
-  belongs_to :termination_dst_numberlist, class_name: '::Routing::Numberlist', foreign_key: :termination_dst_numberlist_id
-  belongs_to :termination_src_numberlist, class_name: '::Routing::Numberlist', foreign_key: :termination_src_numberlist_id
-  belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id
+  belongs_to :contractor, class_name: '::Contractor', optional: true
+  belongs_to :session_refresh_method, class_name: '::SessionRefreshMethod', optional: true
+  belongs_to :sdp_alines_filter_type, class_name: '::FilterType', foreign_key: :sdp_alines_filter_type_id, optional: true
+  belongs_to :orig_disconnect_policy, class_name: '::DisconnectPolicy', foreign_key: :orig_disconnect_policy_id, optional: true
+  belongs_to :term_disconnect_policy, class_name: '::DisconnectPolicy', foreign_key: :term_disconnect_policy_id, optional: true
+  belongs_to :gateway_group, class_name: '::GatewayGroup', optional: true
+  belongs_to :diversion_send_mode, class_name: '::Equipment::GatewayDiversionSendMode', optional: true
+  belongs_to :pop, class_name: '::Pop', optional: true
+  belongs_to :codec_group, class_name: '::CodecGroup', optional: true
+  belongs_to :sdp_c_location, class_name: '::SdpCLocation', optional: true
+  belongs_to :sensor, class_name: '::System::Sensor', foreign_key: :sensor_id, optional: true
+  belongs_to :sensor_level, class_name: '::System::SensorLevel', foreign_key: :sensor_level_id, optional: true
+  belongs_to :dtmf_receive_mode, class_name: '::System::DtmfReceiveMode', foreign_key: :dtmf_receive_mode_id, optional: true
+  belongs_to :dtmf_send_mode, class_name: '::System::DtmfSendMode', foreign_key: :dtmf_send_mode_id, optional: true
+  belongs_to :transport_protocol, class_name: '::Equipment::TransportProtocol', foreign_key: :transport_protocol_id, optional: true
+  belongs_to :term_proxy_transport_protocol, class_name: '::Equipment::TransportProtocol', foreign_key: :term_proxy_transport_protocol_id, optional: true
+  belongs_to :orig_proxy_transport_protocol, class_name: '::Equipment::TransportProtocol', foreign_key: :orig_proxy_transport_protocol_id, optional: true
+  belongs_to :rel100_mode, class_name: '::Equipment::GatewayRel100Mode', foreign_key: :rel100_mode_id, optional: true
+  belongs_to :rx_inband_dtmf_filtering_mode, class_name: '::Equipment::GatewayInbandDtmfFilteringMode', foreign_key: :rx_inband_dtmf_filtering_mode_id, optional: true
+  belongs_to :tx_inband_dtmf_filtering_mode, class_name: '::Equipment::GatewayInbandDtmfFilteringMode', foreign_key: :tx_inband_dtmf_filtering_mode_id, optional: true
+  belongs_to :termination_dst_numberlist, class_name: '::Routing::Numberlist', foreign_key: :termination_dst_numberlist_id, optional: true
+  belongs_to :termination_src_numberlist, class_name: '::Routing::Numberlist', foreign_key: :termination_src_numberlist_id, optional: true
+  belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
 
   self.import_attributes = %w[
     name enabled
@@ -183,15 +184,15 @@ class Importing::Gateway < Importing::Base
     host port
     origination_capacity
     termination_capacity
-    diversion_policy_id
+    diversion_send_mode_id
+    diversion_domain
     diversion_rewrite_rule diversion_rewrite_result
     src_name_rewrite_rule src_name_rewrite_result
     src_rewrite_rule src_rewrite_result
     dst_rewrite_rule dst_rewrite_result
     acd_limit asr_limit short_calls_limit
     allow_termination allow_origination
-    anonymize_sdp proxy_media
-    transparent_seqno transparent_ssrc
+    proxy_media
     auth_enabled auth_user auth_password
     term_use_outbound_proxy term_outbound_proxy term_force_outbound_proxy
     term_next_hop orig_next_hop
@@ -222,15 +223,25 @@ class Importing::Gateway < Importing::Base
     transport_protocol_id
     term_proxy_transport_protocol_id
     orig_proxy_transport_protocol_id
-    rel_100_mode_id
+    rel100_mode_id
     incoming_auth_username
     incoming_auth_password
     preserve_anonymous_from_domain
     termination_dst_numberlist_id
     termination_src_numberlist_id
     lua_script_id
-    use_registered_aor
+    registered_aor_mode_id
+    force_cancel_routeset
   ]
 
-  self.import_class = ::Gateway
+  import_for ::Gateway
+
+  def registered_aor_mode_display_name
+    registered_aor_mode_id.nil? ? 'unknown' : Gateway::REGISTERED_AOR_MODES[registered_aor_mode_id]
+  end
+
+  def self.after_import_hook
+    resolve_integer_constant('registered_aor_mode_id', 'registered_aor_mode_name', Gateway::REGISTERED_AOR_MODES)
+    super
+  end
 end

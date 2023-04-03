@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'Pops' do
+RSpec.resource 'Pops' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -16,7 +15,7 @@ resource 'Pops' do
     jsonapi_filters Api::Rest::Admin::PopResource._allowed_filters
 
     before do
-      Pop.create(name: 'first')
+      create(:pop)
     end
     example_request 'get listing' do
       expect(status).to eq(200)
@@ -24,7 +23,7 @@ resource 'Pops' do
   end
 
   get '/api/rest/admin/pops/:id' do
-    let(:id) { Pop.create(name: 'first').id }
+    let(:id) { create(:pop).id }
 
     example_request 'get specific entry' do
       expect(status).to eq(200)
@@ -33,9 +32,11 @@ resource 'Pops' do
 
   post '/api/rest/admin/pops' do
     parameter :type, 'Resource type (pops)', scope: :data, required: true
+    parameter :id, 'POP ID', scope: :data, required: true
 
     jsonapi_attributes([:name], [])
 
+    let(:id) { 11 }
     let(:name) { 'name' }
 
     example_request 'create new entry' do
@@ -45,11 +46,11 @@ resource 'Pops' do
 
   put '/api/rest/admin/pops/:id' do
     parameter :type, 'Resource type (pops)', scope: :data, required: true
-    parameter :id, 'Pop ID', scope: :data, required: true
+    parameter :id, 'POP ID', scope: :data, required: true
 
     jsonapi_attributes([:name], [])
 
-    let(:id) { Pop.create(name: 'first').id }
+    let(:id) { create(:pop).id }
     let(:name) { 'name' }
 
     example_request 'update values' do
@@ -58,7 +59,7 @@ resource 'Pops' do
   end
 
   delete '/api/rest/admin/pops/:id' do
-    let(:id) { Pop.create(name: 'first').id }
+    let(:id) { create(:pop).id }
 
     example_request 'delete entry' do
       expect(status).to eq(204)

@@ -1,20 +1,32 @@
 #!/usr/bin/make -f
 
-extra_services=yeti-cdr-billing yeti-cdr-billing\@ yeti-delayed-job yeti-libreoffice-headless yeti-prometheus
+extra_services=yeti-cdr-billing \
+	       yeti-cdr-billing@ \
+	       yeti-scheduler \
+	       yeti-delayed-job \
+	       yeti-libreoffice-headless \
+	       yeti-prometheus \
+	       yeti-libreoffice-headless
 
 %:
 	dh $@ --no-parallel
 
-override_dh_installinit:
-	for s in ${extra_services}; do dh_installinit --name=$$s; done
-	dh_installinit
+override_dh_installsystemd:
+	dh_installsystemd
+	for s in ${extra_services}; do dh_installsystemd --name "$$s" "$$s.service"; done
 
 # avoid building debug symbols from so files in gems
 override_dh_strip:
 override_dh_strip_nondeterminism:
+override_dh_dwz:
 
 # we do not want to generate shlibs file
 override_dh_makeshlibs:
 
 #don't run tests automatically
 override_dh_auto_test:
+
+# gems with naitve extension will depend on libruby built by rbenv
+# which is not present in any package
+override_dh_shlibdeps:
+	dh_shlibdeps -- --ignore-missing-info

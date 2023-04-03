@@ -1,20 +1,18 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 RSpec.describe Worker::RemoveCdrExportFileJob, type: :job do
   subject do
     described_class.perform_now(cdr_export.id)
   end
 
   let(:cdr_export) do
-    FactoryGirl.create(:cdr_export, :completed)
+    FactoryBot.create(:cdr_export, :completed)
   end
 
   let(:delete_url) do
     [
-      Rails.configuration.yeti_web.fetch('cdr_export').fetch('delete_url').chomp('/'),
-      "#{cdr_export.id}.csv"
+      YetiConfig.cdr_export.delete_url.chomp('/'),
+      "#{cdr_export.id}.csv.gz"
     ].join('/')
   end
 

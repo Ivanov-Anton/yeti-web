@@ -1,14 +1,16 @@
 # frozen_string_literal: true
 
-FactoryGirl.define do
+FactoryBot.define do
   factory :numberlist, class: Routing::Numberlist do
     sequence(:name) { |n| "numberlist#{n}" }
 
     association :lua_script
 
-    after :build do |numberlist|
-      numberlist.mode ||= Routing::NumberlistMode.create(id: 1, name: 'Strict number match')
-      numberlist.default_action ||= Routing::NumberlistAction.create(id: 1, name: 'Reject call')
+    mode_id { Routing::Numberlist::MODE_STRICT }
+    default_action_id { Routing::Numberlist::DEFAULT_ACTION_REJECT }
+
+    trait :filled do
+      tag_action { Routing::TagAction.take }
     end
   end
 end

@@ -2,44 +2,61 @@
 
 # == Schema Information
 #
-# Table name: registrations
+# Table name: class4.registrations
 #
-#  id                          :integer          not null, primary key
-#  name                        :string           not null
-#  enabled                     :boolean          default(TRUE), not null
-#  pop_id                      :integer
-#  node_id                     :integer
-#  domain                      :string
-#  username                    :string           not null
-#  display_username            :string
-#  auth_user                   :string
-#  proxy                       :string
-#  contact                     :string
+#  id                          :integer(4)       not null, primary key
 #  auth_password               :string
-#  expire                      :integer
+#  auth_user                   :string
+#  contact                     :string
+#  display_username            :string
+#  domain                      :string
+#  enabled                     :boolean          default(TRUE), not null
+#  expire                      :integer(4)
 #  force_expire                :boolean          default(FALSE), not null
-#  retry_delay                 :integer          default(5), not null
-#  max_attempts                :integer
-#  transport_protocol_id       :integer          default(1), not null
-#  proxy_transport_protocol_id :integer          default(1), not null
+#  max_attempts                :integer(2)
+#  name                        :string           not null
+#  proxy                       :string
+#  retry_delay                 :integer(2)       default(5), not null
+#  sip_interface_name          :string
+#  username                    :string           not null
+#  node_id                     :integer(4)
+#  pop_id                      :integer(4)
+#  proxy_transport_protocol_id :integer(2)       default(1), not null
+#  sip_schema_id               :integer(2)       default(1), not null
+#  transport_protocol_id       :integer(2)       default(1), not null
+#
+# Indexes
+#
+#  registrations_name_key  (name) UNIQUE
+#
+# Foreign Keys
+#
+#  registrations_node_id_fkey                      (node_id => nodes.id)
+#  registrations_pop_id_fkey                       (pop_id => pops.id)
+#  registrations_proxy_transport_protocol_id_fkey  (proxy_transport_protocol_id => transport_protocols.id)
+#  registrations_sip_schema_id_fkey                (sip_schema_id => sip_schemas.id)
+#  registrations_transport_protocol_id_fkey        (transport_protocol_id => transport_protocols.id)
 #
 
-class Equipment::Registration < Yeti::ActiveRecord
+class Equipment::Registration < ApplicationRecord
+  self.table_name = 'class4.registrations'
+
   belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_protocol_id
   belongs_to :proxy_transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :proxy_transport_protocol_id
-  belongs_to :pop
-  belongs_to :node
+  belongs_to :pop, optional: true
+  belongs_to :node, optional: true
+  belongs_to :sip_schema, class_name: 'System::SipSchema', foreign_key: :sip_schema_id
 
-  validates_uniqueness_of :name, allow_blank: false
-  validates_presence_of :name, :domain, :username, :retry_delay, :transport_protocol, :proxy_transport_protocol
+  validates :name, uniqueness: { allow_blank: false }
+  validates :name, :domain, :username, :retry_delay, :transport_protocol, :proxy_transport_protocol, :sip_schema, presence: true
 
   # validates_format_of :contact, :with => /\Asip:(.*)\z/
-  validates :contact, format: URI.regexp(%w[sip])
+  validates :contact, format: URI::DEFAULT_PARSER.make_regexp(%w[sip])
 
-  validates_numericality_of :retry_delay, greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: false, only_integer: true
-  validates_numericality_of :max_attempts, greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true
+  validates :retry_delay, numericality: { greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: false, only_integer: true }
+  validates :max_attempts, numericality: { greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true }
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
   def display_name
     "#{name} | #{id}"
@@ -47,4 +64,6 @@ class Equipment::Registration < Yeti::ActiveRecord
 
   include Yeti::ResourceStatus
   include Yeti::RegistrationReloader
+  include Yeti::StateUpdater
+  self.state_name = 'registrations'
 end

@@ -8,19 +8,6 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
   acts_as_audit
   acts_as_safe_destroy
   acts_as_async_destroy('Billing::Invoice')
-  acts_as_async_update('Billing::Invoice',
-                       lambda do
-                         {
-                           contractor_id: Contractor.pluck(:name, :id),
-                           account_id: Account.pluck(:name, :id),
-                           state_id: Billing::InvoiceState.pluck(:name, :id),
-                           start_date: 'datepicker',
-                           end_date: 'datepicker',
-                           amount: 'text',
-                           type_id: Billing::InvoiceType.pluck(:name, :id),
-                           vendor_invoice: boolean_select
-                         }
-                       end)
 
   acts_as_delayed_job_lock
 
@@ -38,18 +25,8 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
   includes :contractor, :account, :state, :type
 
   controller do
-    def create_resource(object)
-      object.type_id = Billing::InvoiceType::MANUAL # TODO: fix this. We need separate method for manual creation
-      InvoiceGenerator.new(object).save!
-    end
-
-    def create
-      create!
-    rescue StandardError => e
-      logger.warn { e.message }
-      logger.warn { e.backtrace.join("\n") }
-      flash[:error] = e.message
-      redirect_back fallback_location: root_path
+    def build_new_resource
+      ManualInvoiceForm.new(*resource_params)
     end
   end
 
@@ -137,14 +114,12 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
     link_to('Approve', approve_invoice_path(resource.id), method: :post) if resource.approvable?
   end
 
-  permit_params :vendor_invoice, :contractor_id, :account_id,
-                :start_date,
-                :end_date
-
   index footer_data: ->(collection) { BillingDecorator.new(collection.totals) } do
     selectable_column
     id_column
+    column 'UUID', :uuid
     actions
+    column :reference
     column :contractor, footer: lambda {
       strong do
         'Total:'
@@ -191,19 +166,27 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
   end
 
   filter :id
-  filter :contractor, input_html: { class: 'chosen' }
-  filter :account, input_html: { class: 'chosen' }
+  filter :uuid_equals, label: 'UUID'
+  filter :reference
+  contractor_filter :contractor_id_eq
+  account_filter :account_id_eq
   filter :state
   filter :start_date, as: :date_time_range
   filter :end_date, as: :date_time_range
   filter :vendor_invoice, label: 'Direction', as: :select, collection: [['Vendor', true], ['Customer', false]]
   filter :type
+  filter :amount
+  filter :billing_duration
+  filter :calls_count
+  filter :calls_duration
 
   show do |s|
     tabs do
       tab 'Invoice' do
         attributes_table_for s do
           row :id
+          row :uuid
+          row :reference
           row :contractor_id
           row :account
           row :state
@@ -282,32 +265,42 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
     end
   end
 
+  permit_params :is_vendor,
+                :contractor_id,
+                :account_id,
+                :start_date,
+                :end_date
+
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
-      f.input :vendor_invoice
-      f.input :contractor, collection: Contractor.all,
-                           input_html: {
-                             class: 'chosen',
-                             onchange: remote_chosen_request(:get, get_accounts_contractors_path, { contractor_id: '$(this).val()' }, :billing_invoice_account_id)
+      f.input :is_vendor,
+              as: :select,
+              label: 'Vendor invoice',
+              collection: [['Yes', true], ['No', false]],
+              include_blank: false,
+              input_html: { class: 'chosen' }
 
-                           }
-      f.input :account, collection: [], input_html: { class: 'chosen' }
-      f.input :start_date, as: :date_time_picker, datepicker_options: { defaultTime: '00:00' }, hint: 'Customer timezone will be used', wrapper_html: { class: 'datetime_preset_pair', data: { show_time: 'true' } }
-      f.input :end_date, as: :date_time_picker, datepicker_options: { defaultTime: '00:00' }, hint: 'Customer timezone will be used'
-    end
-    f.actions
-  end
+      f.contractor_input :contractor_id
+      f.account_input :account_id,
+                      fill_params: { contractor_id_eq: f.object.contractor_id },
+                      fill_required: :contractor_id_eq,
+                      input_html: {
+                        'data-path-params': { 'q[contractor_id_eq]': '.contractor_id-input' }.to_json,
+                        'data-required-param': 'q[contractor_id_eq]'
+                      }
 
-  sidebar :links, only: %i[show edit], if: proc { !assigns[:invoice].first_call_at.nil? && !assigns[:invoice].last_call_at.nil? } do
-    ul do
-      li do
-        if resource.vendor_invoice?
-          link_to 'CDR list', cdrs_path(q: { vendor_invoice_id_equals: params[:id], time_start_gteq: resource.first_call_at - 1, time_start_lteq: resource.last_call_at + 1 }), target: '_blank'
-        else
-          link_to 'CDR list', cdrs_path(q: { customer_invoice_id_equals: params[:id], time_start_gteq: resource.first_call_at - 1, time_start_lteq: resource.last_call_at + 1 }), target: '_blank'
-        end
-      end
+      f.input :start_date,
+              as: :date_time_picker,
+              datepicker_options: { defaultTime: '00:00' },
+              hint: 'Customer timezone will be used',
+              wrapper_html: { class: 'datetime_preset_pair', data: { show_time: 'true' } }
+
+      f.input :end_date,
+              as: :date_time_picker,
+              datepicker_options: { defaultTime: '00:00' },
+              hint: 'Customer timezone will be used'
     end
+    f.actions { f.submit('Create Invoice') }
   end
 end

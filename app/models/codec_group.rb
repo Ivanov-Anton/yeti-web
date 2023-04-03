@@ -4,20 +4,24 @@
 #
 # Table name: codec_groups
 #
-#  id   :integer          not null, primary key
+#  id   :integer(4)       not null, primary key
 #  name :string           not null
 #
+# Indexes
+#
+#  codec_groups_name_key  (name) UNIQUE
+#
 
-class CodecGroup < ActiveRecord::Base
-  has_paper_trail class_name: 'AuditLogItem'
+class CodecGroup < ApplicationRecord
+  include WithPaperTrail
 
   has_many :codec_group_codecs, inverse_of: :codec_group, dependent: :destroy
   has_many :codecs, through: :codec_group_codecs
 
   accepts_nested_attributes_for :codec_group_codecs, allow_destroy: true
 
-  validates_uniqueness_of :name, allow_blank: false
-  validates_presence_of :name
+  validates :name, uniqueness: { allow_blank: false }
+  validates :name, presence: true
   validate :check_uniqueness_of_codecs
 
   def codec_names
@@ -37,12 +41,15 @@ class CodecGroup < ActiveRecord::Base
   end
 
   include Yeti::CodecReloader
+  include Yeti::StateUpdater
+  self.state_name = 'codec_groups'
 
   protected
 
   def check_uniqueness_of_codecs
-    codecs_tmp =  codec_group_codecs.to_a.reject(&:marked_for_destruction?)
-    errors[:base] << 'Empty Codecs' if codecs_tmp.empty?
-    errors[:base] << "Codec Group can't contain duplicated codecs" unless codecs_tmp.length == codecs_tmp.uniq(&:codec_id).length
+    codecs_tmp = codec_group_codecs.to_a.reject(&:marked_for_destruction?)
+    errors.add(:base, 'Empty Codecs') if codecs_tmp.empty?
+    errors.add(:base, "Codec Group can't contain duplicated codecs") unless codecs_tmp.length == codecs_tmp.uniq(&:codec_id).length
+    errors.add(:base, "Codec Group can't contain codecs with the same priority") unless codecs_tmp.length == codecs_tmp.uniq(&:priority).length
   end
 end

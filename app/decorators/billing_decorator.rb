@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-class BillingDecorator < Draper::Decorator
-  delegate_all
-
+class BillingDecorator < ApplicationDecorator
   def money_format(attr)
     return nil if model.public_send(attr).nil?
 
@@ -32,9 +30,9 @@ class BillingDecorator < Draper::Decorator
     if duration >= 60
       mins = duration.div(60).to_i
       secs = (duration - 60 * mins).to_i
-      return "#{mins} min. #{secs} sec."
+      "#{mins} min. #{secs} sec."
     else
-      return "#{duration.to_i} sec."
+      "#{duration.to_i} sec."
     end
   end
 
@@ -50,9 +48,9 @@ class BillingDecorator < Draper::Decorator
     if duration >= 60
       mins = duration.div(60).to_i
       secs = (duration - 60 * mins).to_i
-      return "#{mins}:#{secs.to_s.rjust(2, '0')}"
+      "#{mins}:#{secs.to_s.rjust(2, '0')}"
     else
-      return "00:#{duration.to_s.rjust(2, '0')}"
+      "00:#{duration.to_s.rjust(2, '0')}"
     end
   end
 
@@ -63,9 +61,9 @@ class BillingDecorator < Draper::Decorator
     if duration >= 60
       mins = duration.div(60).to_i
       secs = (duration - 60 * mins).to_i
-      return "#{mins} min. #{secs} sec."
+      "#{mins} min. #{secs} sec."
     else
-      return "#{duration} sec."
+      "#{duration} sec."
     end
   end
 

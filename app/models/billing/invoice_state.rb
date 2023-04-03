@@ -4,8 +4,12 @@
 #
 # Table name: billing.invoice_states
 #
-#  id   :integer          not null, primary key
+#  id   :integer(2)       not null, primary key
 #  name :string           not null
+#
+# Indexes
+#
+#  invoice_states_name_key  (name) UNIQUE
 #
 
 class Billing::InvoiceState < Cdr::Base
@@ -13,4 +17,5 @@ class Billing::InvoiceState < Cdr::Base
 
   PENDING = 1
   APPROVED = 2
+  NEW = 3
 end

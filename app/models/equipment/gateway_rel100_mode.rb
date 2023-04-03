@@ -4,10 +4,16 @@
 #
 # Table name: class4.gateway_rel100_modes
 #
-#  id   :integer          not null, primary key
+#  id   :integer(2)       not null, primary key
 #  name :string           not null
 #
+# Indexes
+#
+#  gateway_rel100_modes_name_key  (name) UNIQUE
+#
 
-class Equipment::GatewayRel100Mode < Yeti::ActiveRecord
+class Equipment::GatewayRel100Mode < ApplicationRecord
   self.table_name = 'class4.gateway_rel100_modes'
+
+  validates :name, presence: true, uniqueness: true
 end

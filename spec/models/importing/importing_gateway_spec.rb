@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'shared_examples/shared_examples_for_importing_hook'
 
-xdescribe Importing::Gateway do
+RSpec.xdescribe Importing::Gateway do
   include_context :init_contractor, name: 'iBasis', vendor: true
 
   include_context :init_gateway_group, name: 'iBasis Gateway Group'
@@ -27,7 +26,7 @@ xdescribe Importing::Gateway do
                     sdp_alines_filter_type_id: nil,
                     orig_disconnect_policy_id: nil,
                     term_disconnect_policy_id: nil,
-                    diversion_policy_id: nil,
+                    diversion_send_mode_id: nil,
                     pop_id: nil,
                     codec_group_id: nil,
                     sdp_c_location_id: nil,

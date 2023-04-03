@@ -4,40 +4,62 @@
 #
 # Table name: contractors
 #
-#  id                 :integer          not null, primary key
-#  name               :string
-#  enabled            :boolean
-#  vendor             :boolean
+#  id                 :integer(4)       not null, primary key
+#  address            :string
 #  customer           :boolean
 #  description        :string
-#  address            :string
+#  enabled            :boolean
+#  name               :string
 #  phones             :string
-#  smtp_connection_id :integer
-#  external_id        :integer
+#  vendor             :boolean
+#  external_id        :bigint(8)
+#  smtp_connection_id :integer(4)
+#
+# Indexes
+#
+#  contractors_external_id_key  (external_id) UNIQUE
+#  contractors_name_unique      (name) UNIQUE
+#
+# Foreign Keys
+#
+#  contractors_smtp_connection_id_fkey  (smtp_connection_id => smtp_connections.id)
 #
 
-class Contractor < ActiveRecord::Base
+class Contractor < ApplicationRecord
   has_many :gateways, dependent: :restrict_with_error
   has_many :gateway_groups, foreign_key: :vendor_id, dependent: :restrict_with_error
   has_many :customers_auths, foreign_key: :customer_id, dependent: :restrict_with_error
-  has_many :rateplans, through: :customers_auths
+  has_many :rateplans, through: :customers_auths, class_name: 'Routing::Rateplan'
   has_many :accounts, dependent: :restrict_with_error
   has_many :contacts, class_name: 'Billing::Contact', foreign_key: 'contractor_id', dependent: :delete_all
   has_many :api_access, class_name: 'System::ApiAccess', foreign_key: 'customer_id', dependent: :destroy
-  belongs_to :smtp_connection, class_name: 'System::SmtpConnection'
+  has_many :active_rate_management_pricelist_items,
+           -> { not_applied },
+           class_name: 'RateManagement::PricelistItem',
+           foreign_key: :vendor_id
+  has_many :applied_rate_management_pricelist_items,
+           -> { applied },
+           class_name: 'RateManagement::PricelistItem',
+           dependent: :nullify,
+           foreign_key: :vendor_id
+  belongs_to :smtp_connection, class_name: 'System::SmtpConnection', optional: true
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
   scope :customers, -> { where customer: true }
   scope :vendors, -> { where vendor: true }
+  scope :search_for, ->(term) { where("contractors.name || ' | ' || contractors.id::varchar ILIKE ?", "%#{term}%") }
+  scope :ordered_by, ->(term) { order(term) }
 
   include Yeti::ResourceStatus
 
   validate :vendor_or_customer?
   validate :customer_can_be_disabled
-  validates_presence_of :name
-  validates_uniqueness_of :name
-  validates_uniqueness_of :external_id, allow_blank: true
+  validates :name, presence: true
+  validates :name, uniqueness: true
+  validates :external_id, uniqueness: { allow_blank: true }
+
+  before_destroy :check_associated_records
 
   def display_name
     "#{name} | #{id}"
@@ -45,14 +67,6 @@ class Contractor < ActiveRecord::Base
 
   def is_enabled?
     enabled
-  end
-
-  def for_origination_gateways
-    Gateway.for_origination(id)
-  end
-
-  def for_termination_gateways
-    Gateway.for_termination(id)
   end
 
   private
@@ -68,5 +82,19 @@ class Contractor < ActiveRecord::Base
     if customer_changed?(from: true, to: false) && customers_auths.any?
       errors.add(:customer, I18n.t('activerecord.errors.models.contractor.attributes.customer'))
     end
+  end
+
+  def check_associated_records
+    pricelist_ids = active_rate_management_pricelist_items.pluck(Arel.sql('DISTINCT(pricelist_id)'))
+    if pricelist_ids.any?
+      errors.add(:base, "Can't be deleted because linked to not applied Rate Management Pricelist(s) ##{pricelist_ids.join(', #')}")
+      throw(:abort)
+    end
+  end
+
+  def self.ransackable_scopes(_auth_object = nil)
+    %i[
+      search_for ordered_by
+    ]
   end
 end

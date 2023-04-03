@@ -4,16 +4,20 @@
 #
 # Table name: class4.lnp_databases
 #
-#  id            :integer          not null, primary key
-#  name          :string           not null
-#  created_at    :datetime
-#  database_type :string
-#  database_id   :integer          not null
+#  id                                                                                   :integer(2)       not null, primary key
+#  cache_ttl                                                                            :integer(4)       default(10800), not null
+#  database_type(One of Lnp::DatabaseThinq, Lnp::DatabaseSipRedirect, Lnp::DatabaseCsv) :string
+#  name                                                                                 :string           not null
+#  created_at                                                                           :datetime
+#  database_id                                                                          :integer(2)       not null
+#
+# Indexes
+#
+#  index_class4.lnp_databases_on_database_id_and_database_type  (database_id,database_type) UNIQUE
+#  lnp_databases_name_key                                       (name) UNIQUE
 #
 
-require 'spec_helper'
-
-describe Lnp::Database, type: :model do
+RSpec.describe Lnp::Database, type: :model do
   it 'validates correctly' do
     is_expected.to validate_presence_of(:name)
   end

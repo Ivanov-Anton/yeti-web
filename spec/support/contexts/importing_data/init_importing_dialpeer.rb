@@ -32,7 +32,7 @@ shared_context :init_importing_dialpeer do |args|
       initial_rate: 0.0092,
       initial_interval: 1,
       next_interval: 1,
-      routing_tag_ids: [@tag_ua.id, @tag_us.id],
+      routing_tag_ids: [tag_ua.id, tag_us.id],
       routing_tag_mode_name: Routing::RoutingTagMode.last.name,
       routing_tag_mode_id: Routing::RoutingTagMode.last.id,
       routeset_discriminator_id: @routeset_discriminator.id,
@@ -40,6 +40,6 @@ shared_context :init_importing_dialpeer do |args|
       is_changed: true
     }.merge(args)
 
-    @importing_dialpeer = FactoryGirl.create(:importing_dialpeer, fields)
+    @importing_dialpeer = FactoryBot.create(:importing_dialpeer, fields)
   end
 end

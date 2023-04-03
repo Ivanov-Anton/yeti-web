@@ -4,26 +4,30 @@
 #
 # Table name: reports.cdr_interval_report_schedulers
 #
-#  id              :integer          not null, primary key
-#  created_at      :datetime
-#  period_id       :integer          not null
+#  id              :integer(4)       not null, primary key
+#  aggregate_by    :string
 #  filter          :string
 #  group_by        :string           is an Array
-#  interval_length :integer
-#  aggregator_id   :integer
-#  aggregate_by    :string
-#  send_to         :integer          is an Array
+#  interval_length :integer(4)
 #  last_run_at     :datetime
 #  next_run_at     :datetime
+#  send_to         :integer(4)       is an Array
+#  created_at      :datetime
+#  aggregator_id   :integer(4)
+#  period_id       :integer(4)       not null
+#
+# Foreign Keys
+#
+#  cdr_interval_report_schedulers_period_id_fkey  (period_id => scheduler_periods.id)
 #
 
 class Report::IntervalCdrScheduler < Cdr::Base
   self.table_name = 'reports.cdr_interval_report_schedulers'
 
   belongs_to :period, class_name: 'Report::SchedulerPeriod', foreign_key: :period_id
-  belongs_to :aggregation_function, class_name: 'Report::IntervalAggregator', foreign_key: :aggregator_id
+  belongs_to :aggregation_function, class_name: 'Report::IntervalAggregator', foreign_key: :aggregator_id, optional: true
 
-  validates_presence_of :period, :interval_length, :aggregation_function, :aggregate_by
+  validates :period, :interval_length, :aggregation_function, :aggregate_by, presence: true
 
   include Hints
 
@@ -50,8 +54,8 @@ class Report::IntervalCdrScheduler < Cdr::Base
     self[:send_to] = send_to_ids.reject(&:blank?)
   end
 
-  def group_by=(group_by_fields)
-    self[:group_by] = group_by_fields.reject(&:blank?)
+  def group_by=(value)
+    self[:group_by] = value.reject(&:blank?)
   end
 
   def aggregation

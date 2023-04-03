@@ -13,7 +13,7 @@ class RolePolicy < ApplicationPolicy
     end
 
     def section(section_name)
-      self._section_name = section_name.try!(:to_sym)
+      self._section_name = section_name&.to_sym
     end
   end
 
@@ -69,7 +69,7 @@ class RolePolicy < ApplicationPolicy
   end
 
   def rule_when_no_config
-    Rails.configuration.yeti_web['role_policy']['when_no_config'].to_sym == :allow
+    YetiConfig.role_policy.when_no_config.to_sym == :allow
   end
 
   def section_name

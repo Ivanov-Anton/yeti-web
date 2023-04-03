@@ -22,10 +22,7 @@ shared_context :init_gateway do |args|
       contractor_id: @contractor.id,
       allow_termination: true,
       allow_origination: false,
-      anonymize_sdp: true,
       proxy_media: true,
-      transparent_seqno: false,
-      transparent_ssrc: false,
       sst_enabled: false,
       sst_minimum_timer: 50,
       sst_maximum_timer: 50,
@@ -55,13 +52,14 @@ shared_context :init_gateway do |args|
       gateway_group_id: @gateway_group.id,
       orig_disconnect_policy_id: 1,
       term_disconnect_policy_id: 1,
-      diversion_policy_id: 1,
+      diversion_send_mode_id: 1,
+      diversion_domain: '',
       diversion_rewrite_rule: '',
       diversion_rewrite_result: '',
       src_name_rewrite_rule: '',
       src_name_rewrite_result: '',
       priority: 100,
-      pop_id: 1,
+      pop_id: @pop.id,
       codec_group_id: CodecGroup.last.id,
       single_codec_in_200ok: false,
       ringing_timeout: nil,
@@ -85,9 +83,10 @@ shared_context :init_gateway do |args|
       dns_srv_failover_timer: 2000,
       rtp_force_relay_cn: true,
       sensor_id: nil,
-      sensor_level_id: 1
+      sensor_level_id: 1,
+      force_cancel_routeset: true
     }.merge(args)
 
-    @gateway = FactoryGirl.create(:gateway, fields)
+    @gateway = FactoryBot.create(:gateway, fields)
   end
 end

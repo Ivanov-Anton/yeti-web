@@ -4,23 +4,32 @@
 #
 # Table name: sys.api_access
 #
-#  id              :integer          not null, primary key
-#  customer_id     :integer          not null
+#  id              :integer(4)       not null, primary key
+#  account_ids     :integer(4)       default([]), not null, is an Array
+#  allowed_ips     :inet             default(["\"0.0.0.0/0\""]), not null, is an Array
 #  login           :string           not null
 #  password_digest :string           not null
-#  account_ids     :integer          default([]), not null, is an Array
-#  allowed_ips     :inet             default(["\"0.0.0.0/0\""]), not null, is an Array
+#  customer_id     :integer(4)       not null
+#
+# Indexes
+#
+#  api_access_customer_id_idx  (customer_id)
+#  api_access_login_key        (login) UNIQUE
+#
+# Foreign Keys
+#
+#  api_access_customer_id_fkey  (customer_id => contractors.id)
 #
 
-class System::ApiAccess < ActiveRecord::Base
+class System::ApiAccess < ApplicationRecord
   self.table_name = 'sys.api_access'
 
   has_secure_password
 
   belongs_to :customer, class_name: 'Contractor', foreign_key: :customer_id
 
-  validates_uniqueness_of :login
-  validates_presence_of :login, :customer
+  validates :login, uniqueness: true
+  validates :login, :customer, presence: true
 
   validate :allowed_ips_is_valid
 
@@ -59,7 +68,7 @@ class System::ApiAccess < ActiveRecord::Base
   end
 
   def self.from_token_request(request)
-    where(login: request.params[:auth][:login]).take
+    find_by(login: request.params[:auth][:login])
   end
 
   # force update Allowed IPs

@@ -1,0 +1,30 @@
+[Unit]
+Description=YETI system web interface delayed jobs
+Documentation=https://yeti-switch.org/docs/
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=yeti-web
+Group=yeti-web
+LimitNOFILE=65536
+LimitCORE=infinity
+
+Environment=RBENV_ROOT=/opt/yeti-web/vendor/rbenv
+Environment=PATH=/opt/yeti-web/vendor/rbenv/shims:/usr/bin:/opt/yeti-web/vendor/bundler/bin:/bin
+Environment=RAILS_ENV=production
+Environment=RACK_ENV=production
+Environment=RAKE_ENV=production
+Environment=BUNDLE_GEMFILE=/opt/yeti-web/Gemfile
+Environment=GEM_PATH=/opt/yeti-web/vendor/bundler
+
+RuntimeDirectory=yeti-scheduler
+ExecStart=/opt/yeti-web/vendor/rbenv/shims/ruby \
+	/opt/yeti-web/vendor/bundler/bin/bundle exec \
+	/opt/yeti-web/bin/scheduler
+
+Type=simple
+Restart=always
+RestartSec=30s
+

@@ -5,14 +5,20 @@ ActiveAdmin.setup do |config|
     #        admin.build_menu :utility_navigation do |menu|
     admin.build_menu do |menu|
       menu.add label: 'Billing', priority: 20
-      menu.add label: 'Equipment', priority: 30
+      menu.add label: 'Equipment', priority: 30 do |sub_menu|
+        sub_menu.add label: 'RADIUS', priority: 900
+        sub_menu.add label: 'STIR/SHAKEN', priority: 1000
+      end
       menu.add label: 'Routing', priority: 40
       menu.add label: 'CDR', priority: 50
       menu.add label: 'Reports', priority: 60
       #      menu.add label: "Rate Tools", priority: 65
       menu.add label: 'Realtime Data', priority: 70
       menu.add label: 'Logs', priority: 80
-      menu.add label: 'System', priority: 90
+      menu.add label: 'System', priority: 90 do |sub_menu|
+        sub_menu.add label: 'Components'
+      end
+      menu.add label: 'Rate Management', priority: 100
 
       # http://127.0.0.1:3000/admin/admin_users/1
       menu.add label: proc { display_name current_active_admin_user },
@@ -27,14 +33,14 @@ ActiveAdmin.setup do |config|
     admin.build_menu :utility_navigation do
     end
   end
-  config.load_paths = [File.join(Rails.root, 'app', 'admin')] #+ Dir.glob(File.join(Rails.root, "app", "admin", "/**/*/"))).uniq
+  config.load_paths = [Rails.root.join('app/admin').to_s] #+ Dir.glob(File.join(Rails.root, "app", "admin", "/**/*/"))).uniq
 
   # == Site Title
   #
   # Set the title that is displayed on the main layout
   # for each of the active admin pages.
   #
-  config.site_title = Rails.configuration.yeti_web['site_title']
+  config.site_title = YetiConfig.site_title
   # Set the link url for the title. For example, to take
   # users to your main site. Defaults to no link.
   #
@@ -45,7 +51,7 @@ ActiveAdmin.setup do |config|
   #
   # Note: Recommended image height is 21px to properly fit in the header
   #
-  config.site_title_image = Rails.configuration.yeti_web['site_title_image']
+  config.site_title_image = YetiConfig.site_title_image
 
   # == Default Namespace
   #
@@ -127,7 +133,7 @@ ActiveAdmin.setup do |config|
   #
   # Default:
   # config.comments = true
-  config.comments_menu = false
+  config.comments_menu = { parent: 'Logs', priority: 300, label: 'Comments' }
 
   config.current_filters = false
 

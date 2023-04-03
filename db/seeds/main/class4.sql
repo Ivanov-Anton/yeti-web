@@ -106,7 +106,7 @@ INSERT INTO codecs (id, name) VALUES (17, 'G726-40/8000');
 INSERT INTO codecs (id, name) VALUES (18, 'G726-16/8000');
 INSERT INTO codecs (id, name) VALUES (19, 'L16/8000');
 INSERT INTO codecs (id, name) VALUES (20, 'G722/8000');
-
+INSERT INTO codecs (id, name) VALUES (21, 'opus/48000/2');
 
 --
 -- TOC entry 4431 (class 0 OID 0)
@@ -163,26 +163,6 @@ SELECT pg_catalog.setval('codecs_id_seq', 20, true);
 --
 
 SELECT pg_catalog.setval('customers_auth_id_seq', 20083, true);
-
-
---
--- TOC entry 4325 (class 0 OID 19150)
--- Dependencies: 308
--- Data for Name: destination_rate_policy; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO destination_rate_policy (id, name) VALUES (1, 'Fixed');
-INSERT INTO destination_rate_policy (id, name) VALUES (2, 'Based on used dialpeer');
-INSERT INTO destination_rate_policy (id, name) VALUES (3, 'MIN(Fixed,Based on used dialpeer)');
-INSERT INTO destination_rate_policy (id, name) VALUES (4, 'MAX(Fixed,Based on used dialpeer)');
-
-
---
--- TOC entry 4306 (class 0 OID 18506)
--- Dependencies: 273
--- Data for Name: destinations; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
 
 
 --
@@ -322,7 +302,6 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (122, 1, true, false, 500, 'db broken connection', NULL, 'Internal Server Error', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (123, 1, true, false, 500, 'db conversion exception', NULL, 'Internal Server Error', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (124, 1, true, false, 500, 'db base exception', NULL, 'Internal Server Error', false, false, true, false);
-INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (60, 2, false, false, 404, 'Not Found', NULL, '', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (117, 1, true, false, 500, 'no such prepared query', NULL, 'Internal Server Error', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (118, 1, true, false, 500, 'empty response from database', NULL, 'Internal Server Error', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (119, 1, true, false, 500, 'read from tuple failed', NULL, 'Internal Server Error', false, false, true, false);
@@ -334,6 +313,11 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1502, 1, true, false, 500, 'SDP empty answer', NULL, NULL, false, true, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1503, 1, true, false, 500, 'SDP invalid streams count', NULL, NULL, false, true, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1504, 1, true, false, 500, 'SDP inv streams types', NULL, NULL, false, true, true, false);
+
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (60, 2, false, false, 404, 'Not Found', NULL, '', false, false, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1602, 2, false, true, 607, 'Unwanted', NULL, NULL, false, false, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1603, 2, false, true, 608, 'Rejected', NULL, NULL, false, false, true, false);
+
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8000, 0, true, true, 403, 'Not enough customer balance', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8001, 0, true, true, 403, 'Destination number blacklisted', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8002, 0, true, true, 403, 'Source number blacklisted', NULL, NULL, false, false, true, false);
@@ -341,6 +325,15 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8004,0,true,true,403,'Rejected by Auth record',false,false,true,false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8005,0,true,true,403,'Origination gateway is disabled',false,false,true,false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8006,0,true,true,403,'No destination with appropriate price found',false,false,true,false);
+
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8007,0,true,true,404,'No network found for dst number',484,'Address Incomplete',false,false,true,false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8008,0,true,true,404,'Invalid dst number format',484,'Address Incomplete',false,false,true,false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8009,0,true,true,503,'No response from CNAM DB', NULL, NULL, false, false, true, false);
+
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8010,0,true,true,404,'No network found for src number',484,'Address Incomplete',false,false,true,false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8011,0,true,true,404,'Invalid src number format',484,'Address Incomplete',false,false,true,false);
+
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8012,0,true,true,480,'CPS limit',NULL,NULL,false,false,true,false);
 
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1505, 1, false, false, 487, 'Ringing timeout', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (2001, 3, true, false, 503, 'Radius response timeout', NULL, NULL, false, false, true, false);
@@ -400,32 +393,6 @@ SELECT pg_catalog.setval('disconnect_code_policy_codes_id_seq', 3, true);
 SELECT pg_catalog.setval('disconnect_code_policy_id_seq', 2, true);
 
 
---
--- TOC entry 4336 (class 0 OID 19203)
--- Dependencies: 319
--- Data for Name: disconnect_initiators; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO disconnect_initiators (id, name) VALUES (0, 'Traffic manager');
-INSERT INTO disconnect_initiators (id, name) VALUES (1, 'Traffic switch');
-INSERT INTO disconnect_initiators (id, name) VALUES (2, 'Destination');
-INSERT INTO disconnect_initiators (id, name) VALUES (3, 'Origination');
-
-
---
--- TOC entry 4334 (class 0 OID 19195)
--- Dependencies: 317
--- Data for Name: disconnect_policy; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-
-
---
--- TOC entry 4332 (class 0 OID 19185)
--- Dependencies: 315
--- Data for Name: disconnect_policy_code; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
 
 
 --
@@ -434,7 +401,12 @@ INSERT INTO disconnect_initiators (id, name) VALUES (3, 'Origination');
 -- Data for Name: diversion_policy; Type: TABLE DATA; Schema: class4; Owner: yeti
 --
 
-INSERT INTO diversion_policy (id, name) VALUES (1, 'Clear header');
+INSERT INTO diversion_policy (id, name) VALUES (1, 'Do not accept');
+INSERT INTO diversion_policy (id, name) VALUES (2, 'Accept');
+
+insert into class4.gateway_diversion_send_modes(id,name) values(1,'Do not send');
+insert into class4.gateway_diversion_send_modes(id,name) values(2,'Send as SIP URI');
+insert into class4.gateway_diversion_send_modes(id,name) values(3,'Send as TEL URI');
 
 
 --
@@ -461,18 +433,6 @@ INSERT INTO dtmf_send_modes (id, name) VALUES (0, 'Disable sending');
 INSERT INTO dtmf_send_modes (id, name) VALUES (1, 'RFC 2833');
 INSERT INTO dtmf_send_modes (id, name) VALUES (2, 'SIP INFO application/dtmf-relay');
 INSERT INTO dtmf_send_modes (id, name) VALUES (4, 'SIP INFO application/dtmf');
-
-
---
--- TOC entry 4340 (class 0 OID 19227)
--- Dependencies: 323
--- Data for Name: dump_level; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO dump_level (id, name, log_sip, log_rtp) VALUES (3, 'Capture all traffic', true, true);
-INSERT INTO dump_level (id, name, log_sip, log_rtp) VALUES (0, 'Capture nothing', false, false);
-INSERT INTO dump_level (id, name, log_sip, log_rtp) VALUES (2, 'Capture rtp traffic', true, false);
-INSERT INTO dump_level (id, name, log_sip, log_rtp) VALUES (1, 'Capture signaling traffic', true, false);
 
 
 --
@@ -565,41 +525,6 @@ SELECT pg_catalog.setval('lnp_cache_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('lnp_databases_id_seq', 1, false);
-
-
---
--- TOC entry 4350 (class 0 OID 19275)
--- Dependencies: 333
--- Data for Name: numberlist_actions; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO numberlist_actions (id, name) VALUES (1, 'Reject call');
-INSERT INTO numberlist_actions (id, name) VALUES (2, 'Allow call');
-
-
---
--- TOC entry 4313 (class 0 OID 19091)
--- Dependencies: 296
--- Data for Name: numberlist_items; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-
-
---
--- TOC entry 4351 (class 0 OID 19281)
--- Dependencies: 334
--- Data for Name: numberlist_modes; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO class4.numberlist_modes (id, name) VALUES (1, 'Strict number match');
-INSERT INTO class4.numberlist_modes (id, name) VALUES (2, 'Prefix match');
-INSERT INTO class4.numberlist_modes (id, name) VALUES (3, 'Random');
-
---
--- TOC entry 4315 (class 0 OID 19099)
--- Dependencies: 298
--- Data for Name: numberlists; Type: TABLE DATA; Schema: class4; Owner: yeti
---
 
 
 
@@ -703,24 +628,6 @@ SELECT pg_catalog.setval('radius_auth_profile_attributes_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('radius_auth_profiles_id_seq', 1, false);
-
-
---
--- TOC entry 4364 (class 0 OID 19348)
--- Dependencies: 347
--- Data for Name: rate_profit_control_modes; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO rate_profit_control_modes (id, name) VALUES (1, 'no control');
-INSERT INTO rate_profit_control_modes (id, name) VALUES (2, 'per call');
-
-
---
--- TOC entry 4365 (class 0 OID 19354)
--- Dependencies: 348
--- Data for Name: rateplans; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
 
 
 --
@@ -902,30 +809,6 @@ SELECT pg_catalog.setval('session_refresh_methods_id_seq', 3, true);
 
 
 --
--- TOC entry 4386 (class 0 OID 19446)
--- Dependencies: 369
--- Data for Name: sortings; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (2, 'LCR, No ACD&ASR control', 'Without ACD&ASR control', false);
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (3, 'Prio,LCR, ACD&ASR control', 'Same as default, but priotity has more weight', false);
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (1, 'LCR,Prio, ACD&ASR control', 'Default dialpeer sorting method', false);
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (4, 'LCRD, Prio, ACD&ASR control', 'Same as default, but take in account diff between costs', false);
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (5, 'Route testing', NULL, false);
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (6, 'QD-Static, LCR, ACD&ASR control', NULL, true);
-INSERT INTO sortings (id, name, description, use_static_routes) VALUES (7, 'Static only, No ACD&ASR control', NULL, true);
-
-
---
--- TOC entry 4462 (class 0 OID 0)
--- Dependencies: 370
--- Name: sortings_id_seq; Type: SEQUENCE SET; Schema: class4; Owner: yeti
---
-
-SELECT pg_catalog.setval('sortings_id_seq', 3, true);
-
-
---
 -- TOC entry 4388 (class 0 OID 19455)
 -- Dependencies: 371
 -- Data for Name: transport_protocols; Type: TABLE DATA; Schema: class4; Owner: yeti
@@ -958,6 +841,7 @@ select setval('class4.routeset_discriminators_id_seq'::regclass, 1, true);
 insert into class4.gateway_media_encryption_modes(id, name) values(0, 'Disable');
 insert into class4.gateway_media_encryption_modes(id, name) values(1, 'SRTP SDES');
 insert into class4.gateway_media_encryption_modes(id, name) values(2, 'SRTP DTLS');
+insert into class4.gateway_media_encryption_modes(id, name) values(3, 'SRTP ZRTP');
 
 insert into class4.gateway_network_protocol_priorities(id, name) values(0, 'force IPv4');
 insert into class4.gateway_network_protocol_priorities(id, name) values(1, 'force IPv6');
@@ -970,3 +854,14 @@ insert into class4.gateway_group_balancing_modes(id,name) values(2,'Priority/Wei
 insert into class4.gateway_group_balancing_modes(id,name) values(3,'Priority/Weigth balancing. Exclude gateways from other POPs');
 
 
+insert into class4.customers_auth_src_number_fields(id,name) values(1,'From header userpart');
+insert into class4.customers_auth_src_number_fields(id,name) values(2,'From header display name');
+
+insert into class4.customers_auth_src_name_fields(id,name) values(1,'From header display name');
+
+insert into class4.customers_auth_dst_number_fields(id,name) values(1,'R-URI userpart');
+insert into class4.customers_auth_dst_number_fields(id,name) values(2,'To URI userpart');
+insert into class4.customers_auth_dst_number_fields(id,name) values(3,'Top Diversion header userpart');
+
+insert into class4.lnp_databases_30x_redirect_formats(id, name) values (1,'Contact URI username rn parameter');
+insert into class4.lnp_databases_30x_redirect_formats(id, name) values (2,'Contact URI username');

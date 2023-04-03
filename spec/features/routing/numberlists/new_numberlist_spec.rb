@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Numberlist', type: :feature, js: true do
+RSpec.describe 'Create new Numberlist', type: :feature, js: true do
   subject do
     aa_form.submit
   end
@@ -22,8 +20,8 @@ describe 'Create new Numberlist', type: :feature, js: true do
     expect(record).to be_present
     expect(record).to have_attributes(
       name: 'test',
-      mode_id: Routing::NumberlistMode.find_by(name: 'Strict number match').id,
-      default_action_id: Routing::NumberlistAction.find_by(name: 'Reject call').id,
+      mode_id: Routing::Numberlist::MODE_STRICT,
+      default_action_id: Routing::Numberlist::DEFAULT_ACTION_REJECT,
       default_src_rewrite_rule: '',
       default_src_rewrite_result: '',
       default_dst_rewrite_rule: '',

@@ -2,28 +2,17 @@
 
 ActiveAdmin.register Gateway do
   menu parent: 'Equipment', priority: 75
-
+  search_support!
   acts_as_audit
   acts_as_clone
   acts_as_safe_destroy
   acts_as_status
   acts_as_stat
   acts_as_quality_stat
-  acts_as_lock
+  acts_as_lock GatewayQualityCheck
   acts_as_stats_actions
   acts_as_async_destroy('Gateway')
-  acts_as_async_update('Gateway',
-                       lambda do
-                         {
-                           enabled: boolean_select,
-                           priority: 'text',
-                           weight: 'text',
-                           is_shared: boolean_select,
-                           acd_limit: 'text',
-                           asr_limit: 'text',
-                           short_calls_limit: 'text'
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::Gateway
 
   acts_as_delayed_job_lock
 
@@ -53,16 +42,20 @@ ActiveAdmin.register Gateway do
                  [:orig_proxy_transport_protocol_name, proc { |row| row.orig_proxy_transport_protocol.try(:name) }],
                  :orig_outbound_proxy,
                  :dialog_nat_handling, # :transparent_dialog_id,
+                 :force_cancel_routeset,
                  [:orig_disconnect_policy_name, proc { |row| row.orig_disconnect_policy.try(:name) }],
                  [:transport_protocol_name, proc { |row| row.transport_protocol.try(:name) }],
                  [:sip_schema_name, proc { |row| row.sip_schema.try(:name) }],
                  :host,
                  :port,
-                 :use_registered_aor,
+                 :registered_aor_mode_name,
                  [:network_protocol_priority_name, proc { |row| row.network_protocol_priority.try(:name) }],
                  :resolve_ruri,
-                 [:diversion_policy_name, proc { |row| row.diversion_policy.try(:name) }],
+                 [:diversion_send_mode_name, proc { |row| row.diversion_send_mode.try(:name) }],
+                 :diversion_domain,
                  :diversion_rewrite_rule, :diversion_rewrite_result,
+                 :pai_send_mode_name,
+                 :pai_domain,
                  :src_name_rewrite_rule, :src_name_rewrite_result,
                  :src_rewrite_rule, :src_rewrite_result,
                  :dst_rewrite_rule, :dst_rewrite_result,
@@ -86,7 +79,7 @@ ActiveAdmin.register Gateway do
                  :sip_timer_b, :dns_srv_failover_timer,
                  [:sdp_c_location_name, proc { |row| row.sdp_c_location.try(:name) }],
                  [:codec_group_name, proc { |row| row.codec_group.try(:name) }],
-                 :anonymize_sdp, :proxy_media, :single_codec_in_200ok, :transparent_seqno, :transparent_ssrc, :force_symmetric_rtp, :symmetric_rtp_nonstop, :symmetric_rtp_ignore_rtcp, :force_dtmf_relay, :rtp_ping,
+                 :proxy_media, :single_codec_in_200ok, :force_symmetric_rtp, :symmetric_rtp_nonstop, :symmetric_rtp_ignore_rtcp, :force_dtmf_relay, :rtp_ping,
                  :rtp_timeout,
                  :filter_noaudio_streams,
                  :rtp_relay_timestamp_aligning,
@@ -106,7 +99,7 @@ ActiveAdmin.register Gateway do
   scope :shared
   scope :with_radius_accounting
 
-  includes :contractor, :gateway_group, :pop, :statistic, :diversion_policy,
+  includes :contractor, :gateway_group, :pop, :statistic, :diversion_send_mode,
            :session_refresh_method, :codec_group,
            :term_disconnect_policy, :orig_disconnect_policy,
            :sdp_c_location, :sdp_alines_filter_type,
@@ -130,21 +123,6 @@ ActiveAdmin.register Gateway do
     @registrations = Yeti::RpcCalls::IncomingRegistrations.call Node.all, auth_id: resource.id
     @registrations.data.map! { |row| RealtimeData::IncomingRegistration.new(row) }
     flash.now[:warning] = @registrations.errors if @registrations.errors.any?
-  end
-
-  collection_action :with_contractor do
-    @gateways = Contractor.find(params[:contractor_id]).gateways
-    render plain: view_context.options_from_collection_for_select(@gateways, :id, :display_name)
-  end
-
-  collection_action :for_origination do
-    @gateways = Gateway.for_origination(params[:contractor_id].to_i)
-    render plain: view_context.options_from_collection_for_select(@gateways, :id, :display_name)
-  end
-
-  collection_action :for_termination do
-    @gateways = Gateway.for_termination(params[:contractor_id].to_i)
-    render plain: view_context.options_from_collection_for_select(@gateways, :id, :display_name)
   end
 
   index do
@@ -262,9 +240,11 @@ ActiveAdmin.register Gateway do
     column :send_lnp_information
 
     # TRANSLATIONS
-    column :diversion_policy
-    column :diversion_rewrite_rule
-    column :diversion_rewrite_result
+    # disabling to improve performance of index page rendering
+    # column :diversion_send_mode
+    # column :diversion_domain
+    # column :diversion_rewrite_rule
+    # column :diversion_rewrite_result
     column :src_name_rewrite_rule
     column :src_name_rewrite_result
     column :src_rewrite_rule
@@ -276,11 +256,8 @@ ActiveAdmin.register Gateway do
     # MEDIA
     column :sdp_c_location
     column :codec_group
-    column :anonymize_sdp
     column :proxy_media
     column :single_codec_in_200ok
-    column :transparent_seqno
-    column :transparent_ssrc
     column :force_symmetric_rtp
     column :symmetric_rtp_nonstop
     column :symmetric_rtp_ignore_rtcp
@@ -305,9 +282,14 @@ ActiveAdmin.register Gateway do
 
   filter :id
   filter :name
-  filter :gateway_group, input_html: { class: 'chosen' }
+  contractor_filter :contractor_id_eq
+
+  association_ajax_filter :gateway_group_id_eq,
+                          label: 'Gateway Group',
+                          scope: -> { GatewayGroup.order(:name) },
+                          path: '/gateway_groups/search'
+
   filter :pop, input_html: { class: 'chosen' }
-  filter :contractor, input_html: { class: 'chosen' }
   filter :transport_protocol
   filter :host
   filter :enabled, as: :select, collection: [['Yes', true], ['No', false]]
@@ -322,22 +304,33 @@ ActiveAdmin.register Gateway do
   filter :external_id
   filter :radius_accounting_profile, input_html: { class: 'chosen' }
   filter :lua_script, input_html: { class: 'chosen' }
+  boolean_filter :auth_enabled
+  filter :auth_user
+  filter :auth_password
+  filter :incoming_auth_username
+  filter :incoming_auth_password
+  filter :codec_group, input_html: { class: 'chosen' }, collection: proc { CodecGroup.pluck(:name, :id) }
+  filter :diversion_send_mode
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
 
     tabs do
       tab :general do
         f.inputs 'General' do
           f.input :name
           f.input :enabled
-          f.input :contractor,
-                  input_html: {
-                    class: 'chosen',
-                    onchange: remote_chosen_request(:get, with_contractor_gateway_groups_path, { contractor_id: '$(this).val()' }, :gateway_gateway_group_id)
-                  }
+          f.contractor_input :contractor_id
           f.input :is_shared
-          f.input :gateway_group, as: :select, include_blank: 'None', input_html: { class: 'chosen' }
+          f.association_ajax_input :gateway_group_id,
+                                   label: 'Gateway Group',
+                                   scope: GatewayGroup.order(:name),
+                                   path: '/gateway_groups/search',
+                                   fill_params: { vendor_id_eq: f.object.contractor_id },
+                                   input_html: {
+                                     'data-path-params': { 'q[vendor_id_eq]': '.contractor_id-input' }.to_json,
+                                     'data-required-param': 'q[vendor_id_eq]'
+                                   }
           f.input :priority
           f.input :weight
           f.input :pop, as: :select, include_blank: 'Any', input_html: { class: 'chosen' }
@@ -382,20 +375,21 @@ ActiveAdmin.register Gateway do
               f.input :transit_headers_from_origination
               f.input :transit_headers_from_termination
               f.input :sip_interface_name
-              f.input :incoming_auth_username
-              f.input :incoming_auth_password, as: :string, input_html: { autocomplete: 'off' }
+              f.input :incoming_auth_username, hint: "#{link_to('Сlick to fill random username', 'javascript:void(0)', onclick: 'generateCredential(this)')}. #{t('formtastic.hints.gateway.incoming_auth_username')}".html_safe
+              f.input :incoming_auth_password, as: :string, input_html: { autocomplete: 'off' }, hint: link_to('Сlick to fill random password', 'javascript:void(0)', onclick: 'generateCredential(this)')
             end
 
             f.inputs 'Origination' do
               f.input :orig_next_hop
               f.input :orig_append_headers_req
+              f.input :orig_append_headers_reply, as: :array_of_strings
               f.input :orig_use_outbound_proxy
               f.input :orig_force_outbound_proxy
               f.input :orig_proxy_transport_protocol, as: :select, include_blank: false
               f.input :orig_outbound_proxy
               f.input :transparent_dialog_id
               f.input :dialog_nat_handling
-              f.input :orig_disconnect_policy
+              f.input :orig_disconnect_policy, input_html: { class: 'chosen' }, include_blank: true
             end
           end
           column do
@@ -404,7 +398,8 @@ ActiveAdmin.register Gateway do
               f.input :sip_schema, as: :select, include_blank: false
               f.input :host
               f.input :port
-              f.input :use_registered_aor
+              f.input :registered_aor_mode_id, as: :select, include_blank: false,
+                                               collection: Gateway::REGISTERED_AOR_MODES.invert
               f.input :network_protocol_priority, as: :select, include_blank: false
               f.input :resolve_ruri
               f.input :preserve_anonymous_from_domain
@@ -421,18 +416,19 @@ ActiveAdmin.register Gateway do
               f.input :term_outbound_proxy
               f.input :term_next_hop_for_replies
               f.input :term_next_hop
-              f.input :term_disconnect_policy
+              f.input :term_disconnect_policy, input_html: { class: 'chosen' }, include_blank: true
               f.input :term_append_headers_req
               f.input :sdp_alines_filter_type, as: :select, include_blank: false
               f.input :sdp_alines_filter_list
               f.input :ringing_timeout
               f.input :allow_1xx_without_to_tag
+              f.input :force_cancel_routeset
               f.input :max_30x_redirects
               f.input :max_transfers
               f.input :sip_timer_b
               f.input :dns_srv_failover_timer
               f.input :suppress_early_media
-              f.input :fake_180_timer, hint: 'Timeout in ms.'
+              f.input :fake_180_timer
               f.input :send_lnp_information
             end
           end
@@ -442,9 +438,15 @@ ActiveAdmin.register Gateway do
         f.inputs 'Translations' do
           f.input :termination_src_numberlist, input_html: { class: 'chosen' }, include_blank: 'None'
           f.input :termination_dst_numberlist, input_html: { class: 'chosen' }, include_blank: 'None'
-          f.input :diversion_policy
+          f.input :diversion_send_mode, include_blank: false
+          f.input :diversion_domain
           f.input :diversion_rewrite_rule
           f.input :diversion_rewrite_result
+
+          f.input :pai_send_mode_id, as: :select, include_blank: false,
+                                     collection: Gateway::PAI_SEND_MODES.invert
+          f.input :pai_domain
+
           f.input :src_name_rewrite_rule
           f.input :src_name_rewrite_result
           f.input :src_rewrite_rule
@@ -458,11 +460,9 @@ ActiveAdmin.register Gateway do
         f.inputs 'Media settings' do
           f.input :sdp_c_location, as: :select, include_blank: false
           f.input :codec_group, input_html: { class: 'chosen' }
-          f.input :anonymize_sdp
+          f.input :try_avoid_transcoding
           f.input :proxy_media
           f.input :single_codec_in_200ok
-          f.input :transparent_seqno
-          f.input :transparent_ssrc
           f.input :force_symmetric_rtp
           f.input :symmetric_rtp_nonstop
           f.input :symmetric_rtp_ignore_rtcp
@@ -474,6 +474,7 @@ ActiveAdmin.register Gateway do
           f.input :force_one_way_early_media
           f.input :rtp_interface_name
           f.input :media_encryption_mode, as: :select, include_blank: false
+          f.input :rtp_acl, as: :array_of_strings
         end
       end
       tab :dtmf do
@@ -487,7 +488,7 @@ ActiveAdmin.register Gateway do
       end
       tab :radius do
         f.inputs 'RADIUS' do
-          f.input :radius_accounting_profile, input_html: { class: 'chosen' }
+          f.input :radius_accounting_profile, input_html: { class: 'chosen' }, include_blank: 'None'
         end
       end
     end
@@ -556,6 +557,7 @@ ActiveAdmin.register Gateway do
           attributes_table_for s do
             row :orig_next_hop
             row :orig_append_headers_req
+            row :orig_append_headers_reply
             row :orig_use_outbound_proxy
             row :orig_force_outbound_proxy
             row :orig_proxy_transport_protocol
@@ -574,7 +576,9 @@ ActiveAdmin.register Gateway do
             row :sip_schema
             row :host
             row :port
-            row :use_registered_aor
+
+            row :registered_aor_mode, &:registered_aor_mode_name
+
             row :network_protocol_priority
             row :resolve_ruri
             row :preserve_anonymous_from_domain
@@ -587,7 +591,7 @@ ActiveAdmin.register Gateway do
 
             row :term_use_outbound_proxy
             row :term_force_outbound_proxy
-            row :orig_proxy_transport_protocol
+            row :term_proxy_transport_protocol
             row :term_outbound_proxy
             row :term_next_hop_for_replies
             row :term_next_hop
@@ -597,6 +601,7 @@ ActiveAdmin.register Gateway do
             row :sdp_alines_filter_list
             row :ringing_timeout
             row :allow_1xx_without_to_tag
+            row :force_cancel_routeset
             row :max_30x_redirects
             row :max_transfers
             row :sip_timer_b
@@ -611,9 +616,14 @@ ActiveAdmin.register Gateway do
         attributes_table_for s do
           row :termination_src_numberlist
           row :termination_dst_numberlist
-          row :diversion_policy
+          row :diversion_send_mode
+          row :diversion_domain
           row :diversion_rewrite_rule
           row :diversion_rewrite_result
+
+          row :pai_send_mode, &:pai_send_mode_name
+          row :pai_domain
+
           row :src_name_rewrite_rule
           row :src_name_rewrite_result
           row :src_rewrite_rule
@@ -628,11 +638,9 @@ ActiveAdmin.register Gateway do
         attributes_table_for s do
           row :sdp_c_location
           row :codec_group, input_html: { class: 'chosen' }
-          row :anonymize_sdp
+          row :try_avoid_transcoding
           row :proxy_media
           row :single_codec_in_200ok
-          row :transparent_seqno
-          row :transparent_ssrc
           row :force_symmetric_rtp
           row :symmetric_rtp_nonstop
           row :symmetric_rtp_ignore_rtcp
@@ -644,6 +652,7 @@ ActiveAdmin.register Gateway do
           row :force_one_way_early_media
           row :rtp_interface_name
           row :media_encryption_mode
+          row :rtp_acl
         end
       end
       tab :dtmf do

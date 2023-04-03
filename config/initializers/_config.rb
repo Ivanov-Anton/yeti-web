@@ -1,19 +1,83 @@
 # frozen_string_literal: true
 
-Rails.configuration.yeti_web = begin
-  YAML.load_file(File.join(Rails.root, '/config/yeti_web.yml')).freeze
-                               rescue StandardError => e
-                                 raise StandardError, "Can't load /config/yeti_web.yml, message: #{e.message}"
+require 'config'
+
+Config.class_eval do
+  def self.setting_files(config_root, _env)
+    [
+      File.join(config_root, 'yeti_web.yml').to_s
+    ].freeze
+  end
 end
 
-allowed_rules = %i[allow disallow raise]
+Config.setup do |setup_config|
+  setup_config.const_name = 'YetiConfig'
+  setup_config.use_env = false
 
-no_config_rule = Rails.configuration.yeti_web['role_policy']['when_no_config']
-if allowed_rules.exclude? no_config_rule.try!(:to_sym)
-  raise StandardError, "invalid value #{no_config_rule.inspect} for yeti_web.yml role_policy.when_no_config, valid values #{allowed_rules}"
+  # Validate presence and type of specific config values.
+  # Check https://github.com/dry-rb/dry-validation for details.
+  setup_config.schema do
+    # config.validate_keys = true
+
+    required(:site_title).filled(:string)
+    required(:site_title_image).filled(:string)
+
+    required(:calls_monitoring).schema do
+      required(:write_account_stats).value(:bool?)
+      required(:write_gateway_stats).value(:bool?)
+    end
+
+    required(:api).schema do
+      required(:token_lifetime).maybe(:int?)
+    end
+
+    required(:cdr_export).schema do
+      required(:dir_path).filled(:string)
+      required(:delete_url).filled(:string)
+    end
+
+    required(:role_policy).schema do
+      required(:when_no_config).value(Dry::Types['string'].enum('allow', 'disallow', 'raise'))
+      required(:when_no_policy_class).value(Dry::Types['string'].enum('allow', 'disallow', 'raise'))
+    end
+
+    required(:partition_remove_delay).hash do
+      required(:'cdr.cdr').maybe(:string, format?: /\A\d+ days\z/)
+      required(:'auth_log.auth_log').maybe(:string, format?: /\A\d+ days\z/)
+      required(:'rtp_statistics.rx_streams').maybe(:string, format?: /\A\d+ days\z/)
+      required(:'rtp_statistics.tx_streams').maybe(:string, format?: /\A\d+ days\z/)
+      required(:'logs.api_requests').maybe(:string, format?: /\A\d+ days\z/)
+    end
+
+    required(:prometheus).schema do
+      required(:enabled).value(:bool?)
+      required(:host).maybe(:string)
+      required(:port).maybe(:int?)
+      optional(:default_labels).hash
+    end
+
+    required(:sentry).schema do
+      required(:enabled).value(:bool?)
+      required(:dsn).maybe(:string)
+      required(:node_name).filled(:string)
+      required(:environment).filled(:string)
+    end
+
+    required(:versioning_disable_for_models).each(:string)
+
+    optional(:keep_expired_destinations_days)
+    optional(:keep_expired_dialpeers_days)
+    optional(:keep_balance_notifications_days)
+  end
 end
 
-no_policy_rule = Rails.configuration.yeti_web['role_policy']['when_no_policy_class']
-if allowed_rules.exclude? no_policy_rule.try!(:to_sym)
-  raise StandardError, "invalid value #{no_policy_rule.inspect} for yeti_web.yml role_policy.when_no_policy_class, valid values #{allowed_rules}"
+Config.evaluate_erb_in_yaml = true
+begin
+  Config.load_and_set_settings(Config.setting_files(::Rails.root.join('config'), ::Rails.env))
+rescue Config::Validation::Error => e
+  warn e.message
+  exit 1 # rubocop:disable Rails/Exit
 end
+
+system_info_path = Rails.root.join('config/system_info.yml')
+SystemInfoConfigs.load_file(system_info_path) if File.exist?(system_info_path)

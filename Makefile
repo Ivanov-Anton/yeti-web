@@ -18,15 +18,17 @@ app_files :=	bin \
 		Rakefile \
 		vendor \
 		pgq-processors \
-		$(version_file)
+		$(version_file) \
+		vendor/rbenv \
+		.ruby-version
 
-exclude_files := config/database.yml \
-		*.o \
-		*.a
+exclude_files :=	config/database.yml \
+			config/yeti_web.yml \
+			*.o \
+			*.a
 
-version = $(shell dpkg-parsechangelog --help | grep -q '\--show-field' \
-	&& dpkg-parsechangelog --show-field version \
-	|| dpkg-parsechangelog | grep Version | awk '{ print $$2; }')
+version = $(shell ./ci/gen_version.sh)
+debian_version = $(shell echo $(version) | sed 's/_/~/' | sed 's/-master/~master/' | sed 's/-rc/~rc/')-1
 commit = $(shell git rev-parse HEAD)
 
 debian_host_release != lsb_release -sc
@@ -37,19 +39,12 @@ bundle_bin := $(gems)/bin/bundle
 bundler_gems := $(CURDIR)/vendor/bundle
 export GEM_PATH := $(gems):$(bundler_gems)
 
-debuild_env :=	http_proxy \
-		https_proxy \
-		SSH_AUTH_SOCK \
-		TRAVIS_* \
-		CI_* \
-		GITLAB_* \
-		YETI_DB_HOST \
-		YETI_DB_PORT \
-		CDR_DB_HOST \
-		CDR_DB_PORT
+# must match final destination in debian package
+export RBENV_ROOT := $(app_dir)/vendor/rbenv
+export PATH := $(RBENV_ROOT)/shims:$(PATH)
+rbenv_version = $(file < .ruby-version)
 
-debuild_flags := $(foreach e,$(debuild_env),-e '$e') $(if $(findstring yes,$(lintian)),--lintian,--no-lintian)
-export no_proxy := 127.0.0.1,localhost
+export no_proxy ?= 127.0.0.1,localhost
 
 pgq_drop_roles :=	DROP ROLE IF EXISTS pgq_reader; \
 			DROP ROLE IF EXISTS pgq_writer; \
@@ -59,18 +54,26 @@ pgq_create_roles :=	CREATE ROLE pgq_reader; \
 			CREATE ROLE pgq_writer; \
 			CREATE ROLE pgq_admin in role pgq_reader,pgq_writer;
 
+export YETI_DB_HOST ?= db
+
 define info
        @printf '\n\e[33m> msg \e[0m\n\n'
 endef
 
+
 ###### Rules ######
 .PHONY: all
-all: docs assets pgq-processors-gems swagger
+all: docs assets pgq-processors-gems
 
 
 debian/changelog:
 	$(info:msg=Generating changelog)
-	changelog-gen -p "$(pkg_name)" -d "$(debian_host_release)" -A "s/_/~/g" "s/-master/~master/" "s/-rc/~rc/"
+	dch \
+		--create \
+		--package "$(pkg_name)" \
+		--newversion "$(debian_version)" \
+		--distribution "$(debian_host_release)" \
+		"Release $(version), commit: $(commit)"
 
 
 version.yml: debian/changelog
@@ -88,7 +91,7 @@ config/yeti_web.yml:
 	$(info:msg=Creating yeti_web.yml for build/tests)
 	@# explicitly raise error during tests if policy is misconfigured
 	sed -E 's/( +when_no_(config|policy_class): *)(.*)/\1raise/' \
-		config/yeti_web.yml.distr > config/yeti_web.yml
+		config/yeti_web.yml.ci > config/yeti_web.yml
 
 
 config/policy_roles.yml:
@@ -96,24 +99,44 @@ config/policy_roles.yml:
 	cp config/policy_roles.yml.distr config/policy_roles.yml
 
 
+$(RBENV_ROOT)/versions/$(rbenv_version):
+	$(info:msg=Installing ruby $(rbenv_version) into $(RBENV_ROOT))
+	mkdir -pv "$(RBENV_ROOT)"
+	curl -sSL "https://raw.githubusercontent.com/rbenv/ruby-build/master/share/ruby-build/$(rbenv_version)" \
+		> "debian/$(rbenv_version)"
+	rbenv install "debian/$(rbenv_version)"
+	rm "debian/$(rbenv_version)"
+
+
+.PHONY: ruby
+ruby: $(RBENV_ROOT)/versions/$(rbenv_version)
+
+
 .PHONY: bundler
-bundler:
+bundler: ruby
 	$(info:msg=Install bundler)
-	gem install --no-document --install-dir $(gems) bundler -v 2.1.4
+	gem install --no-document --install-dir $(gems) bundler
+	$(bundle_bin) config --local clean 'true'
+	$(bundle_bin) config --local jobs 4
+	$(bundle_bin) config --local deployment 'true'
 
 
 .PHONY: gems
 gems: bundler
 	$(info:msg=Install/Update gems)
-	$(bundle_bin) install --jobs=4 --deployment --without development test
-	$(bundle_bin) clean
+	$(bundle_bin) config --local --delete with
+	$(bundle_bin) config --local --delete without
+	$(bundle_bin) config --local without 'development test'
+	$(bundle_bin) install
 
 
 .PHONY: gems-test
 gems-test: bundler
 	$(info:msg=Install/Update gems for tests)
-	$(bundle_bin) install --jobs=4 --deployment --with development test
-	$(bundle_bin) clean
+	$(bundle_bin) config --local --delete with
+	$(bundle_bin) config --local --delete without
+	$(bundle_bin) config --local with 'development test'
+	$(bundle_bin) install
 	$(bundle_bin) binstubs rspec-core
 
 
@@ -123,17 +146,12 @@ docs: gems-test config/database.yml config/yeti_web.yml config/policy_roles.yml
 	RAILS_ENV=test $(bundle_bin) exec rake \
 		db:drop \
 		db:create \
-		db:structure:load \
+		db:schema:load \
 		db:migrate \
-		db:second_base:drop:_unsafe \
-		db:second_base:create \
-		db:second_base:structure:load \
-		db:second_base:migrate \
 		db:seed
 	$(info:msg=Generating documentation)
 	RAILS_ENV=test $(bundle_bin) exec rake docs:generate
 	RAILS_ENV=test $(bundle_bin) exec rake db:drop
-	RAILS_ENV=test $(bundle_bin) exec rake db:second_base:drop:_unsafe
 
 
 .PHONY: assets
@@ -157,25 +175,19 @@ swagger: debian/changelog
 .PHONY: prepare-test-db
 prepare-test-db: gems-test config/database.yml config/yeti_web.yml config/policy_roles.yml
 	$(info:msg=Preparing test database)
-	RAILS_ENV=test $(bundle_bin) exec rake \
-		parallel:drop \
-		parallel:rake[db:second_base:drop:_unsafe]
+	RAILS_ENV=test $(bundle_bin) exec rake parallel:drop
 	@# avoid race condition when createing pgq roles in parallel with
 	@# parallel:spec
 	@# https://github.com/pgq/pgq/blob/master/functions/pgq.upgrade_schema.sql
-	psql -h db -U postgres -c '$(pgq_drop_roles)'
-	psql -h db -U postgres -c '$(pgq_create_roles)'
-	RAILS_ENV=test $(bundle_bin) exec rake  \
-		parallel:create \
-		parallel:rake[db:second_base:create]
-	RAILS_ENV=test $(bundle_bin) exec rake \
-		parallel:load_structure \
-		parallel:rake[db:second_base:structure:load]
+	psql -h "$(YETI_DB_HOST)" -U postgres -c '$(pgq_drop_roles)'
+	psql -h "$(YETI_DB_HOST)" -U postgres -c '$(pgq_create_roles)'
+	RAILS_ENV=test $(bundle_bin) exec rake parallel:create
+	RAILS_ENV=test $(bundle_bin) exec rake parallel:load_schema
 	RAILS_ENV=test $(bundle_bin) exec rake parallel:rake[db:seed]
 
 
 .PHONY: test
-test: test-pgq-processors lint rspec
+test: test-pgq-processors lint brakeman rspec
 
 
 .PHONY: rspec
@@ -193,6 +205,10 @@ else
 		  || { script/format_runtime_log log/parallel_runtime_rspec.log; false; }
 endif
 
+.PHONY: rspec
+database_consistency: gems-test config/database.yml config/yeti_web.yml config/policy_roles.yml prepare-test-db
+	$(info:msg=Check the consistency of the database constraints with the application validations)
+	RAILS_ENV=test $(bundle_bin) exec database_consistency
 
 .PHONY: lint
 lint: gems-test config/database.yml config/yeti_web.yml
@@ -200,6 +216,15 @@ lint: gems-test config/database.yml config/yeti_web.yml
 	RAILS_ENV=test $(bundle_bin) exec rubocop -P
 	RAILS_ENV=test $(bundle_bin) exec rake bundle:audit
 
+.PHONY: brakeman
+brakeman: gems-test config/database.yml config/yeti_web.yml
+	$(info:msg=Running brakeman)
+	RAILS_ENV=test $(bundle_bin) exec brakeman
+
+.PHONY: coverage_report
+coverage_report: gems-test
+	$(info:msg=Generate coverage report)
+	$(bundle_bin) exec rake coverage:report
 
 .PHONY: test-pgq-processors
 test-pgq-processors: config/database.yml config/yeti_web.yml config/policy_roles.yml
@@ -209,18 +234,16 @@ test-pgq-processors: config/database.yml config/yeti_web.yml config/policy_roles
 	RAILS_ENV=test PGQ_PROCESSORS_TEST=true $(bundle_bin) exec rake \
 		db:drop \
 		db:create \
-		db:structure:load \
+		db:schema:load \
 		db:migrate \
-		db:second_base:drop:_unsafe \
-		db:second_base:create \
-		db:second_base:structure:load \
-		db:second_base:migrate \
 		db:seed
 	$(info:msg=Run pgq-processors tests)
 	$(MAKE) -C pgq-processors test
-	RAILS_ENV=test PGQ_PROCESSORS_TEST=true $(bundle_bin) exec rake \
-		db:drop \
-		db:second_base:drop:_unsafe
+	RAILS_ENV=test PGQ_PROCESSORS_TEST=true $(bundle_bin) exec rake db:drop
+
+
+vendor/rbenv:
+	cp -r "$(RBENV_ROOT)" vendor/
 
 
 .PHONY: install
@@ -229,9 +252,6 @@ install: $(app_files)
 	@mkdir -p $(DESTDIR)$(app_dir)
 	tar -c --no-auto-compress $(addprefix --exclude , $(exclude_files)) $^ | tar -x -C $(DESTDIR)$(app_dir)
 	@mkdir -v -p $(addprefix $(DESTDIR)$(app_dir)/, log tmp )
-
-	$(info:msg=install swagger specs)
-	@$(MAKE) -C swagger install DESTDIR=$(DESTDIR)$(app_dir)/public version=$(version)
 	@install -v -m0644 -D debian/$(pkg_name).rsyslog $(DESTDIR)/etc/rsyslog.d/$(pkg_name).conf
 	@install -v -m0644 -d $(DESTDIR)/var/log/yeti
 
@@ -263,4 +283,4 @@ clean-all:
 .PHONY: package
 package: debian/changelog
 	$(info:msg=Building package)
-	debuild $(debuild_flags) -uc -us -b
+	dpkg-buildpackage -uc -us -b

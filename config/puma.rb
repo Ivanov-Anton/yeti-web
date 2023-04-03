@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
-workers 2
-threads 2, 8
+workers ENV.fetch('WEB_CONCURRENCY') { 1 }
 
-# directory '/opt/yeti-web'
-# daemonize
+max_threads_count = ENV.fetch('RAILS_MAX_THREADS') { 8 }
+min_threads_count = ENV.fetch('RAILS_MIN_THREADS') { 2 }
+threads min_threads_count, max_threads_count
 
-# bind '/run/yeti/yeti-unicorn.sock'
+port ENV.fetch('PORT') { 3000 }
+
+environment ENV.fetch('RAILS_ENV') { 'development' }
 
 worker_timeout 1200
 
@@ -18,8 +20,10 @@ worker_timeout 1200
 preload_app!
 
 before_fork do
-  ActiveRecord::Base.connection.disconnect!
-  Cdr::Base.connection.disconnect!
+  # Proper way to clear db connections.
+  # Like AR initializer does in active_record/railtie.rb:265
+  ActiveRecord::Base.clear_active_connections!
+  ActiveRecord::Base.flush_idle_connections!
 
   require 'puma_worker_killer'
 
@@ -29,28 +33,42 @@ before_fork do
     config.percent_usage = 0.98
     config.rolling_restart_frequency = 3 * 3600 # 12 hours in seconds, or 12.hours if using Rails
     config.reaper_status_logs = true # setting this to false will not log lines like:
-    config.pre_term = ->(worker) { puts "Worker #{worker.inspect} being killed" }
+    config.pre_term = ->(worker) { warn "Worker #{worker.inspect} being killed" }
   end
   PumaWorkerKiller.start
 
-  if Rails.configuration.yeti_web['prometheus']['enabled']
+  if PrometheusConfig.enabled?
     require 'prometheus_exporter/client'
     require 'prometheus_exporter/instrumentation'
+    require 'pgq_prometheus'
+    require 'pgq_prometheus/processor'
+    require 'pgq_prometheus/sql_caller/active_record'
+    require 'prometheus/pgq_prometheus_config'
+    require 'prometheus/yeti_info_processor'
+    PgqPrometheus::Processor.tap do |processor|
+      processor.sql_caller = PgqPrometheus::SqlCaller::ActiveRecord.new('Cdr::Base')
+      processor.logger = Rails.logger
+      processor.on_error = proc do |e|
+        CaptureError.capture(e, tags: { component: 'Prometheus', processor_class: processor })
+      end
+      processor.before_collect = proc do
+        processor.logger.info { "Collection metrics for #{processor}..." }
+      end
+      processor.after_collect = proc do
+        processor.logger.info { "Metrics collected for #{processor}." }
+      end
+    end
+
     PrometheusExporter::Instrumentation::Puma.start
+    PrometheusExporter::Instrumentation::Process.start(type: 'master')
+    PgqPrometheus::Processor.start
+    YetiInfoProcessor.start(labels: { app_type: 'puma' })
   end
 end
 
 on_worker_boot do
-  ActiveSupport.on_load(:active_record) do
-    ActiveRecord::Base.establish_connection
-    SecondBase::Base.establish_connection
-  end
-
-  if Rails.configuration.yeti_web['prometheus']['enabled']
+  if PrometheusConfig.enabled?
     require 'prometheus_exporter/instrumentation'
-    PrometheusExporter::Instrumentation::Process.start(
-      type: 'web',
-      labels: Rails.configuration.yeti_web['prometheus']['default_labels']
-    )
+    PrometheusExporter::Instrumentation::Process.start(type: 'web')
   end
 end

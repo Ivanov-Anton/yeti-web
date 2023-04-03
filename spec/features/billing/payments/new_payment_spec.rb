@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Payment', type: :feature, js: true do
+RSpec.describe 'Create new Payment', type: :feature, js: true do
   include_context :login_as_admin
 
   before do
@@ -14,10 +12,11 @@ describe 'Create new Payment', type: :feature, js: true do
     let(:attributes) do
       {
         account_id: lambda {
-          chosen_pick('#payment_account_id+div', text: @account.name)
+          fill_in_chosen('Account', with: @account.display_name, ajax: true)
         },
         amount: 100_500,
-        notes: 'Some notes'
+        notes: 'Some notes',
+        private_notes: 'Some private notes'
       }
     end
 
@@ -28,8 +27,21 @@ describe 'Create new Payment', type: :feature, js: true do
       expect(Payment.last).to have_attributes(
         account_id: @account.id,
         amount: attributes[:amount],
-        notes: attributes[:notes]
+        notes: attributes[:notes],
+        private_notes: attributes[:private_notes]
       )
+    end
+
+    context 'with validation error' do
+      let(:attributes) { super().except(:amount) }
+
+      it 'account should be still' do
+        click_on_submit
+
+        expect(page).to have_semantic_errors(count: 1)
+        expect(page).to have_semantic_error('Amount is not a number')
+        expect(page).to have_field_chosen('Account', with: @account.display_name)
+      end
     end
   end
 end

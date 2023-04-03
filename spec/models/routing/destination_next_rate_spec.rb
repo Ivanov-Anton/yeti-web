@@ -4,26 +4,28 @@
 #
 # Table name: class4.destination_next_rates
 #
-#  id               :integer          not null, primary key
-#  destination_id   :integer          not null
-#  initial_rate     :decimal(, )      not null
-#  next_rate        :decimal(, )      not null
-#  initial_interval :integer          not null
-#  next_interval    :integer          not null
-#  connect_fee      :decimal(, )      not null
+#  id               :bigint(8)        not null, primary key
+#  applied          :boolean          default(FALSE), not null
 #  apply_time       :datetime
+#  connect_fee      :decimal(, )      not null
+#  initial_interval :integer(2)       not null
+#  initial_rate     :decimal(, )      not null
+#  next_interval    :integer(2)       not null
+#  next_rate        :decimal(, )      not null
 #  created_at       :datetime
 #  updated_at       :datetime
-#  applied          :boolean          default(FALSE), not null
-#  external_id      :integer
+#  destination_id   :bigint(8)        not null
+#  external_id      :bigint(8)
+#
+# Foreign Keys
+#
+#  destination_next_rates_destination_id_fkey  (destination_id => destinations.id)
 #
 
-require 'spec_helper'
-
 RSpec.describe Routing::DestinationNextRate, type: :model do
-  let!(:rate_plan) { FactoryGirl.create(:rateplan) }
-  let!(:destination) { FactoryGirl.create(:destination, destination_attrs) }
-  let(:destination_attrs) { { rateplan: rate_plan } }
+  let!(:rate_group) { FactoryBot.create(:rate_group) }
+  let!(:destination) { FactoryBot.create(:destination, destination_attrs) }
+  let(:destination_attrs) { { rate_group: rate_group } }
 
   describe '.create' do
     subject do
@@ -57,7 +59,7 @@ RSpec.describe Routing::DestinationNextRate, type: :model do
       record.update(update_params)
     end
 
-    let!(:record) { FactoryGirl.create(:destination_next_rate, record_attrs) }
+    let!(:record) { FactoryBot.create(:destination_next_rate, record_attrs) }
     let(:record_attrs) { { destination: destination } }
 
     context 'change initial_rate' do
@@ -72,7 +74,7 @@ RSpec.describe Routing::DestinationNextRate, type: :model do
       record.destroy
     end
 
-    let!(:record) { FactoryGirl.create(:destination_next_rate, record_attrs) }
+    let!(:record) { FactoryBot.create(:destination_next_rate, record_attrs) }
     let(:record_attrs) { { destination: destination } }
 
     include_examples :changes_records_qty_of, Routing::DestinationNextRate, by: -1

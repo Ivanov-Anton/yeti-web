@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :'network-prefixes'
 
   describe 'GET /api/rest/customer/v1/network-prefixes' do
@@ -13,13 +11,14 @@ describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
     let(:json_api_request_query) { nil }
 
     let!(:network_prefixes) do
+      System::NetworkPrefix.delete_all
       [
-        FactoryGirl.create(:network_prefix).reload,
-        FactoryGirl.create(:network_prefix).reload
+        FactoryBot.create(:network_prefix).reload,
+        FactoryBot.create(:network_prefix).reload
       ]
     end
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     include_examples :returns_json_api_collection do
       let(:json_api_collection_ids) { network_prefixes.map(&:uuid) }
@@ -34,9 +33,9 @@ describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
     let(:json_api_request_path) { "#{super()}/#{record_id}" }
     let(:record_id) { network_prefix.uuid }
 
-    let!(:network_prefix) { FactoryGirl.create(:network_prefix).reload }
+    let!(:network_prefix) { System::NetworkPrefix.take! }
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     include_examples :returns_json_api_record, relationships: [:network] do
       let(:json_api_record_id) { network_prefix.uuid }
@@ -74,7 +73,7 @@ describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
     let(:json_api_request_data) { super().merge(id: record_id) }
     let(:json_api_request_attributes) { { name: 'new name' } }
 
-    let!(:network_prefix) { FactoryGirl.create(:network_prefix).reload }
+    let!(:network_prefix) { FactoryBot.create(:network_prefix).reload }
 
     include_examples :raises_exception, ActionController::RoutingError
   end
@@ -89,7 +88,7 @@ describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
     let(:json_api_request_data) { super().merge(id: record_id) }
     let(:json_api_request_attributes) { { name: 'new name' } }
 
-    let!(:network_prefix) { FactoryGirl.create(:network_prefix).reload }
+    let!(:network_prefix) { FactoryBot.create(:network_prefix).reload }
 
     include_examples :raises_exception, ActionController::RoutingError
   end
@@ -102,7 +101,7 @@ describe Api::Rest::Customer::V1::NetworkPrefixesController, type: :request do
     let(:json_api_request_path) { "#{super()}/#{record_id}" }
     let(:record_id) { network_prefix.uuid }
 
-    let!(:network_prefix) { FactoryGirl.create(:network_prefix).reload }
+    let!(:network_prefix) { FactoryBot.create(:network_prefix).reload }
 
     include_examples :raises_exception, ActionController::RoutingError
   end

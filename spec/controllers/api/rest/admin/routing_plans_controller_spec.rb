@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::RoutingPlansController, type: :controller do
+RSpec.describe Api::Rest::Admin::RoutingPlansController, type: :controller do
   let(:user) { create :admin_user }
   let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: user.id }).token }
 
@@ -22,6 +20,9 @@ describe Api::Rest::Admin::RoutingPlansController, type: :controller do
   end
 
   describe 'GET index with filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     before { create_list :routing_plan, 2 }
 
     it_behaves_like :jsonapi_filter_by_name do
@@ -30,6 +31,9 @@ describe Api::Rest::Admin::RoutingPlansController, type: :controller do
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :routing_plan }
 
     it_behaves_like :jsonapi_filters_by_string_field, :name

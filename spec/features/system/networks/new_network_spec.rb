@@ -1,15 +1,13 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Network', type: :feature, js: true do
+RSpec.describe 'Create new Network', type: :feature, js: true do
   subject do
     aa_form.submit
   end
 
   active_admin_form_for System::Network, 'new'
   include_context :login_as_admin
-  let!(:network_type) { FactoryGirl.create(:network_type) }
+  let!(:network_type) { FactoryBot.create(:network_type) }
 
   before do
     visit new_system_network_path

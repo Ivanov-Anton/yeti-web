@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Routing Plan Static Route', type: :feature, js: true do
+RSpec.describe 'Create new Routing Plan Static Route', type: :feature, js: true do
   subject do
     aa_form.submit
   end
@@ -10,16 +8,16 @@ describe 'Create new Routing Plan Static Route', type: :feature, js: true do
   active_admin_form_for Routing::RoutingPlanStaticRoute, 'new'
   include_context :login_as_admin
 
-  let!(:vendor) { FactoryGirl.create(:vendor) }
-  let!(:routing_plan) { FactoryGirl.create(:routing_plan, :with_static_routes) }
+  let!(:vendor) { FactoryBot.create(:vendor) }
+  let!(:routing_plan) { FactoryBot.create(:routing_plan, :with_static_routes) }
   before do
-    FactoryGirl.create(:vendor)
-    FactoryGirl.create(:routing_plan, :with_static_routes)
-    FactoryGirl.create(:routing_plan)
+    FactoryBot.create(:vendor)
+    FactoryBot.create(:routing_plan, :with_static_routes)
+    FactoryBot.create(:routing_plan)
 
     visit new_static_route_path
 
-    aa_form.select_chosen 'Vendor', vendor.name
+    aa_form.search_chosen 'Vendor', vendor.name, ajax: true
     aa_form.search_chosen 'Routing plan', routing_plan.display_name, ajax: true
   end
 

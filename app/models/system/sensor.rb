@@ -4,22 +4,30 @@
 #
 # Table name: sys.sensors
 #
-#  id               :integer          not null, primary key
+#  id               :integer(2)       not null, primary key
 #  name             :string           not null
-#  mode_id          :integer          not null
 #  source_interface :string
-#  target_mac       :macaddr
-#  use_routing      :boolean          not null
-#  target_ip        :inet
 #  source_ip        :inet
-#  target_port      :integer
-#  hep_capture_id   :integer
+#  target_ip        :inet
+#  target_mac       :macaddr
+#  target_port      :integer(4)
+#  use_routing      :boolean          not null
+#  hep_capture_id   :integer(4)
+#  mode_id          :integer(4)       not null
+#
+# Indexes
+#
+#  sensors_name_key  (name) UNIQUE
+#
+# Foreign Keys
+#
+#  sensors_mode_id_fkey  (mode_id => sensor_modes.id)
 #
 
-class System::Sensor < Yeti::ActiveRecord
+class System::Sensor < ApplicationRecord
   self.table_name = 'sys.sensors'
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
   belongs_to :mode, class_name: 'System::SensorMode', foreign_key: :mode_id
 
   has_many :gateways, dependent: :restrict_with_error
@@ -42,11 +50,11 @@ class System::Sensor < Yeti::ActiveRecord
             presence: { if: proc { |sensor| sensor.mode_id.to_i == System::SensorMode::IP_ETHERNET } },
             format: { with: /\A\z|\A(([0-9A-Fa-f]{2})\-){5}(([0-9A-Fa-f]{2}))$|^(([0-9A-Fa-f]{2})\:){5}(([0-9A-Fa-f]{2}))\z/ }
 
-  validates_numericality_of :target_port, greater_than_or_equal_to: Yeti::ActiveRecord::L4_PORT_MIN, less_than_or_equal_to: Yeti::ActiveRecord::L4_PORT_MAX, allow_nil: true, only_integer: true
+  validates :target_port, numericality: { greater_than_or_equal_to: ApplicationRecord::L4_PORT_MIN, less_than_or_equal_to: ApplicationRecord::L4_PORT_MAX, allow_nil: true, only_integer: true }
   validates :target_port,
             presence: { if: proc { |sensor| sensor.mode_id.to_i == System::SensorMode::HEPv3 } }
 
-  validates_numericality_of :hep_capture_id, greater_than_or_equal_to: 0, less_than_or_equal_to: Yeti::ActiveRecord::PG_MAX_INT, allow_nil: true, only_integer: true
+  validates :hep_capture_id, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: ApplicationRecord::PG_MAX_INT, allow_nil: true, only_integer: true }
 
   before_save :on_save_change_empty_to_null
 
@@ -65,6 +73,8 @@ class System::Sensor < Yeti::ActiveRecord
   end
 
   include Yeti::SensorReloader
+  include Yeti::StateUpdater
+  self.state_name = 'sensors'
 
   def display_name
     name.to_s

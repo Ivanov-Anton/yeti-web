@@ -3,28 +3,17 @@
 module GroupReportTools
   extend ActiveSupport::Concern
   included do
-    attr_accessor :group_by_fields
     class_attribute :report_items_class
 
-    def group_by_fields=(group_ids)
-      @group_by_fields = group_ids.reject(&:blank?)
-      self.group_by = @group_by_fields.uniq.join(',')
-    end
-
     def group_by_include?(key)
-      group_by_arr.include?(key.to_sym)
-    end
+      return false if group_by.blank?
 
-    def group_by_arr
-      @group_by_arr ||= group_by.split(',').map(&:to_sym)
+      group_by.include?(key.to_s)
     end
 
     def belongs_to_relations
-      @belongs_to_relations ||= begin
-        group_by_keys = group_by_arr
-        report_items_class.reflect_on_all_associations(:belongs_to)
-                          .select { |name| group_by_keys.include?(name.foreign_key.to_sym) }
-      end
+      @belongs_to_relations ||= report_items_class.reflect_on_all_associations(:belongs_to)
+                                                  .select { |name| group_by_include?(name.foreign_key) }
     end
 
     def auto_includes
@@ -32,19 +21,22 @@ module GroupReportTools
     end
 
     #    def auto_columns
-    #      auto_includes +  (group_by_arr - belongs_to_relations.map{|r| r.foreign_key })
+    #      auto_includes +  (group_by.map(&:to_sym) - belongs_to_relations.map{|r| r.foreign_key })
     #    end
 
+    # @return [Array<Array>] array of pairs column name and attribute name.
     def auto_columns
-      #      attrs =  group_by_arr
-      #      belongs_to_relations.each do |c|
-      #        attrs.map!{ |e|
-      #          e==c.foreign_key.to_sym ? c.name.to_sym : e
-      #        }
-      #      end
-      #      attrs
-      result = group_by_arr.map do |attribute_name|
-        belongs_to_relations.detect { |e| e.foreign_key == attribute_name }.try(:name) || attribute_name
+      return [] if group_by.blank?
+
+      group_by.map do |attribute_name|
+        attribute_name = attribute_name.to_sym
+        if auto_column_constants.key?(attribute_name)
+          auto_column_constants[attribute_name]
+        else
+          relation = belongs_to_relations.detect { |e| e.foreign_key.to_sym == attribute_name }
+          column_name = relation ? relation.name.to_sym : attribute_name
+          [column_name, nil]
+        end
       end
     end
 
@@ -62,7 +54,14 @@ module GroupReportTools
     end
 
     def csv_columns
-      (auto_columns + report_items_class.report_columns.map(&:to_sym))
+      auto_columns + report_items_class.report_columns.map(&:to_sym)
     end
+  end
+
+  private
+
+  # @return [Hash<Symbol,Array>]
+  def auto_column_constants
+    {}
   end
 end

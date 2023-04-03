@@ -4,19 +4,17 @@
 #
 # Table name: class4.lnp_databases_thinq
 #
-#  id       :integer          not null, primary key
+#  id       :integer(2)       not null, primary key
 #  host     :string           not null
-#  port     :integer
-#  timeout  :integer          default(300), not null
-#  username :string
+#  port     :integer(4)
+#  timeout  :integer(2)       default(300), not null
 #  token    :string
+#  username :string
 #
 
-require 'spec_helper'
-
-describe Lnp::DatabaseThinq, type: :model do
+RSpec.describe Lnp::DatabaseThinq, type: :model do
   it 'validates correctly' do
-    is_expected.to validate_numericality_of(:timeout).is_less_than_or_equal_to(Yeti::ActiveRecord::PG_MAX_SMALLINT)
+    is_expected.to validate_numericality_of(:timeout).is_less_than_or_equal_to(ApplicationRecord::PG_MAX_SMALLINT)
     is_expected.to validate_presence_of(:host)
   end
 end

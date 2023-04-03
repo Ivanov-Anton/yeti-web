@@ -3,8 +3,6 @@
 require 'base64'
 
 class Api::RestController < ApiController
-  skip_before_action :verify_authenticity_token, raise: false
-
   respond_to :json
   rescue_from ActiveRecord::RecordNotFound, with: :render_404
   rescue_from AbstractController::ActionNotFound, with: :render_404

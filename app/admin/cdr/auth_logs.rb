@@ -8,7 +8,7 @@ ActiveAdmin.register Cdr::AuthLog, as: 'AuthLog' do
   config.sort_order = 'request_time_desc'
 
   with_default_params do
-    params[:q] = { request_time_gteq_datetime: 1.days.ago.to_date.strftime('%F') }
+    params[:q] = { request_time_gteq_datetime: 1.day.ago.to_date.strftime('%F') }
     'Only records from yesterday are displayed by default'
   end
 
@@ -103,7 +103,13 @@ ActiveAdmin.register Cdr::AuthLog, as: 'AuthLog' do
 
   filter :id
   filter :request_time
-  filter :gateway
+  filter :gateway,
+         input_html: { class: 'chosen-ajax', 'data-path': '/gateways/search' },
+         collection: proc {
+           resource_id = params.fetch(:q, {})[:gateway_id_eq]
+           resource_id ? Gateway.where(id: resource_id) : []
+         }
+
   filter :pop
   filter :node
   filter :username
@@ -114,4 +120,16 @@ ActiveAdmin.register Cdr::AuthLog, as: 'AuthLog' do
   filter :from_uri
   filter :to_uri
   filter :call_id
+  filter :code
+  filter :reason
+  filter :internal_reason
+  filter :realm
+  filter :request_method
+  filter :x_yeti_auth
+  filter :diversion
+  filter :pai
+  filter :ppi
+  filter :privacy
+  filter :rpid
+  filter :rpid_privacy
 end

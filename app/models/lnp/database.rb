@@ -4,14 +4,20 @@
 #
 # Table name: class4.lnp_databases
 #
-#  id            :integer          not null, primary key
-#  name          :string           not null
-#  created_at    :datetime
-#  database_type :string
-#  database_id   :integer          not null
+#  id                                                                                   :integer(2)       not null, primary key
+#  cache_ttl                                                                            :integer(4)       default(10800), not null
+#  database_type(One of Lnp::DatabaseThinq, Lnp::DatabaseSipRedirect, Lnp::DatabaseCsv) :string
+#  name                                                                                 :string           not null
+#  created_at                                                                           :datetime
+#  database_id                                                                          :integer(2)       not null
+#
+# Indexes
+#
+#  index_class4.lnp_databases_on_database_id_and_database_type  (database_id,database_type) UNIQUE
+#  lnp_databases_name_key                                       (name) UNIQUE
 #
 
-class Lnp::Database < Yeti::ActiveRecord
+class Lnp::Database < ApplicationRecord
   self.table_name = 'class4.lnp_databases'
 
   module CONST
@@ -60,6 +66,7 @@ class Lnp::Database < Yeti::ActiveRecord
   end
 
   validates :database, presence: true
+  validates :cache_ttl, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: PG_MAX_INT, allow_nil: false, only_integer: true }
   validates :name, presence: true, uniqueness: true
   validates :database_id, uniqueness: { scope: :database_type }
 
@@ -76,8 +83,8 @@ class Lnp::Database < Yeti::ActiveRecord
 
   def test_db(destination)
     transaction do
-      fetch_sp_val("select * from #{Yeti::ActiveRecord::ROUTING_SCHEMA}.init(0,0)") # loading configuration
-      d = fetch_sp("select lrn, tag from #{Yeti::ActiveRecord::ROUTING_SCHEMA}.lnp_resolve_tagged(?::smallint,?::varchar)",
+      fetch_sp_val("select * from #{ApplicationRecord::ROUTING_SCHEMA}.init(0,0)") # loading configuration
+      d = fetch_sp("select lrn, tag from #{ApplicationRecord::ROUTING_SCHEMA}.lnp_resolve_tagged(?::smallint,?::varchar)",
                    id,
                    destination)[0]
       OpenStruct.new(d)

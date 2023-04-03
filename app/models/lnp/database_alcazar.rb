@@ -4,15 +4,14 @@
 #
 # Table name: class4.lnp_databases_alcazar
 #
-#  id          :integer          not null, primary key
-#  host        :string           not null
-#  port        :integer
-#  timeout     :integer          default(300), not null
-#  key         :string           not null
-#  database_id :integer
+#  id      :integer(2)       not null, primary key
+#  host    :string           not null
+#  key     :string           not null
+#  port    :integer(4)
+#  timeout :integer(2)       default(300), not null
 #
 
-class Lnp::DatabaseAlcazar < Yeti::ActiveRecord
+class Lnp::DatabaseAlcazar < ApplicationRecord
   self.table_name = 'class4.lnp_databases_alcazar'
 
   #

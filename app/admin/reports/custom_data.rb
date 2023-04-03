@@ -18,20 +18,24 @@ ActiveAdmin.register Report::CustomData, as: 'CustomItem' do
   end
 
   action_item :reports, only: :index do
-    link_to 'Delete report', custom_cdr_path(assigns[:custom_cdr].id), method: :delete,
-                                                                       data: { confirm: I18n.t('active_admin.delete_confirmation') }, class: 'member_link delete_link'
+    link_to 'Delete report',
+            custom_cdr_path(assigns[:custom_cdr].id),
+            method: :delete,
+            data: { confirm: I18n.t('active_admin.delete_confirmation') },
+            class: 'member_link delete_link'
   end
 
   sidebar 'Custom CDR Report', class: 'toggle', priority: 0 do
     div class: :report_sidebar_info do
       attributes_table_for assigns[:custom_cdr] do
         row :id
+        row :completed
         row :date_start
         row :date_end
         row :filter
         row :group_by do
           content_tag :ul do
-            assigns[:custom_cdr].group_by_arr.collect { |item| concat(content_tag(:li, item)) }
+            assigns[:custom_cdr].group_by.collect { |item| concat(content_tag(:li, item)) }
           end
         end
         row :created_at
@@ -39,12 +43,31 @@ ActiveAdmin.register Report::CustomData, as: 'CustomItem' do
     end
   end
 
-  Report::CustomCdr::CDR_COLUMNS.each do |key|
-    next if %i[destination_id dialpeer_id].include? key
+  assoc_filter_columns = Report::CustomCdr::CDR_COLUMNS - %i[destination_id dialpeer_id customer_id vendor_id vendor_acc_id customer_acc_id]
+  assoc_filter_columns.each do |key|
+    filter key.to_s[0..-4].to_sym,
+           if: proc { @custom_cdr.group_by_include? key },
+           input_html: { class: 'chosen' }
 
-    filter key.to_s[0..-4].to_sym, if: proc {
-      @custom_cdr.group_by_include? key
-    }, input_html: { class: 'chosen' }
+    contractor_filter :customer_id_eq,
+                      label: 'Customer',
+                      path_params: { q: { customer_eq: true } },
+                      if: proc { @custom_cdr.group_by_include?(:customer_id) }
+
+    contractor_filter :vendor_id_eq,
+                      label: 'Vendor',
+                      path_params: { q: { vendor_eq: true } },
+                      if: proc { @custom_cdr.group_by_include?(:vendor_id) }
+
+    account_filter :customer_acc_id_eq,
+                   label: 'Customer Acc',
+                   path_params: { q: { contractor_customer_eq: true } },
+                   if: proc { @custom_cdr.group_by_include?(:customer_acc_id) }
+
+    account_filter :vendor_acc_id_eq,
+                   label: 'Vendor Acc',
+                   path_params: { q: { contractor_vendor_eq: true } },
+                   if: proc { @custom_cdr.group_by_include?(:vendor_acc_id) }
   end
 
   controller do
@@ -63,12 +86,14 @@ ActiveAdmin.register Report::CustomData, as: 'CustomItem' do
   filter :agg_profit
 
   csv do
-    parent.csv_columns.map { |c| column c }
+    parent.csv_columns.map do |column_name, attribute_name|
+      column(column_name, &attribute_name)
+    end
   end
 
   index footer_data: ->(collection) { BillingDecorator.new(collection.totals) } do
-    assigns[:custom_cdr].auto_columns.each do |col|
-      column col
+    assigns[:custom_cdr].auto_columns.each do |(column_name, attribute_name)|
+      column(column_name, &attribute_name)
     end
 
     column :calls_count, sortable: :agg_calls_count, footer: lambda {

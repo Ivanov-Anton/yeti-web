@@ -4,42 +4,45 @@
 #
 # Table name: auth_log.auth_log
 #
-#  id                    :integer          not null, primary key
-#  node_id               :integer
-#  pop_id                :integer
-#  request_time          :datetime         not null
-#  transport_proto_id    :integer
-#  transport_remote_ip   :string
-#  transport_remote_port :integer
-#  transport_local_ip    :string
-#  transport_local_port  :integer
-#  origination_ip        :string
-#  origination_port      :integer
-#  origination_proto_id  :integer
-#  username              :string
-#  realm                 :string
-#  request_method        :string
-#  ruri                  :string
+#  id                    :bigint(8)        not null, primary key
+#  code                  :integer(2)
+#  diversion             :string
 #  from_uri              :string
-#  to_uri                :string
-#  call_id               :string
-#  success               :boolean
-#  code                  :integer
-#  reason                :string
 #  internal_reason       :string
 #  nonce                 :string
-#  response              :string
-#  gateway_id            :integer
-#  x_yeti_auth           :string
-#  diversion             :string
+#  origination_ip        :string
+#  origination_port      :integer(4)
 #  pai                   :string
 #  ppi                   :string
 #  privacy               :string
+#  realm                 :string
+#  reason                :string
+#  request_method        :string
+#  request_time          :datetime         not null
+#  response              :string
 #  rpid                  :string
 #  rpid_privacy          :string
+#  ruri                  :string
+#  success               :boolean
+#  to_uri                :string
+#  transport_local_ip    :string
+#  transport_local_port  :integer(4)
+#  transport_remote_ip   :string
+#  transport_remote_port :integer(4)
+#  username              :string
+#  x_yeti_auth           :string
+#  call_id               :string
+#  gateway_id            :integer(4)
+#  node_id               :integer(2)
+#  origination_proto_id  :integer(2)
+#  pop_id                :integer(2)
+#  transport_proto_id    :integer(2)
 #
-
-require 'spec_helper'
+# Indexes
+#
+#  auth_log_id_idx            (id)
+#  auth_log_request_time_idx  (request_time)
+#
 
 RSpec.describe Cdr::AuthLog, type: :model do
   before { described_class.destroy_all }
@@ -103,7 +106,7 @@ RSpec.describe Cdr::AuthLog, type: :model do
       subject
       expect(described_class.last.attributes.symbolize_keys).to match(
         id: kind_of(Integer),
-        request_time: be_within(2.second).of(request_time),
+        request_time: be_within(2.seconds).of(request_time),
 
         transport_proto_id: 2,
         transport_remote_ip: '1.1.1.1',

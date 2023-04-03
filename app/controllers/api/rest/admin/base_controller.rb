@@ -17,7 +17,8 @@ class Api::Rest::Admin::BaseController < Api::RestController
     {
       id: current_admin_user.id,
       username: current_admin_user.username,
-      class: 'AdminUser'
+      class: 'AdminUser',
+      ip_address: '{{auto}}'
     }
   end
 
@@ -29,6 +30,8 @@ class Api::Rest::Admin::BaseController < Api::RestController
   private
 
   def authenticate_admin_user!
-    unauthorized_entity('admin_user') unless authenticate_for(::AdminUser)
+    if !authenticate_for(::AdminUser) || !current_admin_user.ip_allowed?(request.remote_ip)
+      unauthorized_entity('admin_user')
+    end
   end
 end

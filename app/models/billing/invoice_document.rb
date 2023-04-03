@@ -4,13 +4,21 @@
 #
 # Table name: billing.invoice_documents
 #
-#  id         :integer          not null, primary key
-#  invoice_id :integer          not null
+#  id         :integer(4)       not null, primary key
+#  csv_data   :binary
 #  data       :binary
 #  filename   :string           not null
 #  pdf_data   :binary
-#  csv_data   :binary
 #  xls_data   :binary
+#  invoice_id :integer(4)       not null
+#
+# Indexes
+#
+#  invoice_documents_invoice_id_idx  (invoice_id) UNIQUE
+#
+# Foreign Keys
+#
+#  invoice_documents_invoice_id_fkey  (invoice_id => invoices.id)
 #
 
 class Billing::InvoiceDocument < Cdr::Base
@@ -22,9 +30,7 @@ class Billing::InvoiceDocument < Cdr::Base
     Billing::InvoiceDocument.find(invoice_id).data
   end
 
-  def contacts_for_invoices
-    account.contacts_for_invoices
-  end
+  delegate :contacts_for_invoices, to: :account
 
   def attachments
     [
@@ -39,9 +45,7 @@ class Billing::InvoiceDocument < Cdr::Base
     invoice.display_name
   end
 
-  def account
-    invoice.account
-  end
+  delegate :account, to: :invoice
 
   # after_create do
   #   send_invoice
@@ -49,21 +53,15 @@ class Billing::InvoiceDocument < Cdr::Base
 
   def send_invoice
     contacts = contacts_for_invoices
-    if contacts.any?
-      # create attachments
-      files = attachments
-      files.map(&:save!)
-      attachment_ids = files.map(&:id)
-      contacts.each do |contact|
-        Log::EmailLog.create!(
-          contact_id: contact.id,
-          smtp_connection_id: contact.smtp_connection.id,
-          mail_to: contact.email,
-          mail_from: contact.smtp_connection.from_address,
-          subject: subject,
-          attachment_id: attachment_ids
-        )
-      end
-    end
+    return if contacts.empty?
+
+    # create attachments
+    files = attachments
+    files.each(&:save!)
+    ContactEmailSender.batch_send_emails(
+      contacts,
+      subject: subject,
+      attachments: files
+    )
   end
 end

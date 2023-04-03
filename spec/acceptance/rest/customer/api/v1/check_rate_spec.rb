@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'CheckRate', document: :customer_v1 do
+RSpec.resource 'CheckRate', document: :customer_v1 do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
 
   let(:api_access) { create :api_access }
   let(:customer) { api_access.customer }
-  let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: api_access.id }).token }
+  include_context :customer_v1_cookie_helpers
+  let(:auth_token) { build_customer_token(api_access.id, expiration: 1.minute.from_now) }
   let(:type) { 'check-rates' }
 
   let(:customers_auth) do
@@ -18,9 +18,10 @@ resource 'CheckRate', document: :customer_v1 do
   end
 
   let!(:rateplan) { customers_auth.rateplan.reload }
+  let!(:rate_group) { create(:rate_group, rateplans: [rateplan]) }
 
   before do
-    create :destination, rateplan: rateplan, prefix: '444', routing_tag_ids: [create(:routing_tag, :ua).id, create(:routing_tag, :us).id]
+    create :destination, rate_group: rate_group, prefix: '444', routing_tag_ids: [create(:routing_tag, :ua).id, create(:routing_tag, :us).id]
   end
 
   post '/api/rest/customer/v1/check-rate' do

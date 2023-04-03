@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::System::NetworkTypesController, type: :controller do
+RSpec.describe Api::Rest::Admin::System::NetworkTypesController, type: :controller do
   let(:admin_user) { create :admin_user }
   let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: admin_user.id }).token }
 
@@ -13,7 +11,7 @@ describe Api::Rest::Admin::System::NetworkTypesController, type: :controller do
   end
 
   describe 'GET index' do
-    let!(:network_types) do
+    before do
       create_list(:network_type, 2)
     end
 
@@ -29,7 +27,7 @@ describe Api::Rest::Admin::System::NetworkTypesController, type: :controller do
 
     it 'response should contain valid count of items' do
       subject
-      expect(response_data.size).to eq(network_types.size)
+      expect(response_data.size).to eq(System::NetworkType.count)
     end
 
     context 'filtering' do

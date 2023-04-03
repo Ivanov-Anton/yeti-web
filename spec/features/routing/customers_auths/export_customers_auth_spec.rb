@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Export Customers Auth', type: :feature do
+RSpec.describe 'Export Customers Auth', type: :feature do
   include_context :login_as_admin
   include_context :init_routing_tag_collection
 
@@ -12,7 +10,7 @@ describe 'Export Customers Auth', type: :feature do
   let!(:item) do
     create(:customers_auth,
            transport_protocol: Equipment::TransportProtocol.take,
-           pop: Pop.take,
+           pop: create(:pop),
            dst_numberlist: create(:numberlist),
            src_numberlist: create(:numberlist),
            radius_auth_profile: create(:auth_profile),
@@ -25,7 +23,8 @@ describe 'Export Customers Auth', type: :feature do
            to_domain: ['to.com', 'to.net'],
            x_yeti_auth: %w[qwe asd],
            tag_action: Routing::TagAction.take,
-           tag_action_value: [@tag_us.id, @tag_emergency.id])
+           tag_action_value: [tag_us.id, tag_emergency.id],
+           cnam_database: create(:cnam_database))
   end
 
   before do
@@ -65,18 +64,22 @@ describe 'Export Customers Auth', type: :feature do
         ['Routing plan name', item.routing_plan.name, anything],
         ['Dst numberlist name', item.dst_numberlist.name, anything],
         ['Src numberlist name', item.src_numberlist.name, anything],
-        ['Dump level name', item.dump_level.name, anything],
+        ['Dump level name', item.dump_level_name, anything],
         ['Enable audio recording', item.enable_audio_recording.to_s, anything],
         ['Capacity', item.capacity.to_s, anything],
+        ['Cps limit', item.cps_limit.to_s, anything],
         ['Allow receive rate limit', item.allow_receive_rate_limit.to_s, anything],
         ['Send billing information', item.send_billing_information.to_s, anything],
         ['Diversion policy name', item.diversion_policy.name, anything],
         ['Diversion rewrite rule', item.diversion_rewrite_rule.to_s, anything],
         ['Diversion rewrite result', item.diversion_rewrite_result.to_s, anything],
+        ['Src name field name', item.src_name_field.name, anything],
         ['Src name rewrite rule', item.src_name_rewrite_rule.to_s, anything],
         ['Src name rewrite result', item.src_name_rewrite_result.to_s, anything],
+        ['Src number field name', item.src_number_field.name, anything],
         ['Src rewrite rule', item.src_rewrite_rule.to_s, anything],
         ['Src rewrite result', item.src_rewrite_result.to_s, anything],
+        ['Dst number field name', item.dst_number_field.name, anything],
         ['Dst rewrite rule', item.dst_rewrite_rule.to_s, anything],
         ['Dst rewrite result', item.dst_rewrite_result.to_s, anything],
         ['Lua script name', item.lua_script.name, anything],
@@ -87,7 +90,8 @@ describe 'Export Customers Auth', type: :feature do
         ['Dst number radius rewrite result', item.dst_number_radius_rewrite_result.to_s, anything],
         ['Radius accounting profile name', item.radius_accounting_profile.name, anything],
         ['Tag action name', item.tag_action.name, anything],
-        ['Tag action value names', item.tag_action_values.map(&:name).join(', '), anything]
+        ['Tag action value names', item.tag_action_values.map(&:name).join(', '), anything],
+        ['Cnam database name', item.cnam_database.name, anything]
       ]
     )
   end

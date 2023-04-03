@@ -23,10 +23,7 @@ shared_context :init_importing_gateway do |args|
       contractor_id: @contractor.id,
       allow_termination: true,
       allow_origination: false,
-      anonymize_sdp: true,
       proxy_media: true,
-      transparent_seqno: false,
-      transparent_ssrc: false,
       sst_enabled: false,
       sst_minimum_timer: 50,
       sst_maximum_timer: 50,
@@ -60,8 +57,9 @@ shared_context :init_importing_gateway do |args|
       orig_disconnect_policy_id: 1,
       term_disconnect_policy_name: 'not_send_503',
       term_disconnect_policy_id: 1,
-      diversion_policy_name: 'Clear header',
-      diversion_policy_id: 1,
+      diversion_send_mode: 'Do not accept',
+      diversion_send_mode_id: 1,
+      diversion_domain: '',
       diversion_rewrite_rule: '',
       diversion_rewrite_result: '',
       src_name_rewrite_rule: '',
@@ -97,9 +95,10 @@ shared_context :init_importing_gateway do |args|
       sensor_id: nil,
       sensor_level_name: 'Signaling',
       sensor_level_id: 1,
-      is_changed: true
+      is_changed: true,
+      force_cancel_routeset: true
     }.merge(args)
 
-    @importing_gateway = FactoryGirl.create(:importing_gateway, fields)
+    @importing_gateway = FactoryBot.create(:importing_gateway, fields)
   end
 end

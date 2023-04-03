@@ -1,15 +1,11 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::ChartOriginatedCpsController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::ChartOriginatedCpsController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :chart_originated_cps
 
   let!(:account) { create(:account, contractor: customer).reload }
   let!(:another_account) { create(:account, contractor: customer).reload }
   before do
-    Cdr::Cdr.where(customer_acc_id: account.id).delete_all
-
     create_list :cdr, 4,
                 customer_acc_id: account.id,
                 routing_attempt: 1,
@@ -59,25 +55,43 @@ describe Api::Rest::Customer::V1::ChartOriginatedCpsController, type: :request d
     end
 
     let(:json_api_request_attributes) do
-      { 'from-time': '2019-01-01 00:00:00', 'to-time': '2019-01-02 00:00:00' }
+      {
+        'from-time': Time.zone.parse('2019-01-01 00:00:00').iso8601(3),
+        'to-time': Time.zone.parse('2019-01-02 00:00:00').iso8601(3)
+      }
     end
     let(:json_api_relationships) do
       { account: { data: { id: account.uuid, type: 'accounts' } } }
     end
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization, success_status: 201
 
     context 'success' do
       include_examples :returns_json_api_record, relationships: [:account], status: 201 do
         let(:json_api_record_id) { be_present }
         let(:json_api_record_attributes) do
           {
-            'from-time': Time.parse('2019-01-01 00:00:00').iso8601(3),
-            'to-time': Time.parse('2019-01-02 00:00:00').iso8601(3),
-            'cps': [
-              { x: '0.1', y: Time.parse('2019-01-01 00:00:00').utc.to_s(:db) },
-              { x: '0.2', y: Time.parse('2019-01-01 23:59:00').utc.to_s(:db) }
+            'from-time': Time.zone.parse('2019-01-01 00:00:00').iso8601(3),
+            'to-time': Time.zone.parse('2019-01-02 00:00:00').iso8601(3),
+            cps: [
+              { y: '0.1', x: Time.zone.parse('2019-01-01 00:00:00').iso8601(3) },
+              { y: '0.2', x: Time.zone.parse('2019-01-01 23:59:00').iso8601(3) }
             ]
+          }
+        end
+      end
+    end
+
+    context 'without from-time and to-time', freeze_time: true do
+      let(:json_api_request_attributes) { {} }
+
+      include_examples :returns_json_api_record, relationships: [:account], status: 201 do
+        let(:json_api_record_id) { be_present }
+        let(:json_api_record_attributes) do
+          {
+            'from-time': 24.hours.ago.iso8601(3),
+            'to-time': Time.current.iso8601(3),
+            cps: []
           }
         end
       end

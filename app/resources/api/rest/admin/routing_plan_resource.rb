@@ -3,9 +3,9 @@
 class Api::Rest::Admin::RoutingPlanResource < BaseResource
   model_name 'Routing::RoutingPlan'
 
-  attributes :name, :rate_delta_max, :use_lnp, :max_rerouting_attempts
+  paginator :paged
 
-  has_one :sorting
+  attributes :name, :rate_delta_max, :use_lnp, :max_rerouting_attempts, :sorting_id
 
   filter :name # DEPRECATED in favor of name_eq
 
@@ -13,14 +13,21 @@ class Api::Rest::Admin::RoutingPlanResource < BaseResource
   ransack_filter :rate_delta_max, type: :number
   ransack_filter :use_lnp, type: :boolean
   ransack_filter :max_rerouting_attempts, type: :number
+  ransack_filter :validate_dst_number_format, type: :boolean
+  ransack_filter :validate_dst_number_network, type: :boolean
+  ransack_filter :external_id, type: :number
+  ransack_filter :sorting_id, type: :number
 
   def self.updatable_fields(_context)
     %i[
       name
       rate_delta_max
       use_lnp
-      sorting
+      sorting_id
       max_rerouting_attempts
+      validate_dst_number_format
+      validate_dst_number_network
+      external_id
     ]
   end
 

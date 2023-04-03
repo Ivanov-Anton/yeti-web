@@ -23,7 +23,7 @@ ActiveAdmin.register Routing::RoutingTagDetectionRule do
                 :tag_action_id, :routing_tag_mode_id, tag_action_value: [],
                                                       routing_tag_ids: []
 
-  includes :src_area, :dst_area, :tag_action
+  includes :src_area, :dst_area, :tag_action, :routing_tag_mode
 
   controller do
     def update
@@ -65,10 +65,10 @@ ActiveAdmin.register Routing::RoutingTagDetectionRule do
   end
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs do
       f.input :routing_tag_ids, as: :select,
-                                collection: RoutingTagDetectionRuleDecorator.decorate(f.object).routing_tag_options,
+                                collection: routing_tag_options,
                                 multiple: true,
                                 include_hidden: false,
                                 input_html: { class: 'chosen' }
@@ -79,7 +79,7 @@ ActiveAdmin.register Routing::RoutingTagDetectionRule do
       f.input :dst_prefix
       f.input :tag_action
       f.input :tag_action_value, as: :select,
-                                 collection: Routing::RoutingTag.all,
+                                 collection: tag_action_value_options,
                                  multiple: true,
                                  include_hidden: false,
                                  input_html: { class: 'chosen' }

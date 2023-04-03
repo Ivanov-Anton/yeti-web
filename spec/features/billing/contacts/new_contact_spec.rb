@@ -1,23 +1,20 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Billing Contact', type: :feature, js: true do
+RSpec.describe 'Create new Billing Contact', type: :feature, js: true do
   subject do
-    aa_form.submit
+    click_submit('Create Contact')
   end
 
   include_context :login_as_admin
-  active_admin_form_for Billing::Contact, 'new'
 
-  let!(:contractor) { FactoryGirl.create(:customer) }
+  let!(:contractor) { FactoryBot.create(:customer) }
 
   before do
     visit new_billing_contact_path
-    aa_form.select_chosen 'Contractor', contractor.name
-    aa_form.select_chosen 'Admin user', admin_user.username
-    aa_form.set_text 'Email', 'john.doe@example.com'
-    aa_form.set_text 'Notes', 'test'
+    fill_in_chosen 'Contractor', with: contractor.name, ajax: true
+    fill_in_chosen 'Admin user', with: admin_user.username
+    fill_in 'Email',  with: 'john.doe@example.com'
+    fill_in 'Notes',  with: 'test'
   end
 
   it 'creates correct billing account' do

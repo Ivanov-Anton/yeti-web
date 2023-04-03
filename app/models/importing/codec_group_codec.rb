@@ -4,25 +4,25 @@
 #
 # Table name: data_import.import_codec_group_codecs
 #
-#  id               :integer          not null, primary key
-#  o_id             :integer
+#  id               :bigint(8)        not null, primary key
 #  codec_group_name :string
-#  codec_group_id   :integer
 #  codec_name       :string
-#  codec_id         :integer
-#  priority         :integer
 #  error_string     :string
 #  is_changed       :boolean
+#  priority         :integer(4)
+#  codec_group_id   :integer(4)
+#  codec_id         :integer(4)
+#  o_id             :integer(4)
 #
 
 class Importing::CodecGroupCodec < Importing::Base
   self.table_name = 'data_import.import_codec_group_codecs'
   attr_accessor :file
 
-  belongs_to :codec_group, class_name: '::CodecGroup'
-  belongs_to :codec, class_name: '::Codec'
+  belongs_to :codec_group, class_name: '::CodecGroup', optional: true
+  belongs_to :codec, class_name: '::Codec', optional: true
 
   self.import_attributes = %w[codec_group_id codec_id priority]
 
-  self.import_class = ::CodecGroupCodec
+  import_for ::CodecGroupCodec
 end

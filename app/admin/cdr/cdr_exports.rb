@@ -4,9 +4,28 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
   menu parent: 'CDR', priority: 97
   actions :index, :show, :create, :new
 
+  controller do
+    def scoped_collection
+      super.preload(:customer_account)
+    end
+
+    def build_new_resource
+      record = super
+      if params[:action] == 'new'
+        record.fields = CdrExport.last&.fields || []
+      end
+      record
+    end
+  end
+
+  filter :id
   filter :status, as: :select, collection: CdrExport::STATUSES
+  filter :rows_count
+  account_filter :customer_account, path_params: { q: { contractor_customer_eq: true } }
   filter :callback_url
   filter :created_at
+  filter :updated_at
+  filter :uuid_equals, label: 'UUID'
 
   action_item(:download, only: [:show]) do
     link_to 'Download', action: :download if resource.completed?
@@ -28,9 +47,11 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
     column :filters do |r|
       r.filters.as_json
     end
+    column :customer_account
     column :callback_url
     column :created_at
     column :updated_at
+    column :uuid
     actions
   end
 
@@ -51,6 +72,7 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
           row :status
           row :callback_url
           row :type
+          row :customer_account
           row :created_at
           row :updated_at
           row :rows_count
@@ -72,9 +94,9 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
   end
 
   member_action :download do
-    response.headers['X-Accel-Redirect'] = "/x-redirect/cdr_export/#{resource.id}.csv"
+    response.headers['X-Accel-Redirect'] = "/x-redirect/cdr_export/#{resource.id}.csv.gz"
     response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-    response.headers['Content-Disposition'] = "attachment; filename=\"#{resource.id}.csv\""
+    response.headers['Content-Disposition'] = "attachment; filename=\"#{resource.id}.csv.gz\""
 
     render body: nil
   end
@@ -85,41 +107,124 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
     redirect_back fallback_location: root_path
   end
 
-  controller do
-    def build_new_resource
-      record = super
-      if params[:action] == 'new'
-        record.fields = CdrExport.last&.fields || []
-      end
-      record
-    end
-  end
-
-  permit_params filters: %i[time_start_gteq time_start_lteq customer_acc_id_eq is_last_cdr_eq],
+  permit_params :callback_url,
+                filters: CdrExport::FiltersModel.attribute_types.keys.map(&:to_sym),
                 fields: []
 
   form do |f|
-    f.semantic_errors(*f.object.errors.keys)
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs do
       f.input :fields,
               as: :select,
               multiple: true,
               collection: CdrExport.allowed_fields,
-              input_html: { class: 'chosen' }
+              input_html: { class: 'chosen' },
+              required: true
+
+      f.input :callback_url, required: false
     end
     f.inputs 'Filters', for: [:filters, f.object.filters] do |ff|
-      ff.input :time_start_gteq, as: :date_time_picker
-      ff.input :time_start_lteq, as: :date_time_picker
+      # accounts = Account.order(:name)
+      gateways = Gateway.order(:name)
+      boolean_options = [['Any', nil], ['Yes', true], ['No', false]]
 
-      ff.input :customer_acc_id_eq,
+      ff.input :time_start_gteq, as: :date_time_picker, required: true
+      ff.input :time_start_lteq, as: :date_time_picker, required: false
+      ff.input :time_start_lt, as: :date_time_picker, required: false
+
+      ff.contractor_input :customer_id_eq,
+                          label: 'Customer id eq',
+                          path_params: { q: { customer_eq: true } }
+
+      ff.input :customer_external_id_eq, required: false
+
+      ff.account_input :customer_acc_id_eq,
+                       label: 'Customer acc id eq',
+                       path_params: { q: { contractor_customer_eq: true } }
+
+      ff.input :customer_acc_external_id_eq, required: false
+
+      ff.input :success_eq,
                as: :select,
-               collection: Account.order(:name),
-               input_html: { class: 'chosen' }
+               collection: boolean_options,
+               input_html: { class: 'chosen' },
+               required: false
+
+      ff.input :duration_eq, as: :number
+      ff.input :duration_lteq, as: :number
+      ff.input :duration_gteq, as: :number
+
+      ff.input :failed_resource_type_id_eq, required: false
+
+      ff.contractor_input :vendor_id_eq,
+                          label: 'Vendor id eq',
+                          path_params: { q: { vendor_eq: true } }
+      ff.input :vendor_external_id_eq, required: false
+
+      ff.account_input :vendor_acc_id_eq,
+                       label: 'Vendor acc id eq',
+                       path_params: { q: { contractor_vendor_eq: true } }
+      ff.input :vendor_acc_external_id_eq, required: false
+
+      ff.input :customer_auth_id_eq,
+               as: :select,
+               collection: CustomersAuth.order(:name),
+               input_html: { class: 'chosen' },
+               required: false
+      ff.input :customer_auth_external_id_eq, required: false
 
       ff.input :is_last_cdr_eq,
                as: :select,
-               collection: [['Any', nil], ['Yes', true], ['No', false]],
-               input_html: { class: 'chosen' }
+               collection: boolean_options,
+               input_html: { class: 'chosen' },
+               required: false
+
+      ff.input :src_prefix_in_contains, required: false
+      ff.input :src_prefix_in_eq, required: false
+      ff.input :src_prefix_routing_contains, required: false
+      ff.input :src_prefix_routing_eq, required: false
+      ff.input :src_prefix_out_contains, required: false
+      ff.input :src_prefix_out_eq, required: false
+
+      ff.input :dst_prefix_in_contains, required: false
+      ff.input :dst_prefix_in_eq, required: false
+      ff.input :dst_prefix_routing_contains, required: false
+      ff.input :dst_prefix_routing_eq, required: false
+      ff.input :dst_prefix_out_contains, required: false
+      ff.input :dst_prefix_out_eq, required: false
+
+      ff.input :src_country_id_eq,
+               as: :select,
+               collection: System::Country.all,
+               input_html: { class: 'chosen' },
+               required: false
+      ff.input :dst_country_id_eq,
+               as: :select,
+               collection: System::Country.all,
+               input_html: { class: 'chosen' },
+               required: false
+
+      ff.input :routing_tag_ids_include, required: false
+      ff.input :routing_tag_ids_exclude, required: false
+      ff.input :routing_tag_ids_empty,
+               as: :select,
+               collection: boolean_options,
+               input_html: { class: 'chosen' },
+               required: false
+
+      ff.input :orig_gw_id_eq,
+               as: :select,
+               collection: gateways,
+               input_html: { class: 'chosen' },
+               required: false
+      ff.input :orig_gw_external_id_eq, required: false
+
+      ff.input :term_gw_id_eq,
+               as: :select,
+               collection: gateways,
+               input_html: { class: 'chosen' },
+               required: false
+      ff.input :term_gw_external_id_eq, required: false
     end
     f.actions
   end

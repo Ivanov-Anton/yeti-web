@@ -3,7 +3,7 @@ cdr_billing:
   class: cdr_billing
   queue: cdr_billing
   consumer: cdr_billing
-  syslog_program_name: "YETI-cdr-billing"
+  syslog_program_name: "yeti-cdr-billing"
   mail_to: "bug-report@yeti-switch.org"
   mail_from: "yeti-cdr-billing@example.com"
   mail_subject: "Exception happened in CDR billing"
@@ -13,7 +13,7 @@ cdr_http:
   class: cdr_http
   queue: cdr_billing
   consumer: cdr_billing
-  syslog_program_name: "YETI-cdr-billing"
+  syslog_program_name: "yeti-cdr-billing"
   mail_to: "bug-report@yeti-switch.org"
   mail_from: "yeti-cdr-billing@example.com"
   mail_subject: "Exception happened in CDR http"
@@ -33,7 +33,7 @@ cdr_amqp:
   class: cdr_amqp
   queue: cdr_streaming
   consumer: cdr_amqp
-  syslog_program_name: "YETI-cdr-billing"
+  syslog_program_name: "yeti-cdr-billing"
   mail_to: "bug-report@yeti-switch.org"
   mail_from: "yeti-cdr-billing@example.com"
   mail_subject: "Exception happened in CDR AMQP"
@@ -48,3 +48,23 @@ cdr_amqp:
     frame_max: 131072
     auth_mechanism: "PLAIN"
 
+cdr_clickhouse:
+  mode: production
+  class: cdr_clickhouse
+  queue: cdr_billing
+  consumer: cdr_clickhouse
+  syslog_program_name: "yeti-cdr-billing"
+  mail_to: "bug-report@yeti-switch.org"
+  mail_from: "yeti-cdr-billing@example.com"
+  mail_subject: "Exception happened in CDR http"
+  url: "http://clickhouse.example.com"
+  clickhouse_db: main
+  clickhouse_table: cdrs
+  # may be an array:
+  #  cdr_fields: [
+  #                 'id', 'src_prefix_in', 'src_prefix_out', 'dst_prefix_in', 'dst_prefix_out', 'time_start',
+  #                 'time_connect', 'time_end',  'duration', 'customer', 'vendor',  'destination_fee',
+  #                 'destination_initial_interval', 'destination_initial_rate', 'destination_next_interval',
+  #                 'destination_next_rate', 'customer_price',  'orig_call_id', 'local_tag', 'term_call_id'
+  #              ]
+  cdr_fields: all

@@ -4,20 +4,31 @@
 #
 # Table name: payments
 #
-#  account_id :integer          not null
-#  amount     :decimal(, )      not null
-#  notes      :string
-#  id         :integer          not null, primary key
-#  created_at :datetime         not null
+#  id            :bigint(8)        not null, primary key
+#  amount        :decimal(, )      not null
+#  notes         :string
+#  private_notes :string
+#  uuid          :uuid             not null
+#  created_at    :datetime         not null
+#  account_id    :integer(4)       not null
+#
+# Indexes
+#
+#  payments_account_id_idx  (account_id)
+#  payments_uuid_key        (uuid) UNIQUE
+#
+# Foreign Keys
+#
+#  payments_account_id_fkey  (account_id => accounts.id)
 #
 
-class Payment < Yeti::ActiveRecord
+class Payment < ApplicationRecord
   belongs_to :account
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
-  validates_numericality_of :amount
-  validates_presence_of :account
+  validates :amount, numericality: true
+  validates :account, presence: true
 
   before_create do
     account.lock! # will generate SELECT FOR UPDATE SQL statement

@@ -1,47 +1,48 @@
-job_1:
-  id: 1
-  type: 'CdrPartitioning'
+# == Schema Information
+#
+# Table name: sys.jobs
+#
+#  id             :bigint(8)        not null, primary key
+#  last_duration  :decimal(, )
+#  last_exception :string
+#  last_run_at    :datetime
+#  name           :string           not null
+#
+CdrPartitioning:
+  name: 'CdrPartitioning'
 
-job_2:
-  id: 2
-  type: 'EventProcessor'
+EventProcessor:
+  name: 'EventProcessor'
 
-job_3:
-  id: 3
-  type: 'CdrBatchCleaner'
+CdrBatchCleaner:
+  name: 'CdrBatchCleaner'
 
-job_4:
-  id: 4
-  type: 'PartitionRemoving'
+PartitionRemoving:
+  name: 'PartitionRemoving'
 
-job_5:
-  id: 5
-  type: 'CallsMonitoring'
+CallsMonitoring:
+  name: 'CallsMonitoring'
 
-job_6:
-  id: 6
-  type: 'StatsClean'
+StatsClean:
+  name: 'StatsClean'
 
-job_7:
-  id: 7
-  type: 'StatsAggregation'
+StatsAggregation:
+  name: 'StatsAggregation'
 
-job_8:
-  id: 8
-  type: 'Invoice'
+Invoice:
+  name: 'Invoice'
 
-job_9:
-  id: 9
-  type: 'ReportScheduler'
+ReportScheduler:
+  name: 'ReportScheduler'
 
-job_10:
-  id: 10
-  type: 'TerminationQualityCheck'
+TerminationQualityCheck:
+  name: 'TerminationQualityCheck'
 
-job_11:
-  id: 11
-  type: 'DialpeerRatesApply'
+DialpeerRatesApply:
+  name: 'DialpeerRatesApply'
 
-job_12:
-  id: 12
-  type: 'AccountBalanceNotify'
+AccountBalanceNotify:
+  name: 'AccountBalanceNotify'
+
+SyncDatabaseTables:
+  name: 'SyncDatabaseTables'

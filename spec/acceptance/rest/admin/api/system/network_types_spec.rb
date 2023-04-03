@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'NetworkTypes' do
+RSpec.resource 'NetworkTypes' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -18,7 +17,7 @@ resource 'NetworkTypes' do
     jsonapi_filters Api::Rest::Admin::System::NetworkTypeResource._allowed_filters
 
     before do
-      FactoryGirl.create_list(:network_type, 2)
+      FactoryBot.create_list(:network_type, 2)
     end
 
     example_request 'get listing' do
@@ -27,7 +26,7 @@ resource 'NetworkTypes' do
   end
 
   get '/api/rest/admin/system/network-types/:id' do
-    let(:id) { FactoryGirl.create(:network_type).id }
+    let(:id) { FactoryBot.create(:network_type).id }
 
     example_request 'get specific entry' do
       expect(status).to eq(200)
@@ -64,7 +63,7 @@ resource 'NetworkTypes' do
   end
 
   delete '/api/rest/admin/system/network-types/:id' do
-    let(:id) { FactoryGirl.create(:network_type).id }
+    let(:id) { FactoryBot.create(:network_type).id }
 
     example_request 'delete entry' do
       expect(status).to eq(204)

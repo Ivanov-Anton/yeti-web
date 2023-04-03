@@ -1,72 +1,74 @@
 # frozen_string_literal: true
 
-ActiveAdmin.register Rateplan do
-  menu parent: 'Routing', priority: 40
+ActiveAdmin.register Routing::Rateplan do
+  menu parent: 'Routing', label: 'Rateplans', priority: 40
+  decorate_with RateplanDecorator
 
   acts_as_audit
-  acts_as_clone_with_helper helper: Routing::RateplanDuplicator, name: 'Copy with destinations'
   acts_as_safe_destroy
 
-  acts_as_export :id, :name,
-                 [:profit_control_mode_name, proc { |row| row.profit_control_mode.name }]
+  acts_as_clone links: [:rate_groups]
+
+  acts_as_export :id, :name, :profit_control_mode_name
 
   acts_as_import resource_class: Importing::Rateplan
 
-  permit_params :name, :profit_control_mode_id, send_quality_alarms_to: []
+  permit_params :name, :profit_control_mode_id, rate_group_ids: [], send_quality_alarms_to: []
 
-  controller do
-    def scoped_collection
-      super.eager_load(:profit_control_mode)
-    end
-  end
+  includes :rate_groups, :rate_groups_routing_rateplans
 
   index do
     selectable_column
     id_column
     actions
     column :name
-    column :profit_control_mode
-    column :send_quality_alarms_to do |r|
-      r.contacts.map(&:email).sort.join(', ')
-    end
+    column 'Rate Groups', :rate_groups_links
+    column :profit_control_mode, &:profit_control_mode_name
+    column :send_quality_alarms_to, :quality_alarm_emails
     column :uuid
+    column :external_id
   end
 
   filter :id
   filter :uuid_equals, label: 'UUID'
   filter :name
+  filter :external_id
+  filter :profit_control_mode_id_eq, label: 'Profit control mode', as: :select, collection: Routing::RateProfitControlMode::MODES.invert
+
   form do |f|
-    f.semantic_errors(*f.object.errors.keys)
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs do
       f.input :name
-      f.input :profit_control_mode
+      f.input :rate_groups, input_html: { class: 'chosen-sortable', multiple: true }
+      f.input :profit_control_mode_id, as: :select, include_blank: false, collection: Routing::RateProfitControlMode::MODES.invert
       f.input :send_quality_alarms_to, as: :select, input_html: { class: 'chosen-sortable', multiple: true }, collection: Billing::Contact.collection
     end
     f.actions
   end
 
-  show do |s|
+  show do
     attributes_table do
       row :id
       row :uuid
       row :name
-      row :profit_control_mode
-      row :send_quality_alarms_to do
-        s.contacts.map(&:email).sort.join(', ')
+      row 'Rate Groups' do |r|
+        r.rate_groups_links(newline: true)
       end
+      row :profit_control_mode, &:profit_control_mode_name
+      row :send_quality_alarms_to do |r|
+        r.quality_alarm_emails(newline: true)
+      end
+      row :external_id
     end
   end
 
   sidebar :links, only: %i[show edit] do
     ul do
       li do
-        link_to 'Destinations', destinations_path(q: { rateplan_id_eq: params[:id] })
+        link_to 'Destinations', destinations_path(q: { rate_group_rateplans_id_eq: params[:id] })
       end
       li do
         link_to 'Customer Auths', customers_auths_path(q: { rateplan_id_eq: params[:id] })
-      end
-      li do
-        link_to 'CDR list', cdrs_path(q: { rateplan_id_eq: params[:id] })
       end
     end
   end

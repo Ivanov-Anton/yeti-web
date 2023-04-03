@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'Dialpeers' do
+RSpec.resource 'Dialpeers' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -20,7 +19,7 @@ resource 'Dialpeers' do
     prefix src-rewrite-rule dst-rewrite-rule acd-limit asr-limit src-rewrite-result
     dst-rewrite-result locked priority exclusive-route capacity lcr-rate-multiplier
     force-hit-rate network-prefix-id created-at short-calls-limit external-id routing-tag-ids
-    dst_number-min-length dst-number-max-length
+    dst_number-min-length dst-number-max-length reverse-billing
   ]
 
   required_relationships = %i[routing-group vendor account routeset-discriminator]
@@ -66,6 +65,7 @@ resource 'Dialpeers' do
     let(:'next-rate') { 0.0 }
     let(:'dst-number-min-length') { 0 }
     let(:'dst-number-max-length') { 100 }
+    let(:'reverse-billing') { true }
 
     example_request 'create new entry' do
       expect(status).to eq(201)

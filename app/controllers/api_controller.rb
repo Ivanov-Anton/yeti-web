@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class ApiController < ActionController::Base
+class ApiController < ActionController::API
   around_action :db_logging
 
   def db_logging
@@ -30,7 +30,7 @@ class ApiController < ActionController::Base
     @debug_mode
   end
 
-  include Concerns::WithPayloads
+  include WithPayloads
   include CaptureError::ControllerMethods
 
   rescue_from StandardError, with: :capture_error!
@@ -38,7 +38,7 @@ class ApiController < ActionController::Base
   protected
 
   def current_db_connection
-    ActiveRecord::Base.connection
+    ApplicationRecord.connection
   end
 
   def info_for_paper_trail

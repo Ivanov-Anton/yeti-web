@@ -4,8 +4,12 @@
 #
 # Table name: reports.scheduler_periods
 #
-#  id   :integer          not null, primary key
+#  id   :integer(2)       not null, primary key
 #  name :string           not null
+#
+# Indexes
+#
+#  scheduler_periods_name_key  (name) UNIQUE
 #
 
 class Report::SchedulerPeriod < Cdr::Base
@@ -38,13 +42,13 @@ class Report::SchedulerPeriod < Cdr::Base
       )
     when 4 # biweekly
       data = PeriodData.new(
-        time_now.beginning_of_week + 2.week + 2.hour,
-        time_now.beginning_of_week - 2.week,
+        time_now.beginning_of_week + 2.weeks + 2.hours,
+        time_now.beginning_of_week - 2.weeks,
         time_now.beginning_of_week
       )
     when 5 # monthly
       data = PeriodData.new(
-        time_now.beginning_of_month + 1.month + 3.hour,
+        time_now.beginning_of_month + 1.month + 3.hours,
         time_now.beginning_of_month - 1.month,
         time_now.beginning_of_month
       )

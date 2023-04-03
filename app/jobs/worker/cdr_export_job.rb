@@ -7,7 +7,7 @@ module Worker
     def perform(cdr_export_id)
       cdr_export = CdrExport.find(cdr_export_id)
 
-      rows_count = Cdr::Cdr.connection.execute("COPY (#{cdr_export.export_sql}) TO '#{file_path_for(cdr_export)}' WITH (FORMAT CSV, HEADER, FORCE_QUOTE *);").cmd_tuples
+      rows_count = Cdr::Cdr.connection.execute("COPY (#{cdr_export.export_sql}) TO PROGRAM 'gzip > #{file_path_for(cdr_export)}' WITH (FORMAT CSV, HEADER, FORCE_QUOTE *);").cmd_tuples
 
       # update cdr_export status
       cdr_export.update!(
@@ -17,10 +17,11 @@ module Worker
     rescue StandardError => e
       logger.error { e.message }
       logger.error { e.backtrace.join("\n") }
+      capture_error(e)
       cdr_export.update!(status: CdrExport::STATUS_FAILED)
     ensure
       # ping callback_url
-      if cdr_export.callback_url
+      if cdr_export.callback_url.present?
         params = { export_id: cdr_export.id, status: cdr_export.status }
         PingCallbackUrlJob.perform_later(cdr_export.callback_url, params)
       end
@@ -29,11 +30,11 @@ module Worker
     private
 
     def file_path_for(cdr_export)
-      "#{dir_path}/#{cdr_export.id}.csv"
+      "#{dir_path}/#{cdr_export.id}.csv.gz"
     end
 
     def dir_path
-      Rails.configuration.yeti_web.fetch('cdr_export').fetch('dir_path').chomp('/')
+      YetiConfig.cdr_export.dir_path.chomp('/')
     end
   end
 end

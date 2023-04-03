@@ -4,29 +4,35 @@
 #
 # Table name: admin_users
 #
-#  id                     :integer          not null, primary key
-#  encrypted_password     :string(255)      default(""), not null
-#  reset_password_token   :string(255)
-#  reset_password_sent_at :datetime
-#  remember_created_at    :datetime
-#  sign_in_count          :integer          default(0)
+#  id                     :integer(4)       not null, primary key
+#  allowed_ips            :inet             is an Array
 #  current_sign_in_at     :datetime
-#  last_sign_in_at        :datetime
 #  current_sign_in_ip     :string(255)
+#  enabled                :boolean          default(TRUE)
+#  encrypted_password     :string(255)      default(""), not null
+#  last_sign_in_at        :datetime
 #  last_sign_in_ip        :string(255)
+#  per_page               :json             not null
+#  remember_created_at    :datetime
+#  reset_password_sent_at :datetime
+#  reset_password_token   :string(255)
+#  roles                  :string           not null, is an Array
+#  saved_filters          :json             not null
+#  sign_in_count          :integer(4)       default(0)
+#  stateful_filters       :boolean          default(FALSE), not null
+#  username               :string           not null
+#  visible_columns        :json             not null
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null
-#  enabled                :boolean          default(TRUE)
-#  username               :string           not null
-#  ssh_key                :text
-#  stateful_filters       :boolean          default(FALSE), not null
-#  visible_columns        :json             not null
-#  per_page               :json             not null
-#  saved_filters          :json             not null
-#  roles                  :string           not null, is an Array
+#
+# Indexes
+#
+#  admin_users_username_idx                   (username) UNIQUE
+#  admin_users_username_key                   (username) UNIQUE
+#  index_admin_users_on_reset_password_token  (reset_password_token) UNIQUE
 #
 
-class AdminUser < ActiveRecord::Base
+class AdminUser < ApplicationRecord
   include Yeti::ResourceStatus
 
   has_one :billing_contact, class_name: 'Billing::Contact', dependent: :destroy, autosave: true
@@ -35,8 +41,16 @@ class AdminUser < ActiveRecord::Base
     self.roles = roles.reject(&:blank?) unless roles.nil?
   end
 
-  validates_format_of :email, with: /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i, if: :validate_email?
+  validates :email, format: { with: /\A([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})\z/i, if: :validate_email? }
   validates :roles, presence: true
+
+  before_validation :ensure_allowed_ips_format
+
+  validates :allowed_ips,
+            array_format: { without: /\s/, message: 'spaces are not allowed', allow_nil: true },
+            array_uniqueness: { allow_nil: true }
+
+  validate :validate_allowed_ips
 
   after_save do
     contact = billing_contact || build_billing_contact
@@ -55,7 +69,7 @@ class AdminUser < ActiveRecord::Base
   end
 
   def self.ldap_config
-    File.join(Rails.root, 'config', 'ldap.yml')
+    Rails.root.join 'config/ldap.yml'
   end
 
   def self.ldap_config_exists?
@@ -63,7 +77,7 @@ class AdminUser < ActiveRecord::Base
   end
 
   def self.available_roles
-    list = (Rails.configuration.policy_roles.try!(:keys) || []).map(&:to_sym)
+    list = (Rails.configuration.policy_roles&.keys || []).map(&:to_sym)
     list.push(RolePolicy.root_role) if RolePolicy.root_role.present?
     list
   end
@@ -74,8 +88,13 @@ class AdminUser < ActiveRecord::Base
     include AdminUserDatabaseHandler
   end
 
+  def allowed_ips=(value)
+    value = value.split(',').map(&:strip).reject(&:blank?) if value.is_a? String
+    self[:allowed_ips] = value
+  end
+
   def email
-    @email ||= billing_contact.try!(:email)
+    @email ||= billing_contact&.email
   end
 
   attr_writer :email
@@ -102,7 +121,7 @@ class AdminUser < ActiveRecord::Base
       params.delete(:password)
       params.delete(:password_confirmation) if params[:password_confirmation].blank?
     end
-    update_attributes(params, *options)
+    update(params, *options)
     clean_up_passwords
   end
 
@@ -128,12 +147,26 @@ class AdminUser < ActiveRecord::Base
     false
   end
 
-  protected
+  private
 
   def check_if_last
     if self.class.count.zero?
       errors.add(:base, "Last admin user can't  be deleted")
       throw(:abort)
     end
+  end
+
+  def validate_allowed_ips
+    return unless allowed_ips.is_a?(Array)
+
+    allowed_ips.each do |raw_ip|
+      IPAddr.new(raw_ip)
+    end
+  rescue IPAddr::Error => _e
+    errors.add(:allowed_ips, :invalid)
+  end
+
+  def ensure_allowed_ips_format
+    self.allowed_ips = nil if allowed_ips.blank?
   end
 end

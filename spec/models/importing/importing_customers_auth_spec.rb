@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'shared_examples/shared_examples_for_importing_hook'
 
-describe Importing::CustomersAuth do
+RSpec.describe Importing::CustomersAuth do
+  include_context :init_pop
   include_context :init_contractor, name: 'iBasis', vendor: true, customer: true
 
   include_context :init_rateplan
@@ -46,6 +46,8 @@ describe Importing::CustomersAuth do
         tag_action_value: tags.map(&:id)
       )
     end
+
+    include_examples :increments_customers_auth_state
   end
 
   context 'when tag_action_value_names is NULL' do
@@ -60,6 +62,8 @@ describe Importing::CustomersAuth do
         tag_action_value: []
       )
     end
+
+    include_examples :increments_customers_auth_state
   end
 
   it_behaves_like 'after_import_hook when real items match' do
@@ -67,5 +71,7 @@ describe Importing::CustomersAuth do
     include_context :init_customers_auth, name: 'SameName'
 
     let(:real_item) { described_class.import_class.last }
+
+    include_examples :increments_customers_auth_state
   end
 end

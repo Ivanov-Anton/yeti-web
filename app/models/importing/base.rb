@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Importing::Base < Yeti::ActiveRecord
+class Importing::Base < ApplicationRecord
   self.abstract_class = true
 
   class Error < StandardError
@@ -31,6 +31,22 @@ class Importing::Base < Yeti::ActiveRecord
     where.not(is_changed: nil)
   end
 
+  # @param klass [Class<ApplicationRecord>]
+  def self.import_for(klass)
+    self.import_class = klass
+
+    # Association will represent record that will be replaced by importing record.
+    belongs_to :import_object, class_name: "::#{klass.name}", foreign_key: :o_id, optional: true
+  end
+
+  def self.import_assoc_keys
+    attrs = import_attributes || []
+    attrs.select do |attr|
+      attr = attr.to_s
+      attr.end_with?('_id') && reflect_on_association(attr.gsub(/_id\z/, ''))
+    end
+  end
+
   class_attribute :import_attributes, :import_class
 
   ALLOWED_OPTIONS_KEYS = %i[controller_info max_jobs_count job_number action].freeze
@@ -53,7 +69,7 @@ class Importing::Base < Yeti::ActiveRecord
     query = where('id % ? = ?', options[:max_jobs_count], options[:job_number])
     query = query.where(is_changed: true)
     query = query.send(options[:action]) if options[:action]
-    Yeti::ActiveRecord.transaction do
+    ApplicationRecord.transaction do
       query.find_in_batches do |batch|
         batch.each { |item| move_one!(item) }
       end
@@ -84,11 +100,11 @@ class Importing::Base < Yeti::ActiveRecord
   end
 
   # Resolve existing items relation(by unique names)
-  def self.resolve_object_id(unique_columns)
+  def self.resolve_object_id(unique_columns, extra_condition = nil)
     for_update.update_all(o_id: nil)
     ready_to_process.update_all(is_changed: nil)
     if unique_columns.any?
-      update_relations_for_each!(import_class.table_name, :o, unique_columns)
+      update_relations_for_each!(import_class.table_name, :o, unique_columns, extra_condition)
     end
     apply_is_changed!
   end
@@ -102,10 +118,10 @@ class Importing::Base < Yeti::ActiveRecord
       "FROM #{import_class.table_name} orig_t",
       'WHERE import_t.o_id IS NOT NULL AND import_t.o_id = orig_t.id'
     ].join(' ')
-    Yeti::ActiveRecord.connection.execute(sql_matched)
+    ApplicationRecord.connection.execute(sql_matched)
 
     sql_non_matched = "UPDATE #{table_name} SET is_changed = true WHERE is_changed IS NULL"
-    Yeti::ActiveRecord.connection.execute(sql_non_matched)
+    ApplicationRecord.connection.execute(sql_non_matched)
   end
 
   def self.calc_changed_conditions(orig_table, import_table)
@@ -119,23 +135,27 @@ class Importing::Base < Yeti::ActiveRecord
   # query like UPDATE+SET+FROM+WHERE, it skips "FROM"
   # "FROM" is crucial for this kind of queries
   #
-  def self.update_relations_for_each!(relation_table_name, field, unique_columns = [])
+  def self.update_relations_for_each!(relation_table_name, field, unique_columns = [], extra_condition = nil)
     if unique_columns.any?
       condition_array = []
       unique_columns.each do |column_name|
-        condition_array << "ta.#{column_name} = tb.#{column_name}"
+        condition_array << "ta.#{column_name} IS NOT DISTINCT FROM tb.#{column_name}"
       end
       condition = condition_array.join(' AND ')
     else
       condition = "ta.#{field}_name = tb.name"
     end
+    if extra_condition.present?
+      condition = "#{condition} AND #{extra_condition}"
+    end
     sql = "UPDATE #{table_name} ta SET #{field}_id = tb.id FROM #{relation_table_name} tb WHERE #{condition}"
-    Yeti::ActiveRecord.connection.execute(sql)
+    ApplicationRecord.connection.execute(sql)
   end
 
   # Use this method for resolving:
   #   routing_tag_names => routing_tag_ids
   #   tag_action_value_names => tag_action_value
+  # Sorts routing_tag_ids in same way as RoutingTagsSort#call
   def self.resolve_array_of_tags(ids_column, names_column)
     sql = "
       UPDATE #{table_name} ta
@@ -143,12 +163,14 @@ class Importing::Base < Yeti::ActiveRecord
             SELECT id::smallint
             FROM #{Routing::RoutingTag.table_name}
             WHERE name = ANY ( string_to_array(replace(ta.#{names_column}, ', ', ',')::varchar, ',')::varchar[] )
+            ORDER BY id ASC
           )
       WHERE ta.#{ids_column} = '{}' AND ta.#{names_column} <> '';
     "
-    Yeti::ActiveRecord.connection.execute(sql)
+    ApplicationRecord.connection.execute(sql)
   end
 
+  # Sorts routing_tag_ids in same way as RoutingTagsSort#call
   def self.resolve_null_tag(ids_column, names_column)
     sql = "
       UPDATE #{table_name} ta
@@ -157,6 +179,13 @@ class Importing::Base < Yeti::ActiveRecord
               string_to_array(replace(ta.#{names_column}, ', ', ',')::varchar, ',')::varchar[]
             );
     "
-    Yeti::ActiveRecord.connection.execute(sql)
+    ApplicationRecord.connection.execute(sql)
+  end
+
+  def self.resolve_integer_constant(id_column, name_column, collection)
+    collection.each do |cid, cname|
+      sql = "UPDATE #{table_name} ta SET #{id_column} = #{cid} WHERE #{name_column} = '#{cname}'"
+      ApplicationRecord.connection.execute(sql)
+    end
   end
 end

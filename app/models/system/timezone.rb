@@ -4,17 +4,30 @@
 #
 # Table name: sys.timezones
 #
-#  id         :integer          not null, primary key
-#  name       :string           not null
+#  id         :integer(4)       not null, primary key
 #  abbrev     :string
-#  utc_offset :interval
 #  is_dst     :boolean
+#  name       :string           not null
+#  utc_offset :interval
+#
+# Indexes
+#
+#  timezones_name_key  (name) UNIQUE
 #
 
-class System::Timezone < Yeti::ActiveRecord
+class System::Timezone < ApplicationRecord
   self.table_name = 'sys.timezones'
+
+  # Rails 7 will use ActiveSupport::Duration type for interval by default.
+  attribute :utc_offset, :string
+
+  validates :name, presence: true, uniqueness: true
 
   def display_name
     "#{name} | #{abbrev} | #{utc_offset}"
+  end
+
+  def time_zone
+    ActiveSupport::TimeZone.new(name)
   end
 end

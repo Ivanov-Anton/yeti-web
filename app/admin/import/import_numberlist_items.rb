@@ -3,7 +3,8 @@
 ActiveAdmin.register Importing::NumberlistItem, as: 'Numberlist Item Imports' do
   filter :key
   filter :numberlist, input_html: { class: 'chosen' }
-  filter :action
+  filter :action_id_eq, label: 'Action', as: :select, collection: Routing::NumberlistItem::ACTIONS.invert
+
   boolean_filter :is_changed
 
   acts_as_import_preview
@@ -15,8 +16,6 @@ ActiveAdmin.register Importing::NumberlistItem, as: 'Numberlist Item Imports' do
       [params[active_admin_config.resource_class.model_name.param_key.to_sym].permit!]
     end
   end
-
-  includes :numberlist, :action, :lua_script
 
   index do
     selectable_column
@@ -31,17 +30,13 @@ ActiveAdmin.register Importing::NumberlistItem, as: 'Numberlist Item Imports' do
     column :key
     column :number_min_length
     column :number_max_length
-    column :action
+    column :action, &:action_display_name
     column :src_rewrite_rule
     column :src_rewrite_result
     column :dst_rewrite_rule
     column :dst_rewrite_result
     column :tag_action
-    column :tag_action_value do |row|
-      if row.tag_action_value.present?
-        Routing::RoutingTag.where(id: row.tag_action_value).pluck(:name).join(', ')
-      end
-    end
+    column :tag_action_value
     column :lua_script
   end
 end

@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Dialpeer Next Rate', type: :feature, js: true do
+RSpec.describe 'Create new Dialpeer Next Rate', type: :feature, js: true do
   subject do
     aa_form.submit
   end
@@ -10,9 +8,9 @@ describe 'Create new Dialpeer Next Rate', type: :feature, js: true do
   active_admin_form_for DialpeerNextRate, 'new'
   include_context :login_as_admin
 
-  let!(:dialpeer) { FactoryGirl.create(:dialpeer) }
+  let!(:dialpeer) { FactoryBot.create(:dialpeer) }
   before do
-    FactoryGirl.create(:dialpeer)
+    FactoryBot.create(:dialpeer)
     visit new_dialpeer_dialpeer_next_rate_path(dialpeer.id)
 
     aa_form.set_date_time 'Apply time', '2019-01-01 01:00'
@@ -34,7 +32,7 @@ describe 'Create new Dialpeer Next Rate', type: :feature, js: true do
       initial_rate: 0.1,
       next_rate: 0.2,
       connect_fee: 0.3,
-      apply_time: Time.parse('2019-01-01 01:00:00 UTC')
+      apply_time: Time.zone.parse('2019-01-01 01:00:00')
     )
   end
 

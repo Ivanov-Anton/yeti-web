@@ -1,15 +1,14 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 RSpec.describe AsyncBatchDestroyJob, type: :job do
   describe '#perform' do
     include_context :init_rateplan
+    include_context :init_rate_group
     include_context :init_destination, id: 1, initial_rate: 0.3
     include_context :init_destination, id: 2, initial_rate: 0.5
     include_context :init_destination, id: 3, initial_rate: 0.7
 
-    subject { described_class.new(model_class, sql_query, who_is).perform }
+    subject { described_class.perform_now(model_class, sql_query, who_is) }
 
     before :each do
       stub_const('AsyncBatchDestroyJob::BATCH_SIZE', 2)
@@ -45,6 +44,54 @@ RSpec.describe AsyncBatchDestroyJob, type: :job do
 
         it { expect { subject }.to change(Routing::Destination, :count).by(-1) }
         it { expect { subject }.to change(Routing::Destination.where(id: 1), :count).by(-1) }
+      end
+
+      context 'test LogicLog class' do
+        let!(:contractor) { create :vendor }
+        let!(:contractor_alone) { create :vendor }
+        let!(:gateway_group) { create :gateway_group, vendor: contractor }
+        let(:model_class) { 'Contractor' }
+
+        context 'should write record about' do
+          let(:sql_query) { Contractor.where(id: contractor_alone.id).to_sql }
+          it 'success performed job' do
+            expect { subject }.to change(LogicLog, :count).by 1
+            expect(LogicLog.last.msg).to start_with 'Success'
+          end
+        end
+
+        context 'when the job raise an error' do
+          let(:sql_query) { Contractor.all.to_sql }
+          it 'error performed job' do
+            expect do
+              expect { subject }.to raise_error(ActiveRecord::RecordNotDestroyed)
+            end.to change(LogicLog, :count).by 1
+            expect(LogicLog.last.msg).to start_with 'Error'
+          end
+        end
+      end
+
+      context 'when record cannot be destroyed' do
+        let(:model_class) { 'Dialpeer' }
+
+        let!(:dialpeers) { FactoryBot.create_list(:dialpeer, 4) }
+        let!(:item) do
+          FactoryBot.create(:rate_management_pricelist_item, :with_pricelist, :filed_from_project, dialpeer: dialpeers.last)
+        end
+        let(:sql_query) { Dialpeer.all.to_sql }
+
+        it 'should raise validation error' do
+          error_message = "Dialpeer ##{dialpeers.last.id} can't be deleted: Can't be deleted because linked to not applied Rate Management Pricelist(s) ##{item.pricelist_id}"
+          expect { subject }.to raise_error(ActiveRecord::RecordNotDestroyed, error_message)
+
+          dialpeers.first(2).each do |dialpeer|
+            expect(Dialpeer).not_to be_exists(dialpeer.id)
+          end
+
+          dialpeers.last(2).each do |dialpeer|
+            expect(Dialpeer).to be_exists(dialpeer.id)
+          end
+        end
       end
     end
   end

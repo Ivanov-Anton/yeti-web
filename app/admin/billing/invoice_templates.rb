@@ -3,7 +3,7 @@
 ActiveAdmin.register Billing::InvoiceTemplate, as: 'InvoiceTemplate' do
   menu parent: 'Billing', label: 'Invoice templates', priority: 40
   config.batch_actions = false
-  actions :all #:index,:create, :new, :destroy, :delete, :edit, :update
+  actions :all # :index,:create, :new, :destroy, :delete, :edit, :update
   before_action :left_sidebar!
 
   permit_params :name, :template_file
@@ -48,14 +48,14 @@ ActiveAdmin.register Billing::InvoiceTemplate, as: 'InvoiceTemplate' do
   filter :filename
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys.uniq
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
       f.input :name
       f.input :template_file, as: :file
     end
     panel 'test' do
       'You can use next placeholders:'
-      table_for InvoiceDocs.replaces_list.each do |_x|
+      table_for BillingInvoice::GenerateDocument.replaces_list.each do |_x|
         column :placeholder do |c|
           strong do
             "[#{c.to_s.upcase}]"

@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Routing Plan', type: :feature, js: true do
+RSpec.describe 'Create new Routing Plan', type: :feature, js: true do
   include_context :login_as_admin
 
   before do
@@ -16,7 +14,11 @@ describe 'Create new Routing Plan', type: :feature, js: true do
         name: 'test routing plan',
         use_lnp: true,
         rate_delta_max: 0.11,
-        max_rerouting_attempts: 8
+        max_rerouting_attempts: 8,
+        validate_dst_number_format: true,
+        validate_dst_number_network: true,
+        validate_src_number_format: true,
+        validate_src_number_network: true
       }
     end
 

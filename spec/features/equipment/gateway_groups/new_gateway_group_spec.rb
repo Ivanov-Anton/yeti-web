@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Gateway group', type: :feature, js: true do
+RSpec.describe 'Create new Gateway group', type: :feature, js: true do
   include_context :login_as_admin
 
   before do
@@ -15,7 +13,7 @@ describe 'Create new Gateway group', type: :feature, js: true do
       {
         name: 'GW group',
         vendor_id: lambda {
-                     chosen_pick('#gateway_group_vendor_id+div', text: @vendor.name)
+                     fill_in_chosen('Vendor', with: @vendor.name, ajax: true)
                    },
         balancing_mode_id: 'Priority/Weigth balancing'
       }

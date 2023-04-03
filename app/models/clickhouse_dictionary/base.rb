@@ -19,14 +19,12 @@ module ClickhouseDictionary
         names.each { |name| attribute(name, **options.dup) }
       end
 
-      def call
-        new.call
-      end
+      delegate :call, to: :new
     end
 
     def call
       fields = attribute_names
-      rows = scoped_collection.pluck(*pluck_fields).map { |values| fields.zip(values).to_h }
+      rows = scoped_collection.pluck(Arel.sql(pluck_fields.join(', '))).map { |values| fields.zip(values).to_h }
       rows.map(&:to_json).join("\n")
     end
 

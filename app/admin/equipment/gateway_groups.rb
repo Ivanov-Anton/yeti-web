@@ -2,17 +2,12 @@
 
 ActiveAdmin.register GatewayGroup do
   menu parent: 'Equipment', priority: 70
-
+  search_support!
   acts_as_audit
   acts_as_clone
   acts_as_safe_destroy
   acts_as_async_destroy('GatewayGroup')
-  acts_as_async_update('GatewayGroup',
-                       lambda do
-                         {
-                           vendor_id: Contractor.vendors.pluck(:name, :id)
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::GatewayGroup
 
   acts_as_delayed_job_lock
 
@@ -29,13 +24,8 @@ ActiveAdmin.register GatewayGroup do
 
   controller do
     def scoped_collection
-      super.eager_load(:vendor, :balancing_mode)
+      super.eager_load(:vendor, :balancing_mode, :gateways)
     end
-  end
-
-  collection_action :with_contractor do
-    @gr = Contractor.find(params[:contractor_id]).gateway_groups
-    render plain: view_context.options_from_collection_for_select(@gr, :id, :display_name)
   end
 
   index do
@@ -47,11 +37,13 @@ ActiveAdmin.register GatewayGroup do
       auto_link(c.vendor, c.vendor.decorated_display_name)
     end
     column :balancing_mode
+    column :gateways
   end
 
   filter :id
   filter :name
-  filter :vendor, input_html: { class: 'chosen' }
+  contractor_filter :vendor_id_eq, label: 'Vendor', path_params: { q: { vendor_eq: true } }
+
   filter :balancing_mode
 
   show do |s|
@@ -62,22 +54,28 @@ ActiveAdmin.register GatewayGroup do
         auto_link(s.vendor, s.vendor.decorated_display_name)
       end
       row :balancing_mode
+      row :gateways
     end
     panel('Gateways in group') do
-      table_for resource.gateways do |_g|
+      table_for resource.gateways.order(:priority) do |_g|
         column :id
+        column :priority
+        column :weight
+        column :enabled
         column :name
+        column :pop
         column :host
         column :port
+        column :termination_capacity
       end
     end
   end
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
       f.input :name
-      f.input :vendor, input_html: { class: 'chosen' }, collection: Contractor.vendors
+      f.contractor_input :vendor_id, label: 'Vendor', path_params: { q: { vendor_eq: true } }
       f.input :balancing_mode, as: :select, include_blank: false
     end
     f.actions

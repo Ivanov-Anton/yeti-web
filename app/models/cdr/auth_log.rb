@@ -4,39 +4,44 @@
 #
 # Table name: auth_log.auth_log
 #
-#  id                    :integer          not null, primary key
-#  node_id               :integer
-#  pop_id                :integer
-#  request_time          :datetime         not null
-#  transport_proto_id    :integer
-#  transport_remote_ip   :string
-#  transport_remote_port :integer
-#  transport_local_ip    :string
-#  transport_local_port  :integer
-#  origination_ip        :string
-#  origination_port      :integer
-#  origination_proto_id  :integer
-#  username              :string
-#  realm                 :string
-#  request_method        :string
-#  ruri                  :string
+#  id                    :bigint(8)        not null, primary key
+#  code                  :integer(2)
+#  diversion             :string
 #  from_uri              :string
-#  to_uri                :string
-#  call_id               :string
-#  success               :boolean
-#  code                  :integer
-#  reason                :string
 #  internal_reason       :string
 #  nonce                 :string
-#  response              :string
-#  gateway_id            :integer
-#  x_yeti_auth           :string
-#  diversion             :string
+#  origination_ip        :string
+#  origination_port      :integer(4)
 #  pai                   :string
 #  ppi                   :string
 #  privacy               :string
+#  realm                 :string
+#  reason                :string
+#  request_method        :string
+#  request_time          :datetime         not null
+#  response              :string
 #  rpid                  :string
 #  rpid_privacy          :string
+#  ruri                  :string
+#  success               :boolean
+#  to_uri                :string
+#  transport_local_ip    :string
+#  transport_local_port  :integer(4)
+#  transport_remote_ip   :string
+#  transport_remote_port :integer(4)
+#  username              :string
+#  x_yeti_auth           :string
+#  call_id               :string
+#  gateway_id            :integer(4)
+#  node_id               :integer(2)
+#  origination_proto_id  :integer(2)
+#  pop_id                :integer(2)
+#  transport_proto_id    :integer(2)
+#
+# Indexes
+#
+#  auth_log_id_idx            (id)
+#  auth_log_request_time_idx  (request_time)
 #
 
 class Cdr::AuthLog < Cdr::Base
@@ -49,11 +54,11 @@ class Cdr::AuthLog < Cdr::Base
   self.pg_partition_depth_past = 3
   self.pg_partition_depth_future = 3
 
-  belongs_to :gateway, class_name: 'Gateway', foreign_key: :gateway_id
-  belongs_to :node, class_name: 'Node', foreign_key: :node_id
-  belongs_to :pop, class_name: 'Pop', foreign_key: :pop_id
-  belongs_to :origination_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :origination_proto_id
-  belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_proto_id
+  belongs_to :gateway, class_name: 'Gateway', foreign_key: :gateway_id, optional: true
+  belongs_to :node, class_name: 'Node', foreign_key: :node_id, optional: true
+  belongs_to :pop, class_name: 'Pop', foreign_key: :pop_id, optional: true
+  belongs_to :origination_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :origination_proto_id, optional: true
+  belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_proto_id, optional: true
 
   scope :successful, -> { where success: true }
   scope :failed, -> { where success: false }

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
   include_context :json_api_admin_helpers, type: :contacts
 
@@ -11,14 +9,17 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
     end
 
     let!(:contacts) do
-      FactoryGirl.create_list(:contact, 2) # only Contact with contractor
+      FactoryBot.create_list(:contact, 2) # only Contact with contractor
     end
 
+    include_examples :jsonapi_responds_with_pagination_links
     include_examples :returns_json_api_collection do
       let(:json_api_collection_ids) do
         contacts.map { |r| r.id.to_s }
       end
     end
+
+    it_behaves_like :json_api_admin_check_authorization
   end
 
   describe 'GET /api/rest/admin/contacts/{id}' do
@@ -30,7 +31,7 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
     let(:request_query) { nil }
     let(:record_id) { contact.id.to_s }
 
-    let!(:contact) { FactoryGirl.create(:contact, contact_attrs) }
+    let!(:contact) { FactoryBot.create(:contact, contact_attrs) }
     let(:contractor) { contact.contractor }
     let(:contact_attrs) { { email: 'some@mail.com', notes: 'Text here...' } }
     let(:contact_response_attributes) do
@@ -44,6 +45,8 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
       let(:json_api_record_id) { record_id }
       let(:json_api_record_attributes) { contact_response_attributes }
     end
+
+    it_behaves_like :json_api_admin_check_authorization
 
     context 'with include destination' do
       let(:request_query) { { include: 'contractor' } }
@@ -64,7 +67,7 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
       post json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
     end
 
-    let(:contractor) { FactoryGirl.create(:customer) }
+    let(:contractor) { FactoryBot.create(:customer) }
 
     let(:json_api_request_body) do
       {
@@ -99,6 +102,8 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
     end
 
     include_examples :changes_records_qty_of, Billing::Contact, by: 1
+
+    it_behaves_like :json_api_admin_check_authorization, status: 201
   end
 
   describe 'PATCH /api/rest/admin/contacts/{id}' do
@@ -113,7 +118,7 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
     end
     let(:json_api_request_attributes) { { 'email': 'another@mail,com' } }
 
-    let!(:contact) { FactoryGirl.create(:contact) }
+    let!(:contact) { FactoryBot.create(:contact) }
 
     include_examples :returns_json_api_record, relationships: [:contractor] do
       let(:json_api_record_id) { contact.id.to_s }
@@ -121,6 +126,8 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
         hash_including(json_api_request_attributes)
       end
     end
+
+    it_behaves_like :json_api_admin_check_authorization
   end
 
   describe 'DELETE /api/rest/admin/contacts/{id}' do
@@ -132,9 +139,11 @@ RSpec.describe Api::Rest::Admin::ContactsController, type: :request do
     let(:request_query) { nil }
     let(:record_id) { contact.id.to_s }
 
-    let!(:contact) { FactoryGirl.create(:contact) }
+    let!(:contact) { FactoryBot.create(:contact) }
 
     include_examples :responds_with_status, 204
     include_examples :changes_records_qty_of, Billing::Contact, by: -1
+
+    it_behaves_like :json_api_admin_check_authorization, status: 204
   end
 end

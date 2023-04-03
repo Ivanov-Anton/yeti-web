@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'Customer Auths' do
+RSpec.resource 'Customer Auths' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -19,10 +18,10 @@ resource 'Customer Auths' do
     diversion-rewrite-result allow-receive-rate-limit send-billing-information
     enable-audio-recording src-number-radius-rewrite-rule src-number-radius-rewrite-result
     dst-number-radius-rewrite-rule dst-number-radius-rewrite-result from-domain to-domain
-    tag-action-value
+    tag-action-value check-account-balance require-incoming-auth dump-level-id
   ]
 
-  required_relationships = %i[customer rateplan routing-plan gateway account dump-level diversion-policy]
+  required_relationships = %i[customer rateplan routing-plan gateway account diversion-policy]
   optional_relationships = %i[
     pop dst-numberlist src-numberlist radius-auth-profile radius-accounting-profile transport-protocol
     tag-action
@@ -56,7 +55,7 @@ resource 'Customer Auths' do
     let(:enabled) { true }
     let(:'reject-calls') { false }
     let(:ip) { '0.0.0.0' }
-    let(:'dump-level') { wrap_relationship(:dump_levels, 1) }
+    let(:'dump-level-id') { CustomersAuth::DUMP_LEVEL_CAPTURE_ALL }
     let(:'diversion-policy') { wrap_relationship(:'diversion-policies', 1) }
     let(:customer) { wrap_relationship(:contractors, create(:contractor, customer: true).id) }
     let(:rateplan) { wrap_relationship(:rateplans, create(:rateplan).id) }

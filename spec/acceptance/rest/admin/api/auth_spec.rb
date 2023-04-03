@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'Authentication' do
+RSpec.resource 'Authentication' do
   header 'Accept', 'application/json'
   header 'Content-Type', 'application/json'
 
   post '/api/rest/admin/auth' do
-    parameter :username, 'Login', scope: :auth, requred: true
-    parameter :password, 'Password', scope: :auth, requred: true
+    parameter :username, 'Login', scope: :auth, required: true
+    parameter :password, 'Password', scope: :auth, required: true
 
-    let(:username) { 'admin' }
+    let(:username) { 'test-admin' }
     let(:password) { 'password' }
 
     before { create :admin_user, username: username, password: password }

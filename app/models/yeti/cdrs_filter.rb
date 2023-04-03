@@ -2,6 +2,10 @@
 
 module Yeti
   class CdrsFilter
+    Error = Class.new(StandardError)
+
+    include Enumerable
+
     EQ_FILTERABLE = %i[
       dst_country_id
       dst_network_id
@@ -24,82 +28,73 @@ module Yeti
     attr_accessor :params
 
     def initialize(nodes, params = {})
-      @params = clean_search_params(params).with_indifferent_access
-      set_nodes(nodes)
+      @params = format_params(params)
+      @nodes = nodes_scope(nodes)
     end
 
     def search(options = {})
       results = raw_cdrs(options)
-      lambda_filter = search_lambda
-      results.select { |cdr| lambda_filter.call(cdr) }
+      filter = generate_filter
+      filter.call(results)
     end
 
     def raw_cdrs(options = {})
-      raw = Parallel.map(@nodes.to_a, in_threads: @nodes.count) do |node|
+      NodeParallelRpc.call(nodes: @nodes.to_a) do |node|
         Rails.logger.info { "request to node #{node.id}" }
-
         calls = node.calls(options)
         Rails.logger.info { " loading  #{calls.count} active calls" }
         calls
       end
-      raw.flatten
+    rescue StandardError => e
+      # Here we capture error from thread created by Parallel and raise new one,
+      # because original exception will not have useful information, like where it were called.
+      CaptureError.log_error(e)
+      raise Error, "Caught #{e.class} #{e.message}"
     end
 
-    def search_lambda
-      parts = []
+    def generate_filter
+      filter = ArrayFilter.new
+
       EQ_FILTERABLE.each do |k|
         %i[eq equals].each do |suff|
-          parts << " cdr['#{k}'].to_i == #{search_param(k, suff).to_i}" if searchable?(k, suff)
+          filter.add_filter { |cdr| cdr[:"#{k}"].to_i == search_param(k, suff).to_i } if searchable?(k, suff)
         end
       end
       STARTS_WITH_FILTERABLE.each do |k|
-        parts << " cdr['#{k}'].to_s.starts_with?('#{search_param(k, :starts_with)}' ) " if searchable?(k, :starts_with)
+        filter.add_filter { |cdr| cdr[:"#{k}"].to_s.start_with? search_param(k, :starts_with) } if searchable?(k, :starts_with)
       end
       LT_FILTERABLE.each do |k|
         %i[lt less_than].each do |suff|
-          parts << " cdr['#{k}'].to_i < #{search_param(k, suff).to_i}  " if searchable?(k, suff)
+          filter.add_filter { |cdr| cdr[:"#{k}"].to_i < search_param(k, suff).to_i } if searchable?(k, suff)
         end
       end
 
       GT_FILTERABLE.each do |k|
         %i[gt greater_than].each do |suff|
-          parts << " cdr['#{k}'].to_i > #{search_param(k, suff).to_i} " if searchable?(k, suff)
+          filter.add_filter { |cdr| cdr[:"#{k}"].to_i > search_param(k, suff).to_i } if searchable?(k, suff)
         end
       end
 
-      source = if parts.any?
-                 'lambda { |cdr|  ' + parts.join(' && ') + ' }'
-               else
-                 'lambda { |cdr| cdr }'
-               end
-
-      Rails.logger.info { 'lambda ---- > ' }
-      Rails.logger.info { source }
-      eval source
+      filter
     end
 
-    def set_nodes(nodes)
-      @nodes = if @params[:node_id_eq].present?
-                 nodes.where(id: @params.delete(:node_id_eq))
-               else
-                 nodes
-               end
+    def nodes_scope(nodes)
+      node_id = @params.delete(:node_id_eq)
+      nodes = nodes.where(id: node_id) if node_id.present?
+      nodes
     end
 
     def search_param(key, predicate)
-      @params["#{key}_#{predicate}"]
+      @params.fetch(:"#{key}_#{predicate}")
     end
 
     def searchable?(key, predicate)
-      @params["#{key}_#{predicate}"].present?
+      @params.key?(:"#{key}_#{predicate}")
     end
 
-    def clean_search_params(params)
-      if params.is_a? Hash
-        params.dup.delete_if { |_, value| value.blank? }
-      else
-        {}
-      end
+    def format_params(params)
+      params = params.is_a?(Hash) ? params.dup.delete_if { |_, value| value.blank? } : {}
+      params.symbolize_keys
     end
   end
 end

@@ -4,60 +4,73 @@
 #
 # Table name: class4.customers_auth_normalized
 #
-#  id                               :integer          not null, primary key
-#  customers_auth_id                :integer          not null
-#  customer_id                      :integer          not null
-#  rateplan_id                      :integer          not null
-#  enabled                          :boolean          default(TRUE), not null
-#  ip                               :inet             not null
-#  account_id                       :integer
-#  gateway_id                       :integer          not null
-#  src_rewrite_rule                 :string
-#  src_rewrite_result               :string
-#  dst_rewrite_rule                 :string
-#  dst_rewrite_result               :string
-#  src_prefix                       :string           default(""), not null
-#  dst_prefix                       :string           default(""), not null
-#  x_yeti_auth                      :string
-#  name                             :string           not null
-#  dump_level_id                    :integer          default(0), not null
-#  capacity                         :integer
-#  pop_id                           :integer
-#  uri_domain                       :string
-#  src_name_rewrite_rule            :string
-#  src_name_rewrite_result          :string
-#  diversion_policy_id              :integer          default(1), not null
-#  diversion_rewrite_rule           :string
-#  diversion_rewrite_result         :string
-#  dst_numberlist_id                :integer
-#  src_numberlist_id                :integer
-#  routing_plan_id                  :integer          not null
+#  id                               :integer(4)       not null, primary key
 #  allow_receive_rate_limit         :boolean          default(FALSE), not null
-#  send_billing_information         :boolean          default(FALSE), not null
-#  radius_auth_profile_id           :integer
-#  enable_audio_recording           :boolean          default(FALSE), not null
-#  src_number_radius_rewrite_rule   :string
-#  src_number_radius_rewrite_result :string
-#  dst_number_radius_rewrite_rule   :string
-#  dst_number_radius_rewrite_result :string
-#  radius_accounting_profile_id     :integer
-#  from_domain                      :string
-#  to_domain                        :string
-#  transport_protocol_id            :integer
-#  dst_number_min_length            :integer          default(0), not null
-#  dst_number_max_length            :integer          default(100), not null
+#  capacity                         :integer(2)
 #  check_account_balance            :boolean          default(TRUE), not null
-#  require_incoming_auth            :boolean          default(FALSE), not null
-#  tag_action_id                    :integer
-#  tag_action_value                 :integer          default([]), not null, is an Array
-#  external_id                      :integer
+#  cps_limit                        :float
+#  diversion_rewrite_result         :string
+#  diversion_rewrite_rule           :string
+#  dst_number_max_length            :integer(2)       default(100), not null
+#  dst_number_min_length            :integer(2)       default(0), not null
+#  dst_number_radius_rewrite_result :string
+#  dst_number_radius_rewrite_rule   :string
+#  dst_prefix                       :string           default(""), not null
+#  dst_rewrite_result               :string
+#  dst_rewrite_rule                 :string
+#  enable_audio_recording           :boolean          default(FALSE), not null
+#  enabled                          :boolean          default(TRUE), not null
+#  from_domain                      :string
+#  ip                               :inet             not null
+#  name                             :string           not null
 #  reject_calls                     :boolean          default(FALSE), not null
-#  src_number_max_length            :integer          default(100), not null
-#  src_number_min_length            :integer          default(0), not null
-#  lua_script_id                    :integer
+#  require_incoming_auth            :boolean          default(FALSE), not null
+#  send_billing_information         :boolean          default(FALSE), not null
+#  src_name_rewrite_result          :string
+#  src_name_rewrite_rule            :string
+#  src_number_max_length            :integer(2)       default(100), not null
+#  src_number_min_length            :integer(2)       default(0), not null
+#  src_number_radius_rewrite_result :string
+#  src_number_radius_rewrite_rule   :string
+#  src_numberlist_use_diversion     :boolean          default(FALSE), not null
+#  src_prefix                       :string           default(""), not null
+#  src_rewrite_result               :string
+#  src_rewrite_rule                 :string
+#  tag_action_value                 :integer(2)       default([]), not null, is an Array
+#  to_domain                        :string
+#  uri_domain                       :string
+#  x_yeti_auth                      :string
+#  account_id                       :integer(4)
+#  cnam_database_id                 :integer(2)
+#  customer_id                      :integer(4)       not null
+#  customers_auth_id                :integer(4)       not null
+#  diversion_policy_id              :integer(4)       default(1), not null
+#  dst_number_field_id              :integer(2)       default(1), not null
+#  dst_numberlist_id                :integer(2)
+#  dump_level_id                    :integer(2)       default(0), not null
+#  external_id                      :bigint(8)
+#  gateway_id                       :integer(4)       not null
+#  lua_script_id                    :integer(2)
+#  pop_id                           :integer(4)
+#  radius_accounting_profile_id     :integer(2)
+#  radius_auth_profile_id           :integer(2)
+#  rateplan_id                      :integer(4)       not null
+#  routing_plan_id                  :integer(4)       not null
+#  src_name_field_id                :integer(2)       default(1), not null
+#  src_number_field_id              :integer(2)       default(1), not null
+#  src_numberlist_id                :integer(2)
+#  tag_action_id                    :integer(2)
+#  transport_protocol_id            :integer(2)
 #
-
-require 'spec_helper'
+# Indexes
+#
+#  customers_auth_normalized_ip_prefix_range_prefix_range1_idx  (ip, ((dst_prefix)::prefix_range), ((src_prefix)::prefix_range)) USING gist
+#  customers_auth_normalized_prefix_range_prefix_range1_idx     (((dst_prefix)::prefix_range), ((src_prefix)::prefix_range)) WHERE enabled USING gist
+#
+# Foreign Keys
+#
+#  customers_auth_normalized_customers_auth_id_fkey  (customers_auth_id => customers_auth.id)
+#
 
 RSpec.describe CustomersAuthNormalized, type: :model do
   shared_examples :test_normalized_copy_count do |copy_count|
@@ -163,7 +176,7 @@ RSpec.describe CustomersAuthNormalized, type: :model do
       let(:attributes) do
         {
           # ip: [], default
-          src_prefix: ['src-1', 'src-2'],
+          src_prefix: %w[src-1 src-2],
           dst_prefix: [],
           uri_domain: [],
           from_domain: [],
@@ -185,12 +198,12 @@ RSpec.describe CustomersAuthNormalized, type: :model do
       let(:attributes) do
         {
           ip: ['127.0.0.1', '192.168.0.1'],
-          src_prefix: ['src-1', 'src-2'],
-          dst_prefix: ['dst-1', 'dst-2'],
-          uri_domain: ['uri-1', 'uri-2'],
-          from_domain: ['from-1', 'from-2'],
-          to_domain: ['to-1', 'to-2'],
-          x_yeti_auth: ['x-1', 'x-2']
+          src_prefix: %w[src-1 src-2],
+          dst_prefix: %w[dst-1 dst-2],
+          uri_domain: %w[uri-1 uri-2],
+          from_domain: %w[from-1 from-2],
+          to_domain: %w[to-1 to-2],
+          x_yeti_auth: %w[x-1 x-2]
         }
       end
 
@@ -225,7 +238,7 @@ RSpec.describe CustomersAuthNormalized, type: :model do
       let(:attributes) do
         {
           ip: ['127.0.0.1'],
-          src_prefix: ['src-1', 'src-2'],
+          src_prefix: %w[src-1 src-2],
           dst_prefix: ['dst-1'],
           uri_domain: ['uri-1'],
           from_domain: ['from-1'],
@@ -284,12 +297,12 @@ RSpec.describe CustomersAuthNormalized, type: :model do
       create(:customers_auth,
              src_rewrite_rule: old_src_rewrite_rule,
              ip: ['127.0.0.1', '192.168.0.1'],
-             src_prefix: ['src-1', 'src-2'],
-             dst_prefix: ['dst-1', 'dst-2'],
-             uri_domain: ['uri-1', 'uri-2'],
-             from_domain: ['from-1', 'from-2'],
-             to_domain: ['to-1', 'to-2'],
-             x_yeti_auth: ['x-1', 'x-2'])
+             src_prefix: %w[src-1 src-2],
+             dst_prefix: %w[dst-1 dst-2],
+             uri_domain: %w[uri-1 uri-2],
+             from_domain: %w[from-1 from-2],
+             to_domain: %w[to-1 to-2],
+             x_yeti_auth: %w[x-1 x-2])
     end
 
     let(:old_src_rewrite_rule) { 'old-value' }
@@ -299,7 +312,7 @@ RSpec.describe CustomersAuthNormalized, type: :model do
     context 'when update a matching-condition attribute' do
       let(:attributes) do
         {
-          src_prefix: ['src-3', 'src-4']
+          src_prefix: %w[src-3 src-4]
         }
       end
 
@@ -363,12 +376,12 @@ RSpec.describe CustomersAuthNormalized, type: :model do
       @other_record = create(:customers_auth)
       @record = create(:customers_auth,
                        ip: ['127.0.0.1', '192.168.0.1'],
-                       src_prefix: ['src-1', 'src-2'],
-                       dst_prefix: ['dst-1', 'dst-2'],
-                       uri_domain: ['uri-1', 'uri-2'],
-                       from_domain: ['from-1', 'from-2'],
-                       to_domain: ['to-1', 'to-2'],
-                       x_yeti_auth: ['x-1', 'x-2'])
+                       src_prefix: %w[src-1 src-2],
+                       dst_prefix: %w[dst-1 dst-2],
+                       uri_domain: %w[uri-1 uri-2],
+                       from_domain: %w[from-1 from-2],
+                       to_domain: %w[to-1 to-2],
+                       x_yeti_auth: %w[x-1 x-2])
     end
 
     subject do

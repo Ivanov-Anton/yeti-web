@@ -4,21 +4,25 @@
 #
 # Table name: invoice_templates
 #
-#  id         :integer          not null, primary key
-#  name       :string           not null
-#  filename   :string           not null
+#  id         :integer(4)       not null, primary key
 #  data       :binary
+#  filename   :string           not null
+#  name       :string           not null
 #  sha1       :string
 #  created_at :datetime
 #
+# Indexes
+#
+#  invoices_templates_name_key  (name) UNIQUE
+#
 
-class Billing::InvoiceTemplate < Yeti::ActiveRecord
+class Billing::InvoiceTemplate < ApplicationRecord
   self.table_name = 'invoice_templates'
   # attr_accessible :template_file,:data,:name
-  validates_presence_of :name
-  validates_uniqueness_of :name
+  validates :name, presence: true
+  validates :name, uniqueness: true
 
-  validates_format_of :filename, with: /\A(.*\.odt)\z/
+  validates :filename, format: { with: /\A(.*\.odt)\z/ }
 
   def template_file=(uploaded_file)
     self.filename = uploaded_file.original_filename

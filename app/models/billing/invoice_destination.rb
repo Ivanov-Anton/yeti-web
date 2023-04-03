@@ -4,27 +4,35 @@
 #
 # Table name: invoice_destinations
 #
-#  id                       :integer          not null, primary key
-#  dst_prefix               :string
-#  country_id               :integer
-#  network_id               :integer
-#  rate                     :decimal(, )
-#  calls_count              :integer
-#  calls_duration           :integer
+#  id                       :bigint(8)        not null, primary key
 #  amount                   :decimal(, )
-#  invoice_id               :integer          not null
+#  billing_duration         :bigint(8)
+#  calls_count              :bigint(8)
+#  calls_duration           :bigint(8)
+#  dst_prefix               :string
 #  first_call_at            :datetime
-#  last_call_at             :datetime
-#  successful_calls_count   :integer
 #  first_successful_call_at :datetime
+#  last_call_at             :datetime
 #  last_successful_call_at  :datetime
-#  billing_duration         :integer
+#  rate                     :decimal(, )
+#  successful_calls_count   :bigint(8)
+#  country_id               :integer(4)
+#  invoice_id               :integer(4)       not null
+#  network_id               :integer(4)
+#
+# Indexes
+#
+#  invoice_destinations_invoice_id_idx  (invoice_id)
+#
+# Foreign Keys
+#
+#  invoice_destinations_invoice_id_fkey  (invoice_id => invoices.id)
 #
 
 class Billing::InvoiceDestination < Cdr::Base
   belongs_to :invoice, class_name: 'Billing::Invoice', foreign_key: :invoice_id
-  belongs_to :country, class_name: 'System::Country', foreign_key: :country_id
-  belongs_to :network, class_name: 'System::Network', foreign_key: :network_id
+  belongs_to :country, class_name: 'System::Country', foreign_key: :country_id, optional: true
+  belongs_to :network, class_name: 'System::Network', foreign_key: :network_id, optional: true
 
   def self.for_invoice
     includes(:country, :network)
@@ -35,7 +43,7 @@ class Billing::InvoiceDestination < Cdr::Base
       csv << ['DST PREFIX',	'COUNTRY',	'NETWORK', 'RATE',	'CALLS COUNT', 'SUCCESSFUL CALLS COUNT', 'DURATION', 'BILLING DURATION', 'AMOUNT']
 
       for_invoice.each do |record|
-        csv << [record.dst_prefix, record.country.try!(:name), record.network.try!(:name), record.rate,
+        csv << [record.dst_prefix, record.country&.name, record.network&.name, record.rate,
                 record.calls_count, record.successful_calls_count, record.calls_duration, record.billing_duration, record.amount]
       end
     end

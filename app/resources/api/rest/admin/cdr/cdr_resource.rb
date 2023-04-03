@@ -7,9 +7,10 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
 
   module CONST
     ROOT_NAMESPACE_RELATIONS = %w[
-      Rateplan Dialpeer Pop RoutingGroup Destination CustomersAuth Contractor Account Gateway DestinationRatePolicy RoutingPlan
+      Dialpeer Pop CustomersAuth Contractor Account Gateway RoutingPlan
     ].freeze
     SYSTEM_NAMESPACE_RELATIONS = %w[Country Network].freeze
+    ROUTING_NAMESPACE_RELATIONS = %w[Destination Rateplan RoutingGroup].freeze
     freeze
   end
 
@@ -65,28 +66,16 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
              :src_name_out,
              :diversion_in,
              :diversion_out,
-             :lega_rx_payloads,
-             :lega_tx_payloads,
-             :legb_rx_payloads,
-             :legb_tx_payloads,
              :legb_disconnect_code,
              :legb_disconnect_reason,
              :dump_level_id,
              :auth_orig_ip,
              :auth_orig_port,
-             :lega_rx_bytes,
-             :lega_tx_bytes,
-             :legb_rx_bytes,
-             :legb_tx_bytes,
              :global_tag,
+             :src_network_id,
+             :src_country_id,
              :dst_country_id,
              :dst_network_id,
-             :lega_rx_decode_errs,
-             :lega_rx_no_buf_errs,
-             :lega_rx_parse_errs,
-             :legb_rx_decode_errs,
-             :legb_rx_no_buf_errs,
-             :legb_rx_parse_errs,
              :src_prefix_routing,
              :dst_prefix_routing,
              :routing_delay,
@@ -138,24 +127,26 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
              :failed_resource_id,
              :customer_price_no_vat,
              :customer_duration,
-             :vendor_duration
+             :vendor_duration,
+             :destination_rate_policy_id
 
-  has_one :rateplan
-  has_one :dialpeer
-  has_one :pop
-  has_one :routing_group
-  has_one :routing_plan, class_name: 'RoutingPlan'
-  has_one :destination, class_name: 'Destination'
-  has_one :customer_auth
-  has_one :destination_rate_policy
-  has_one :vendor, class_name: 'Contractor'
-  has_one :customer, class_name: 'Contractor'
-  has_one :customer_acc, class_name: 'Account'
-  has_one :vendor_acc, class_name: 'Account'
-  has_one :orig_gw, class_name: 'Gateway'
-  has_one :term_gw, class_name: 'Gateway'
-  has_one :country, relation_name: :dst_country, foreign_key_on: :dst_country_id
-  has_one :network, relation_name: :dst_network, foreign_key_on: :dst_network_id
+  has_one :rateplan, class_name: 'Rateplan', force_routed: true
+  has_one :dialpeer, force_routed: true
+  has_one :pop, force_routed: true
+  has_one :routing_group, class_name: 'RoutingGroup', force_routed: true
+  has_one :routing_plan, class_name: 'RoutingPlan', force_routed: true
+  has_one :destination, class_name: 'Destination', force_routed: true
+  has_one :customer_auth, force_routed: true
+  has_one :vendor, class_name: 'Contractor', force_routed: true
+  has_one :customer, class_name: 'Contractor', force_routed: true
+  has_one :customer_acc, class_name: 'Account', force_routed: true
+  has_one :vendor_acc, class_name: 'Account', force_routed: true
+  has_one :orig_gw, class_name: 'Gateway', force_routed: true
+  has_one :term_gw, class_name: 'Gateway', force_routed: true
+  has_one :dst_country, class_name: 'Country', force_routed: true
+  has_one :dst_network, class_name: 'Network', force_routed: true
+  has_one :src_country, class_name: 'Country', force_routed: true
+  has_one :src_network, class_name: 'Network', force_routed: true
 
   filter :customer_auth_external_id_eq, apply: lambda { |records, values, _options|
     records.where(customer_auth_external_id: values)
@@ -194,18 +185,42 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
     end
     _scope
   }
-  filter :time_start_gteq, apply: lambda { |records, values, _options|
-    records.where('time_start >= ?', values[0])
-  }
-  filter :time_start_lteq, apply: lambda { |records, values, _options|
-    records.where('time_start <= ?', values[0])
-  }
   filter :customer_acc_external_id_eq, apply: lambda { |records, values, _options|
     records.where(customer_acc_external_id: values)
   }
 
   filter :is_last_cdr_eq, apply: lambda { |records, values, _options|
     records.where(is_last_cdr: values[0])
+  }
+
+  filter :dst_country_iso_eq, apply: lambda { |records, values, _options|
+    country = System::Country.find_by(iso2: values[0])
+    if country
+      records.where(dst_country_id: country.id)
+    else
+      raise JSONAPI::Exceptions::InvalidFilterValue.new(:dst_country_iso_eq, values[0])
+    end
+  }
+
+  filter :src_country_iso_eq, apply: lambda { |records, values, _options|
+    country = System::Country.find_by(iso2: values[0])
+    if country
+      records.where(src_country_id: country.id)
+    else
+      raise JSONAPI::Exceptions::InvalidFilterValue.new(:scr_country_iso_eq, values[0])
+    end
+  }
+
+  filter :routing_tag_ids_include, apply: lambda { |records, values, _options|
+    records.routing_tag_ids_include(values[0])
+  }
+
+  filter :routing_tag_ids_exclude, apply: lambda { |records, values, _options|
+    records.routing_tag_ids_exclude(values[0])
+  }
+
+  filter :routing_tag_ids_empty, apply: lambda { |records, values, _options|
+    records.routing_tag_ids_empty(values[0])
   }
 
   ransack_filter :time_start, type: :datetime
@@ -256,28 +271,16 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
   ransack_filter :src_name_out, type: :string
   ransack_filter :diversion_in, type: :string
   ransack_filter :diversion_out, type: :string
-  ransack_filter :lega_rx_payloads, type: :string
-  ransack_filter :lega_tx_payloads, type: :string
-  ransack_filter :legb_rx_payloads, type: :string
-  ransack_filter :legb_tx_payloads, type: :string
   ransack_filter :legb_disconnect_code, type: :number
   ransack_filter :legb_disconnect_reason, type: :string
   ransack_filter :dump_level_id, type: :number
   ransack_filter :auth_orig_ip, type: :inet
   ransack_filter :auth_orig_port, type: :number
-  ransack_filter :lega_rx_bytes, type: :number
-  ransack_filter :lega_tx_bytes, type: :number
-  ransack_filter :legb_rx_bytes, type: :number
-  ransack_filter :legb_tx_bytes, type: :number
   ransack_filter :global_tag, type: :string
+  ransack_filter :src_country_id, type: :number
+  ransack_filter :src_network_id, type: :number
   ransack_filter :dst_country_id, type: :number
   ransack_filter :dst_network_id, type: :number
-  ransack_filter :lega_rx_decode_errs, type: :number
-  ransack_filter :lega_rx_no_buf_errs, type: :number
-  ransack_filter :lega_rx_parse_errs, type: :number
-  ransack_filter :legb_rx_decode_errs, type: :number
-  ransack_filter :legb_rx_no_buf_errs, type: :number
-  ransack_filter :legb_rx_parse_errs, type: :number
   ransack_filter :src_prefix_routing, type: :string
   ransack_filter :dst_prefix_routing, type: :string
   ransack_filter :routing_delay, type: :number
@@ -329,6 +332,7 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
   ransack_filter :customer_price_no_vat, type: :number
   ransack_filter :customer_duration, type: :number
   ransack_filter :vendor_duration, type: :number
+  ransack_filter :destination_rate_policy_id, type: :number
 
   # add supporting associations from non cdr namespaces
   def self.resource_for(type)
@@ -336,6 +340,8 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
       "Api::Rest::Admin::#{type}Resource".safe_constantize
     elsif type.in?(CONST::SYSTEM_NAMESPACE_RELATIONS)
       "Api::Rest::Admin::System::#{type}Resource".safe_constantize
+    elsif type.in?(CONST::ROUTING_NAMESPACE_RELATIONS)
+      "Api::Rest::Admin::Routing::#{type}Resource".safe_constantize
     else
       super
     end

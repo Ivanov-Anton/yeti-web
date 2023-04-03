@@ -15,6 +15,8 @@ Rails.application.routes.draw do
   devise_for :admin_users, ActiveAdmin::Devise.config
   post 'api/rest/admin/auth', to: 'api/rest/admin/auth#create'
   post 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#create'
+  get 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#show'
+  delete 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#destroy'
   get 'with_contractor_accounts', to: 'accounts#with_contractor'
   ActiveAdmin.routes(self)
 
@@ -51,12 +53,6 @@ Rails.application.routes.draw do
     namespace :rest do
       with_options defaults: { format: :json } do |api|
         namespace :system do
-          api.resources :jobs, only: [:index] do
-            member do
-              put :run
-            end
-          end
-
           api.resources :admin_users, only: [:index]
           api.resources :nodes, only: [:index]
           api.resources :ip_access, only: [:index]
@@ -71,27 +67,23 @@ Rails.application.routes.draw do
           jsonapi_resources :contacts
           jsonapi_resources :api_accesses
           jsonapi_resources :customers_auths
-          jsonapi_resources :destinations
-          jsonapi_resources :destination_next_rates
+
           jsonapi_resources :dialpeers
           jsonapi_resources :dialpeer_next_rates
           jsonapi_resources :gateways
           jsonapi_resources :gateway_groups
           jsonapi_resources :payments, except: %i[update destroy]
-          jsonapi_resources :rateplans
-          jsonapi_resources :routing_groups
+
           jsonapi_resources :routing_plans
           jsonapi_resources :codec_groups
-          jsonapi_resources :destination_rate_policies
+
           jsonapi_resources :disconnect_policies
           jsonapi_resources :diversion_policies
-          jsonapi_resources :dump_levels
           jsonapi_resources :filter_types
           jsonapi_resources :pops
           jsonapi_resources :nodes
           jsonapi_resources :sdp_c_locations
           jsonapi_resources :session_refresh_methods
-          jsonapi_resources :sortings
           jsonapi_resources :active_calls, only: %i[index show destroy]
           jsonapi_resources :incoming_registrations, only: %i[index]
 
@@ -100,7 +92,10 @@ Rails.application.routes.draw do
             end
             jsonapi_resources :auth_logs, only: %i[index show] do
             end
-            jsonapi_resources :cdr_exports, only: %i[create destroy]
+            jsonapi_resources :cdr_exports, only: %i[index show create destroy] do
+              jsonapi_relationships
+              member { get :download }
+            end
           end
 
           namespace :billing do
@@ -124,9 +119,12 @@ Rails.application.routes.draw do
           namespace :equipment do
             jsonapi_resources :gateway_rel100_modes
             jsonapi_resources :gateway_inband_dtmf_filtering_modes
+            jsonapi_resources :gateway_diversion_send_modes
             jsonapi_resources :gateway_network_protocol_priorities
             jsonapi_resources :gateway_media_encryption_modes
             jsonapi_resources :transport_protocols
+            jsonapi_resources :registrations
+            jsonapi_resources :sip_options_probers
             namespace :radius do
               jsonapi_resources :accounting_profiles
               jsonapi_resources :auth_profiles
@@ -138,21 +136,23 @@ Rails.application.routes.draw do
             jsonapi_resources :area_prefixes
             jsonapi_resources :numberlists
             jsonapi_resources :numberlist_items
-            jsonapi_resources :numberlist_actions
-            jsonapi_resources :rate_profit_control_modes
             jsonapi_resources :routing_tag_detection_rules
             jsonapi_resources :tag_actions
+            jsonapi_resources :rateplans
+            jsonapi_resources :routing_groups
             jsonapi_resources :routing_tags
             jsonapi_resources :routing_tag_modes
             jsonapi_resources :routeset_discriminators
+            jsonapi_resources :destinations
+            jsonapi_resources :destination_next_rates
           end
         end
 
         namespace :customer do
           namespace :v1 do
-            jsonapi_resources :accounts
-            jsonapi_resources :rateplans
-            jsonapi_resources :rates
+            jsonapi_resources :accounts, only: %i[index show]
+            jsonapi_resources :rateplans, only: %i[index show]
+            jsonapi_resources :rates, only: %i[index show]
             jsonapi_resource :check_rate, only: %i[create]
             jsonapi_resources :cdrs, only: %i[index show]
             jsonapi_resources :networks, only: %i[index show]
@@ -160,6 +160,15 @@ Rails.application.routes.draw do
             jsonapi_resources :network_prefixes, only: %i[index show]
             jsonapi_resources :chart_active_calls, only: %i[create]
             jsonapi_resources :chart_originated_cps, only: %i[create]
+            jsonapi_resources :payments, only: %i[index show]
+            jsonapi_resources :invoices, only: %i[index show] do
+              jsonapi_relationships
+              member { get :download }
+            end
+            jsonapi_resources :cdr_exports, only: %i[index show create] do
+              jsonapi_relationships
+              member { get :download }
+            end
           end
         end
 
@@ -173,6 +182,8 @@ Rails.application.routes.draw do
             dasherized_resources :gateways
             dasherized_resources :network_prefixes
             dasherized_resources :networks
+            dasherized_resources :nodes
+            dasherized_resources :pops
             dasherized_resources :rateplans
             dasherized_resources :routing_plans
           end

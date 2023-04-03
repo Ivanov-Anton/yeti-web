@@ -4,16 +4,16 @@
 #
 # Table name: import_disconnect_policies
 #
-#  id           :integer          not null, primary key
-#  o_id         :integer
-#  name         :string
+#  id           :bigint(8)        not null, primary key
 #  error_string :string
 #  is_changed   :boolean
+#  name         :string
+#  o_id         :integer(4)
 #
 
 class Importing::DisconnectPolicy < Importing::Base
   self.table_name = 'import_disconnect_policies'
 
   self.import_attributes = ['name']
-  self.import_class = ::DisconnectPolicy
+  import_for ::DisconnectPolicy
 end

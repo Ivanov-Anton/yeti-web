@@ -7,12 +7,7 @@ ActiveAdmin.register Routing::AreaPrefix do
   acts_as_clone
   acts_as_safe_destroy
   acts_as_async_destroy('Routing::AreaPrefix')
-  acts_as_async_update('Routing::AreaPrefix',
-                       lambda do
-                         {
-                           area_id: Routing::Area.pluck(:name, :id)
-                         }
-                       end)
+  acts_as_async_update BatchUpdateForm::AreaPrefix
 
   acts_as_delayed_job_lock
 
@@ -37,7 +32,7 @@ ActiveAdmin.register Routing::AreaPrefix do
   end
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs do
       f.input :prefix
       f.input :area
@@ -48,4 +43,5 @@ ActiveAdmin.register Routing::AreaPrefix do
   filter :id
   filter :prefix
   filter :area, input_html: { class: 'chosen' }
+  filter :prefix_covers, as: :string
 end

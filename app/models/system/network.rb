@@ -4,13 +4,22 @@
 #
 # Table name: sys.networks
 #
-#  id      :integer          not null, primary key
+#  id      :integer(4)       not null, primary key
 #  name    :string           not null
-#  type_id :integer          not null
 #  uuid    :uuid             not null
+#  type_id :integer(2)       not null
+#
+# Indexes
+#
+#  networks_name_key  (name) UNIQUE
+#  networks_uuid_key  (uuid) UNIQUE
+#
+# Foreign Keys
+#
+#  networks_type_id_fkey  (type_id => network_types.id)
 #
 
-class System::Network < Yeti::ActiveRecord
+class System::Network < ApplicationRecord
   self.table_name = 'sys.networks'
 
   has_many :prefixes, class_name: 'System::NetworkPrefix'
@@ -19,7 +28,12 @@ class System::Network < Yeti::ActiveRecord
   validates :name, uniqueness: { allow_blank: true }, presence: true
   validates :network_type, presence: true
 
-  has_paper_trail class_name: 'AuditLogItem'
+  scope :country_id_eq, lambda { |country_id|
+    network_id_select = System::NetworkPrefix.where(country_id: country_id).select(:network_id)
+    where(id: network_id_select)
+  }
+
+  include WithPaperTrail
 
   def display_name
     "#{id} | #{name}"
@@ -27,5 +41,11 @@ class System::Network < Yeti::ActiveRecord
 
   def self.collection
     order(:name)
+  end
+
+  def self.ransackable_scopes(_auth_object = nil)
+    %i[
+      country_id_eq
+    ]
   end
 end

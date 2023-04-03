@@ -4,29 +4,37 @@
 #
 # Table name: reports.vendor_traffic_report_data
 #
-#  id                      :integer          not null, primary key
-#  report_id               :integer          not null
-#  customer_id             :integer
-#  calls_count             :integer
-#  calls_duration          :integer
+#  id                      :bigint(8)        not null, primary key
 #  acd                     :float
 #  asr                     :float
-#  origination_cost        :decimal(, )
-#  termination_cost        :decimal(, )
-#  profit                  :decimal(, )
-#  success_calls_count     :integer
+#  calls_count             :bigint(8)
+#  calls_duration          :bigint(8)
+#  customer_calls_duration :bigint(8)
 #  first_call_at           :datetime
 #  last_call_at            :datetime
-#  short_calls_count       :integer
-#  customer_calls_duration :integer
-#  vendor_calls_duration   :integer
+#  origination_cost        :decimal(, )
+#  profit                  :decimal(, )
+#  short_calls_count       :bigint(8)
+#  success_calls_count     :bigint(8)
+#  termination_cost        :decimal(, )
+#  vendor_calls_duration   :bigint(8)
+#  customer_id             :integer(4)
+#  report_id               :integer(4)       not null
+#
+# Indexes
+#
+#  vendor_traffic_report_data_report_id_idx  (report_id)
+#
+# Foreign Keys
+#
+#  vendor_traffic_report_data_report_id_fkey  (report_id => vendor_traffic_report.id)
 #
 
 class Report::VendorTrafficData < Cdr::Base
   self.table_name = 'reports.vendor_traffic_report_data'
 
   belongs_to :report, class_name: 'Report::VendorTraffic', foreign_key: :report_id
-  belongs_to :customer, class_name: 'Contractor', foreign_key: :customer_id # ,:conditions => {:vendor => true}
+  belongs_to :customer, class_name: 'Contractor', foreign_key: :customer_id, optional: true # ,:conditions => {:vendor => true}
 
   def display_name
     id.to_s

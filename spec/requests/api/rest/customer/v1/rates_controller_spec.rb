@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::RatesController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::RatesController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :rates
   # Rates for the other customer
   before { create_list(:customers_auth, 2) }
@@ -24,12 +22,12 @@ describe Api::Rest::Customer::V1::RatesController, type: :request do
 
     let(:json_api_request_query) { nil }
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     context 'account_ids is empty', :with_rateplan_with_customer do
       before { create_list(:rate, 2) }
       let(:records_qty) { 2 }
-      let!(:rates) { create_list(:rate, records_qty, rateplan: customer.rateplans.first) }
+      let!(:rates) { create_list(:rate, records_qty, rate_group: create(:rate_group, rateplans: [customer.rateplans.first])) }
 
       it_behaves_like :json_api_check_pagination do
         let(:records_ids) { rates.map { |r| r.reload.uuid } }
@@ -55,7 +53,7 @@ describe Api::Rest::Customer::V1::RatesController, type: :request do
         api_access.update!(account_ids: allowed_accounts.map(&:id))
       end
 
-      let!(:rates) { create_list(:rate, 2, rateplan: Rateplan.where_account(allowed_accounts.first.id).first) }
+      let!(:rates) { create_list(:rate, 2, rate_group: create(:rate_group, rateplans: [Routing::Rateplan.where_account(allowed_accounts.first.id).first])) }
 
       before do
         create_list(:rate, 2) # other customer
@@ -71,9 +69,43 @@ describe Api::Rest::Customer::V1::RatesController, type: :request do
         )
       end
     end
+
+    context 'with ransack filters' do
+      before do
+        customers_auth = create(:customers_auth, customer: customer)
+        customers_auth.rateplan.update! rate_groups: [suitable_record.rate_group, other_record.rate_group]
+      end
+
+      let(:factory) { :destination }
+      let(:trait) { :with_uuid }
+      let(:pk) { :uuid }
+
+      it_behaves_like :jsonapi_filters_by_boolean_field, :enabled
+      it_behaves_like :jsonapi_filters_by_string_field, :prefix
+      it_behaves_like :jsonapi_filters_by_number_field, :next_rate
+      it_behaves_like :jsonapi_filters_by_number_field, :connect_fee
+      it_behaves_like :jsonapi_filters_by_number_field, :initial_interval
+      it_behaves_like :jsonapi_filters_by_number_field, :next_interval
+      it_behaves_like :jsonapi_filters_by_number_field, :dp_margin_fixed
+      it_behaves_like :jsonapi_filters_by_number_field, :dp_margin_percent
+      it_behaves_like :jsonapi_filters_by_number_field, :initial_rate
+      it_behaves_like :jsonapi_filters_by_boolean_field, :reject_calls
+      it_behaves_like :jsonapi_filters_by_boolean_field, :use_dp_intervals
+      it_behaves_like :jsonapi_filters_by_datetime_field, :valid_from
+      it_behaves_like :jsonapi_filters_by_datetime_field, :valid_till
+      it_behaves_like :jsonapi_filters_by_number_field, :external_id
+      it_behaves_like :jsonapi_filters_by_number_field, :asr_limit
+      it_behaves_like :jsonapi_filters_by_number_field, :acd_limit
+      it_behaves_like :jsonapi_filters_by_number_field, :short_calls_limit
+      it_behaves_like :jsonapi_filters_by_boolean_field, :quality_alarm
+      it_behaves_like :jsonapi_filters_by_uuid_field, :uuid
+      it_behaves_like :jsonapi_filters_by_number_field, :dst_number_min_length
+      it_behaves_like :jsonapi_filters_by_number_field, :dst_number_max_length
+      it_behaves_like :jsonapi_filters_by_boolean_field, :reverse_billing
+    end
   end
 
-  describe 'GET show' do
+  describe 'GET /api/rest/customer/v1/rates/{id}' do
     subject do
       get json_api_request_path, params: nil, headers: json_api_request_headers
     end
@@ -82,10 +114,13 @@ describe Api::Rest::Customer::V1::RatesController, type: :request do
     let(:record_id) { rate.reload.uuid }
 
     let!(:customers_auth) { create(:customers_auth, customer_id: customer.id) }
-    let!(:rate) { create(:rate, rateplan: rateplan) }
+
     let(:rateplan) { customers_auth.rateplan.reload }
 
-    it_behaves_like :json_api_check_authorization
+    let!(:rate_group) { create(:rate_group, rateplans: [rateplan]) }
+    let!(:rate) { create(:rate, rate_group: rate_group) }
+
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     context 'when record exists' do
       it 'returns record with expected attributes' do
@@ -117,5 +152,67 @@ describe Api::Rest::Customer::V1::RatesController, type: :request do
 
       include_examples :responds_with_status, 404
     end
+  end
+
+  describe 'POST /api/rest/customer/v1/rates' do
+    subject do
+      post json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
+    end
+
+    let(:json_api_request_body) do
+      {
+        data: {
+          type: 'rates',
+          attributes: json_api_attributes
+        }
+      }
+    end
+    let(:json_api_attributes) do
+      { prefix: '123' }
+    end
+
+    include_examples :raises_exception, ActionController::RoutingError
+  end
+
+  describe 'PATCH /api/rest/customer/v1/rates/{id}' do
+    subject do
+      patch json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
+    end
+
+    let(:json_api_request_path) { "#{super()}/#{record_id}" }
+    let(:record_id) { rate.reload.uuid }
+    let!(:customers_auth) { create(:customers_auth, customer_id: customer.id) }
+    let(:rateplan) { customers_auth.rateplan.reload }
+    let!(:rate_group) { create(:rate_group, rateplans: [rateplan]) }
+    let!(:rate) { create(:rate, rate_group: rate_group) }
+    let(:json_api_request_body) do
+      {
+        data: {
+          id: record_id,
+          type: 'rates',
+          attributes: json_api_attributes
+        }
+      }
+    end
+    let(:json_api_attributes) do
+      { prefix: '123' }
+    end
+
+    include_examples :raises_exception, ActionController::RoutingError
+  end
+
+  describe 'DELETE /api/rest/customer/v1/rates/{id}' do
+    subject do
+      delete json_api_request_path, params: nil, headers: json_api_request_headers
+    end
+
+    let(:json_api_request_path) { "#{super()}/#{record_id}" }
+    let(:record_id) { rate.reload.uuid }
+    let!(:customers_auth) { create(:customers_auth, customer_id: customer.id) }
+    let(:rateplan) { customers_auth.rateplan.reload }
+    let!(:rate_group) { create(:rate_group, rateplans: [rateplan]) }
+    let!(:rate) { create(:rate, rate_group: rate_group) }
+
+    include_examples :raises_exception, ActionController::RoutingError
   end
 end

@@ -4,27 +4,31 @@
 #
 # Table name: nodes
 #
-#  id              :integer          not null, primary key
-#  signalling_ip   :string
-#  signalling_port :integer
-#  name            :string
-#  pop_id          :integer          not null
-#  rpc_endpoint    :string
+#  id           :integer(4)       not null, primary key
+#  name         :string
+#  rpc_endpoint :string
+#  pop_id       :integer(4)       not null
+#
+# Indexes
+#
+#  node_name_key           (name) UNIQUE
+#  nodes_rpc_endpoint_key  (rpc_endpoint) UNIQUE
+#
+# Foreign Keys
+#
+#  node_pop_id_fkey  (pop_id => pops.id)
 #
 
-class Node < ActiveRecord::Base
+class Node < ApplicationRecord
+  include WithPaperTrail
+
   belongs_to :pop
 
-  validates_presence_of :pop, :signalling_ip, :signalling_port, :rpc_endpoint, :name
-  validates :name, uniqueness: true
-  #  validates :rpc_uri, format: URI::regexp(%w(http https))
-
-  validates_uniqueness_of :rpc_endpoint
+  validates :id, :pop, :rpc_endpoint, :name, presence: true
+  validates :id, :name, :rpc_endpoint, uniqueness: true
 
   has_many :events, dependent: :destroy
   has_many :registrations, class_name: 'Equipment::Registration', dependent: :restrict_with_error
-
-  has_paper_trail class_name: 'AuditLogItem'
 
   def self.random_node
     ids = pluck(:id)
@@ -32,7 +36,7 @@ class Node < ActiveRecord::Base
   end
 
   def api
-    @api ||= YetisNode::Client.new(rpc_endpoint, transport: :json_rpc, logger: logger)
+    NodeApi.find(rpc_endpoint)
   end
 
   def total_calls_count
@@ -53,17 +57,9 @@ class Node < ActiveRecord::Base
     api.registrations_count
   end
 
-  def stats
-    api.stats
-  end
+  delegate :stats, to: :api
 
-  def system_status
-    api.system_status
-  end
-
-  def clear_cache
-    api.router_cache_clear
-  end
+  delegate :system_status, to: :api
 
   def drop_call(id)
     api.call_disconnect(id)
@@ -73,12 +69,13 @@ class Node < ActiveRecord::Base
   # @param auth_id [Integer] - filter by gateway.id (nil to show all data)
   def incoming_registrations(auth_id: nil, empty_on_error: false)
     params = auth_id.nil? ? [] : [auth_id]
-    api.invoke_show_command('aors', params)
+    api.aors(params)
   rescue StandardError => e
     if empty_on_error
       logger.error { "Failed to fetch incoming_registrations with auth_id=#{auth_id.inspect}" }
       logger.error { "<#{e.class}>: #{e.message}" }
       logger.error { e.backtrace.join("\n") }
+      CaptureError.capture(e, extra: { model_class: self.class.name, auth_id: auth_id })
       []
     else
       raise e
@@ -89,9 +86,9 @@ class Node < ActiveRecord::Base
   def calls(options = {})
     empty_on_error = !!options[:empty_on_error]
     args = []
-    method_name = +'calls'
+    method_name = :calls
     if options[:only]
-      method_name << '.filtered'
+      method_name = :calls_filtered
       args << options[:only]
     end
     if options[:where]
@@ -100,12 +97,20 @@ class Node < ActiveRecord::Base
     end
 
     begin
-      api.invoke_show_command(method_name, args.flatten)
+      api.public_send(method_name, *args.flatten)
+    rescue NodeApi::ConnectionError => e
+      if empty_on_error
+        logger.warn { "#{e.class} #{e.message}" }
+        []
+      else
+        raise e
+      end
     rescue StandardError => e
       if empty_on_error
-        logger.warn { e.message }
+        logger.warn { "#{e.class} #{e.message}" }
         logger.warn { e.backtrace.join '\n' }
-        return []
+        CaptureError.capture(e)
+        []
       else
         raise e
       end
@@ -126,5 +131,9 @@ class Node < ActiveRecord::Base
     else
       RealtimeData::ActiveCall.collection(api.calls)
     end
+  end
+
+  def display_name
+    "#{name} | #{id}"
   end
 end

@@ -1,25 +1,16 @@
 # frozen_string_literal: true
 
 ActiveAdmin.register Node do
-  menu parent: 'System', priority: 125
+  includes :pop
+  menu parent: %w[System Components], priotity: 30
   config.batch_actions = false
 
   acts_as_clone
 
-  permit_params :pop_id, :signalling_ip, :signalling_port, :rpc_endpoint, :name
+  permit_params :id, :pop_id, :rpc_endpoint, :name
 
   filter :pop, input_html: { class: 'chosen' }
   filter :name
-
-  member_action :clear_cache, method: :post do
-    resource.clear_cache
-    flash[:notice] = 'Cleared!'
-    redirect_to action: :index
-  end
-
-  action_item :clear_cache, only: :show do
-    link_to('Clear Cache', clear_cache_node_path(id: params[:id]), method: :post)
-  end
 
   controller do
     def destroy
@@ -36,17 +27,14 @@ ActiveAdmin.register Node do
     actions
     column :name
     column :pop
-    column :signalling_ip
-    column :signalling_port
     column :rpc_endpoint
   end
 
   form do |f|
     f.inputs do
+      f.input :id
       f.input :name
       f.input :pop
-      f.input :signalling_ip
-      f.input :signalling_port
       f.input :rpc_endpoint
     end
     f.actions
@@ -59,8 +47,6 @@ ActiveAdmin.register Node do
           row :id
           row :name
           row :pop
-          row :signalling_ip
-          row :signalling_port
           row :rpc_endpoint
         end
       end

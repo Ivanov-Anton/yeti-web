@@ -1,24 +1,20 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
+RSpec.describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
   let(:admin_user) { create :admin_user }
   let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: admin_user.id }).token }
 
   before do
-    Cdr::Cdr.destroy_all
     request.accept = 'application/vnd.api+json'
     request.headers['Content-Type'] = 'application/vnd.api+json'
     request.headers['Authorization'] = auth_token
   end
-  after { Cdr::Cdr.destroy_all }
 
   describe 'GET index' do
     let!(:cdrs) do
       create_list :cdr, 12, :with_id, time_start: 2.days.ago.utc
     end
-    subject { get :index, params: { filter: filters, page: { number: page_number, size: 10 } } }
+    subject { get :index, params: { filter: filters, page: { number: page_number, size: 10 }, sort: 'id' } }
     let(:filters) do
       {}
     end
@@ -251,10 +247,166 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
           )
         end
       end
+
+      context 'by dst_country_id_eq' do
+        let(:filters) do
+          { 'dst-country-id-eq' => country.id }
+        end
+        let!(:cdr) do
+          create :cdr, :with_id, dst_country_id: country.id
+        end
+        let(:country) { System::Country.take! }
+        it 'only desired cdrs should be present' do
+          subject
+          expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+        end
+      end
+
+      context 'by src_country_id_eq' do
+        let(:filters) do
+          { 'src-country-id-eq' => country.id }
+        end
+        let!(:cdr) do
+          create :cdr, :with_id, src_country_id: country.id
+        end
+        let(:country) { System::Country.take! }
+
+        it 'only desired cdrs should be present' do
+          subject
+          expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+        end
+      end
+
+      context 'by dst_country_iso_eq' do
+        context 'when valid iso2 country code' do
+          let(:filters) do
+            { 'dst-country-iso-eq' => country.iso2 }
+          end
+          let!(:cdr) do
+            create :cdr, :with_id, dst_country_id: country.id
+          end
+          let(:country) { System::Country.take! }
+          it 'only desired cdrs should be present' do
+            subject
+            expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+          end
+        end
+
+        context 'when invalid iso2 country code' do
+          let(:filters) do
+            { 'dst-country-iso-eq' => 'invalid iso code' }
+          end
+
+          it 'should be raise InvalidFilterValue and return 400' do
+            subject
+            expect(response_body[:errors].first).to include(
+                                                      {
+                                                        title: 'Invalid filter value',
+                                                        detail: 'invalid iso code is not a valid value for dst_country_iso_eq.',
+                                                        status: '400'
+                                                      }
+                                                    )
+
+            expect(response).to have_http_status(:bad_request)
+          end
+        end
+      end
+
+      context 'by src_country_iso_eq' do
+        context 'when invalid iso2 country code' do
+          let(:filters) do
+            { 'src-country-iso-eq' => 'invalid iso code' }
+          end
+
+          it 'should be raise InvalidFilterValue and return 400' do
+            subject
+            expect(response_body[:errors].first).to include(
+                                            {
+                                              title: 'Invalid filter value',
+                                              detail: 'invalid iso code is not a valid value for scr_country_iso_eq.',
+                                              status: '400'
+                                            }
+                                          )
+
+            expect(response).to have_http_status(:bad_request)
+          end
+        end
+
+        context 'when valid iso2 country code' do
+          let(:filters) do
+            { 'src-country-iso-eq' => country.iso2 }
+          end
+          let!(:cdr) do
+            create :cdr, :with_id, src_country_id: country.id
+          end
+          let(:country) { System::Country.take! }
+          it 'only desired cdrs should be present' do
+            subject
+            expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+          end
+        end
+      end
+
+      context 'by routing_tag_ids_include' do
+        let(:filters) { { 'routing-tag-ids-include' => routing_tag_ids.first } }
+        let!(:cdr) { create :cdr, :with_id, routing_tag_ids: routing_tag_ids }
+        let!(:another_cdr) { create(:cdr, routing_tag_ids: [another_routing_id]) }
+        let(:routing_tag_ids) { create_list(:routing_tag, 5).map(&:id) }
+        let(:another_routing_id) { create(:routing_tag).id }
+
+        it 'only desired cdrs should be present' do
+          subject
+          expect(response_data.size).to eq(1)
+          expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+        end
+      end
+
+      context 'by routing_tag_ids_exclude' do
+        let(:filters) { { 'routing-tag-ids-exclude' => another_routing_id } }
+        let!(:cdr) { create :cdr, :with_id, routing_tag_ids: routing_tag_ids }
+        let(:routing_tag_ids) { create_list(:routing_tag, 5).map(&:id) }
+        let(:another_routing_id) { create(:routing_tag).id }
+
+        it 'only desired cdrs should be present' do
+          subject
+          expect(response_data.size).to eq(1)
+          expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+        end
+      end
+
+      context 'by routing_tag_ids_empty' do
+        let!(:cdrs) {}
+        let!(:cdr) { create :cdr, :with_id, routing_tag_ids: {} }
+        let!(:another_cdr) { create(:cdr, routing_tag_ids: [another_routing_id]) }
+        let(:another_routing_id) { create(:routing_tag).id }
+
+        context 'with true value' do
+          let(:filters) { { 'routing-tag-ids-empty' => true } }
+
+          it 'only desired cdrs should be present' do
+            subject
+            expect(response_data.size).to eq(1)
+            expect(response_data).to match_array(hash_including('id' => cdr.id.to_s))
+          end
+        end
+
+        context 'with false value' do
+          let(:filters) { { 'routing-tag-ids-empty' => false } }
+
+          it 'only desired cdrs should be present' do
+            subject
+            expect(response_data.size).to eq(1)
+            expect(response_data).to match_array(hash_including('id' => another_cdr.id.to_s))
+          end
+        end
+      end
     end
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :cdr }
     let(:trait) { :with_id_and_uuid }
 
@@ -306,28 +458,16 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
     it_behaves_like :jsonapi_filters_by_string_field, :src_name_out
     it_behaves_like :jsonapi_filters_by_string_field, :diversion_in
     it_behaves_like :jsonapi_filters_by_string_field, :diversion_out
-    it_behaves_like :jsonapi_filters_by_string_field, :lega_rx_payloads
-    it_behaves_like :jsonapi_filters_by_string_field, :lega_tx_payloads
-    it_behaves_like :jsonapi_filters_by_string_field, :legb_rx_payloads
-    it_behaves_like :jsonapi_filters_by_string_field, :legb_tx_payloads
     it_behaves_like :jsonapi_filters_by_number_field, :legb_disconnect_code
     it_behaves_like :jsonapi_filters_by_string_field, :legb_disconnect_reason
     it_behaves_like :jsonapi_filters_by_number_field, :dump_level_id
     it_behaves_like :jsonapi_filters_by_inet_field, :auth_orig_ip
     it_behaves_like :jsonapi_filters_by_number_field, :auth_orig_port
-    it_behaves_like :jsonapi_filters_by_number_field, :lega_rx_bytes
-    it_behaves_like :jsonapi_filters_by_number_field, :lega_tx_bytes
-    it_behaves_like :jsonapi_filters_by_number_field, :legb_rx_bytes
-    it_behaves_like :jsonapi_filters_by_number_field, :legb_tx_bytes
     it_behaves_like :jsonapi_filters_by_string_field, :global_tag
+    it_behaves_like :jsonapi_filters_by_number_field, :src_country_id
+    it_behaves_like :jsonapi_filters_by_number_field, :src_network_id
     it_behaves_like :jsonapi_filters_by_number_field, :dst_country_id
     it_behaves_like :jsonapi_filters_by_number_field, :dst_network_id
-    it_behaves_like :jsonapi_filters_by_number_field, :lega_rx_decode_errs
-    it_behaves_like :jsonapi_filters_by_number_field, :lega_rx_no_buf_errs
-    it_behaves_like :jsonapi_filters_by_number_field, :lega_rx_parse_errs
-    it_behaves_like :jsonapi_filters_by_number_field, :legb_rx_decode_errs
-    it_behaves_like :jsonapi_filters_by_number_field, :legb_rx_no_buf_errs
-    it_behaves_like :jsonapi_filters_by_number_field, :legb_rx_parse_errs
     it_behaves_like :jsonapi_filters_by_string_field, :src_prefix_routing
     it_behaves_like :jsonapi_filters_by_string_field, :dst_prefix_routing
     it_behaves_like :jsonapi_filters_by_number_field, :routing_delay
@@ -392,7 +532,7 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
       }
     end
     let(:includes) do
-      %w[rateplan dialpeer pop routing-group destination customer-auth vendor customer vendor-acc customer-acc orig-gw term-gw destination-rate-policy routing-plan country network]
+      %w[rateplan dialpeer pop routing-group destination customer-auth vendor customer vendor-acc customer-acc orig-gw term-gw routing-plan src-country src-network dst-country dst-network]
     end
 
     it 'http status should eq 200' do
@@ -455,28 +595,16 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
             'src-name-out' => cdr.src_name_out,
             'diversion-in' => cdr.diversion_in,
             'diversion-out' => cdr.diversion_out,
-            'lega-rx-payloads' => cdr.lega_rx_payloads,
-            'lega-tx-payloads' => cdr.lega_tx_payloads,
-            'legb-rx-payloads' => cdr.legb_rx_payloads,
-            'legb-tx-payloads' => cdr.legb_tx_payloads,
             'legb-disconnect-code' => cdr.legb_disconnect_code,
             'legb-disconnect-reason' => cdr.legb_disconnect_reason,
             'dump-level-id' => cdr.dump_level_id,
             'auth-orig-ip' => cdr.auth_orig_ip,
             'auth-orig-port' => cdr.auth_orig_port,
-            'lega-rx-bytes' => cdr.lega_rx_bytes,
-            'lega-tx-bytes' => cdr.lega_tx_bytes,
-            'legb-rx-bytes' => cdr.legb_rx_bytes,
-            'legb-tx-bytes' => cdr.legb_tx_bytes,
             'global-tag' => cdr.global_tag,
+            'src-country-id' => cdr.src_country_id,
+            'src-network-id' => cdr.src_network_id,
             'dst-country-id' => cdr.dst_country_id,
             'dst-network-id' => cdr.dst_network_id,
-            'lega-rx-decode-errs' => cdr.lega_rx_decode_errs,
-            'lega-rx-no-buf-errs' => cdr.lega_rx_no_buf_errs,
-            'lega-rx-parse-errs' => cdr.lega_rx_parse_errs,
-            'legb-rx-decode-errs' => cdr.legb_rx_decode_errs,
-            'legb-rx-no-buf-errs' => cdr.legb_rx_no_buf_errs,
-            'legb-rx-parse-errs' => cdr.legb_rx_parse_errs,
             'src-prefix-routing' => cdr.src_prefix_routing,
             'dst-prefix-routing' => cdr.dst_prefix_routing,
             'routing-delay' => cdr.routing_delay,
@@ -528,7 +656,8 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
             'failed-resource-id' => cdr.failed_resource_id,
             'customer-price-no-vat' => cdr.customer_price_no_vat,
             'customer-duration' => cdr.customer_duration,
-            'vendor-duration' => cdr.vendor_duration
+            'vendor-duration' => cdr.vendor_duration,
+            'destination-rate-policy-id' => cdr.destination_rate_policy_id
           },
           'relationships' => hash_including(
             'rateplan' => hash_including(
@@ -550,9 +679,6 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
               'data' => nil
             ),
             'customer-auth' => hash_including(
-              'data' => nil
-            ),
-            'destination-rate-policy' => hash_including(
               'data' => nil
             ),
             'vendor' => hash_including(
@@ -579,10 +705,16 @@ describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
             'term-gw' => hash_including(
               'data' => nil
             ),
-            'country' => hash_including(
+            'src-country' => hash_including(
               'data' => nil
             ),
-            'network' => hash_including(
+            'src-network' => hash_including(
+              'data' => nil
+            ),
+            'dst-country' => hash_including(
+              'data' => nil
+            ),
+            'dst-network' => hash_including(
               'data' => nil
             )
           )

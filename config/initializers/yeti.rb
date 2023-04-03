@@ -1,11 +1,9 @@
 # frozen_string_literal: true
 
-Delayed::Worker.destroy_failed_jobs = false
-
-Dir[File.join(Rails.root, 'lib', 'ext', '**', '*.rb')].each { |s| require s }
-Dir[File.join(Rails.root, 'lib', 'active_record', '**', '*.rb')].each { |s| require s }
-Dir[File.join(Rails.root, 'lib', 'active_admin', '**', '*.rb')].each { |s| require s }
-Dir[File.join(Rails.root, 'lib', 'resource_dsl', '**', '*.rb')].each { |s| require s }
+Dir[Rails.root.join('lib/ext/**/*.rb')].each { |s| require s }
+Dir[Rails.root.join('lib/active_record/**/*.rb')].each { |s| require s }
+Dir[Rails.root.join('lib/active_admin/**/*.rb')].each { |s| require s }
+Dir[Rails.root.join('lib/resource_dsl/**/*.rb')].each { |s| require s }
 
 ActiveAdmin::ResourceDSL.send :include, ResourceDSL::ActsAsClone
 ActiveAdmin::ResourceDSL.send :include, ResourceDSL::ActsAsStatus
@@ -29,6 +27,10 @@ ActiveAdmin::ResourceDSL.send :include, ResourceDSL::ActsAsBelongsTo
 ActiveAdmin::ResourceDSL.send :include, ResourceDSL::WithDefaultParams
 ActiveAdmin::ResourceDSL.send :include, ResourceDSL::WithGlobalDSL
 ActiveAdmin::ResourceDSL.send :include, ResourceDSL::BooleanFilter
+ActiveAdmin::ResourceDSL.send :include, ResourceDSL::AssociationAjaxFilter
+ActiveAdmin::ResourceDSL.send :include, ResourceDSL::AccountFilter
+ActiveAdmin::ResourceDSL.send :include, ResourceDSL::ContractorFilter
+ActiveAdmin::ResourceDSL.send :include, ResourceDSL::ActiveSearch
 
 # ActiveAdmin::CSVBuilder.send(:include, Yeti::CSVBuilder)
 

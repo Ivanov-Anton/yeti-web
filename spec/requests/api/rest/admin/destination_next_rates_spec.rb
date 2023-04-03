@@ -1,19 +1,18 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request do
+RSpec.describe Api::Rest::Admin::Routing::DestinationNextRatesController, type: :request do
   include_context :json_api_admin_helpers, type: :'destination-next-rates'
-  let!(:rate_plan) { FactoryGirl.create(:rateplan) }
-  let!(:destination) { FactoryGirl.create(:destination, rateplan: rate_plan) }
+  let!(:rate_group) { FactoryBot.create(:rate_group) }
+  let!(:destination) { FactoryBot.create(:destination, rate_group: rate_group) }
+  let(:json_api_request_path_prefix) { '/api/rest/admin/routing' }
 
-  describe 'GET /api/rest/admin/destination-next-rates' do
+  describe 'GET /api/rest/admin/routing/destination-next-rates' do
     subject do
       get json_api_request_path, params: nil, headers: json_api_request_headers
     end
 
     let!(:next_rates) do
-      FactoryGirl.create_list(:destination_next_rate, 3, destination: destination)
+      FactoryBot.create_list(:destination_next_rate, 3, destination: destination)
     end
 
     include_examples :returns_json_api_collection do
@@ -21,9 +20,11 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
         next_rates.map { |r| r.id.to_s }
       end
     end
+
+    it_behaves_like :json_api_admin_check_authorization
   end
 
-  describe 'GET /api/rest/admin/destination-next-rates/{id}' do
+  describe 'GET /api/rest/admin/routing/destination-next-rates/{id}' do
     subject do
       get json_api_request_path, params: request_query, headers: json_api_request_headers
     end
@@ -32,7 +33,7 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
     let(:request_query) { nil }
     let(:record_id) { next_rate.id.to_s }
 
-    let!(:next_rate) { FactoryGirl.create(:destination_next_rate, next_rate_attrs) }
+    let!(:next_rate) { FactoryBot.create(:destination_next_rate, next_rate_attrs) }
     let(:next_rate_attrs) { { destination: destination } }
     let(:next_rate_response_attributes) do
       {
@@ -51,6 +52,8 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
       let(:json_api_record_id) { record_id }
       let(:json_api_record_attributes) { next_rate_response_attributes }
     end
+
+    it_behaves_like :json_api_admin_check_authorization
 
     context 'with include destination' do
       let(:request_query) { { include: 'destination' } }
@@ -71,7 +74,7 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
     end
   end
 
-  describe 'POST /api/rest/admin/destination-next-rates' do
+  describe 'POST /api/rest/admin/routing/destination-next-rates' do
     subject do
       post json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
     end
@@ -119,9 +122,11 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
     end
 
     include_examples :changes_records_qty_of, Routing::DestinationNextRate, by: 1
+
+    it_behaves_like :json_api_admin_check_authorization, status: 201
   end
 
-  describe 'PATCH /api/rest/admin/destination-next-rates/{id}' do
+  describe 'PATCH /api/rest/admin/routing/destination-next-rates/{id}' do
     subject do
       patch json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
     end
@@ -133,7 +138,7 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
     end
     let(:json_api_request_attributes) { { 'next-rate': '15.22' } }
 
-    let!(:next_rate) { FactoryGirl.create(:destination_next_rate, next_rate_attrs) }
+    let!(:next_rate) { FactoryBot.create(:destination_next_rate, next_rate_attrs) }
     let(:next_rate_attrs) { { destination: destination } }
 
     include_examples :returns_json_api_record, relationships: [:destination] do
@@ -142,9 +147,11 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
         hash_including(json_api_request_attributes)
       end
     end
+
+    it_behaves_like :json_api_admin_check_authorization
   end
 
-  describe 'DELETE /api/rest/admin/destination-next-rates/{id}' do
+  describe 'DELETE /api/rest/admin/routing/destination-next-rates/{id}' do
     subject do
       delete json_api_request_path, headers: json_api_request_headers
     end
@@ -153,10 +160,12 @@ RSpec.describe Api::Rest::Admin::DestinationNextRatesController, type: :request 
     let(:request_query) { nil }
     let(:record_id) { next_rate.id.to_s }
 
-    let!(:next_rate) { FactoryGirl.create(:destination_next_rate, next_rate_attrs) }
+    let!(:next_rate) { FactoryBot.create(:destination_next_rate, next_rate_attrs) }
     let(:next_rate_attrs) { { destination: destination } }
 
     include_examples :responds_with_status, 204
     include_examples :changes_records_qty_of, Routing::DestinationNextRate, by: -1
+
+    it_behaves_like :json_api_admin_check_authorization, status: 204
   end
 end

@@ -38,8 +38,8 @@ module Worker
 
     def delete_url(cdr_export_id)
       [
-        Rails.configuration.yeti_web.fetch('cdr_export').fetch('delete_url').chomp('/'),
-        "#{cdr_export_id}.csv"
+        YetiConfig.cdr_export.delete_url.chomp('/'),
+        "#{cdr_export_id}.csv.gz"
       ].join('/')
     end
   end

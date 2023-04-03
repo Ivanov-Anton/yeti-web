@@ -4,28 +4,35 @@
 #
 # Table name: disconnect_policy_code
 #
-#  id                        :integer          not null, primary key
-#  policy_id                 :integer          not null
-#  code_id                   :integer          not null
-#  stop_hunting              :boolean          default(TRUE), not null
+#  id                        :integer(4)       not null, primary key
 #  pass_reason_to_originator :boolean          default(FALSE), not null
-#  rewrited_code             :integer
+#  rewrited_code             :integer(4)
 #  rewrited_reason           :string
+#  stop_hunting              :boolean          default(TRUE), not null
+#  code_id                   :integer(4)       not null
+#  policy_id                 :integer(4)       not null
+#
+# Foreign Keys
+#
+#  disconnect_code_policy_codes_code_id_fkey    (code_id => disconnect_code.id)
+#  disconnect_code_policy_codes_policy_id_fkey  (policy_id => disconnect_policy.id)
 #
 
-class DisconnectPolicyCode < ActiveRecord::Base
+class DisconnectPolicyCode < ApplicationRecord
   self.table_name = 'disconnect_policy_code'
 
   belongs_to :policy, class_name: 'DisconnectPolicy', foreign_key: :policy_id
-  belongs_to :code, -> { where namespace_id: DisconnectCode::NS_SIP }, class_name: 'DisconnectCode', foreign_key: :code_id
+  belongs_to :code, class_name: 'DisconnectCode', foreign_key: :code_id
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
-  validates_presence_of :policy_id, :code_id
+  validates :policy_id, :code_id, presence: true
 
   def display_name
     id.to_s
   end
 
   include Yeti::TranslationReloader
+  include Yeti::StateUpdater
+  self.state_name = 'translations'
 end

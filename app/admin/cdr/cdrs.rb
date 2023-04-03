@@ -10,12 +10,13 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
   decorate_with CdrDecorator
 
-  before_action do
-    if params['q'].blank?
-      from_date = 0.days.ago.beginning_of_day
-      params['q'] = { time_start_gteq: from_date } # only 1 last days by default
-      flash.now[:notice] = "Only CDRs started from #{from_date}  showed by default"
-    else
+  with_default_params do
+    params[:q] = { time_start_gteq_datetime_picker: 0.days.ago.beginning_of_day }
+    'Only CDRs started from beginning of the day showed by default'
+  end
+
+  before_action only: [:index] do
+    if params['q'].present?
       # fix this with right filter setup
       params['q']['account_id_eq'] = params['q']['account_id_eq'].to_i if params['q']['account_id_eq'].present?
       params['q']['disconnect_code_eq'] = params['q']['disconnect_code_eq'].to_i if params['q']['disconnect_code_eq'].present?
@@ -30,23 +31,12 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     def scoped_collection
       if params[:as] == 'table'
         super.preload(
-          :dump_level,
           :node,
           :pop,
-          :disconnect_initiator,
           :lb_node
         )
       else
-        super.preload(
-          :pop, :node, :customer_auth,
-          :customer, :vendor, :dump_level,
-          :disconnect_initiator, :customer_acc, :vendor_acc,
-          :orig_gw, :term_gw,
-          :rateplan, :routing_plan, :routing_group,
-          :destination, :dialpeer, :destination_rate_policy,
-          :dst_country, :dst_network,
-          :sign_orig_transport_protocol, :auth_orig_transport_protocol, :sign_term_transport_protocol
-        )
+        super.preload(Cdr::Cdr::ADMIN_PRELOAD_LIST)
       end
     end
   end
@@ -56,62 +46,106 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   scope :short_calls, show_count: false
   scope :rerouted_calls, show_count: false
   scope :with_trace, show_count: false
-  scope :no_rtp, show_count: false
   scope :not_authorized, show_count: false
   scope :bad_routing, show_count: false
 
   filter :id
+  filter :routing_tag_ids_include,
+         as: :select,
+         collection: proc { tag_action_value_options },
+         label: 'With routing tag',
+         input_html: { class: 'chosen' }
   filter :time_start, as: :date_time_range
-  filter :customer, collection: proc { Contractor.select(%i[id name]).reorder(:name) }, input_html: { class: 'chosen' }
-  filter :vendor, collection: proc { Contractor.select(%i[id name]).reorder(:name) }, input_html: { class: 'chosen' }
+
+  contractor_filter :customer_id_eq, label: 'Customer', path_params: { q: { customer_eq: true } }
+  account_filter :customer_acc_id_eq, label: 'Customer account'
+
+  contractor_filter :vendor_id_eq, label: 'Vendor', path_params: { q: { vendor_eq: true } }
+  account_filter :vendor_acc_id_eq, label: 'Vendor account'
+
   filter :customer_auth, collection: proc { CustomersAuth.select(%i[id name]).reorder(:name) }, input_html: { class: 'chosen' }
-  filter :src_prefix_routing
+  filter :src_prefix_routing, filters: %i[equals contains starts_with ends_with]
   filter :src_area, collection: proc { Routing::Area.select(%i[id name]) }, input_html: { class: 'chosen' }
-  filter :dst_prefix_routing
+  filter :dst_prefix_routing, filters: %i[equals contains starts_with ends_with]
   filter :dst_area, collection: proc { Routing::Area.select(%i[id name]) }, input_html: { class: 'chosen' }
   filter :dst_country, input_html: { class: 'chosen' }
   filter :status, as: :select, collection: proc { [['FAILURE', false], ['SUCCESS', true]] }
   filter :duration
   filter :is_last_cdr, as: :select, collection: proc { [['Yes', true], ['No', false]] }
-  filter :dump_level, as: :select, collection: proc { DumpLevel.select(%i[id name]).reorder(:id) }
 
-  filter :orig_gw, collection: proc { Gateway.select(%i[id name]).reorder(:name) }, input_html: { class: 'chosen' }
-  filter :term_gw, collection: proc { Gateway.select(%i[id name]).reorder(:name) }, input_html: { class: 'chosen' }
+  filter :dump_level_id_eq, label: 'Dump level', as: :select,
+                            collection: Cdr::Cdr::DUMP_LEVELS.invert
+  filter :disconnect_initiator_id_eq, label: 'Disconnect initiator', as: :select,
+                                      collection: Cdr::Cdr::DISCONNECT_INITIATORS.invert
+
+  filter :orig_gw_id_eq,
+         as: :select,
+         label: 'Orig GW',
+         collection: proc {
+           resource_id = params.fetch(:q, {})[:orig_gw_id_eq]
+           resource_id ? Gateway.where(id: resource_id) : []
+         },
+         input_html: {
+           class: 'chosen-ajax',
+           'data-path': '/gateways/search?q[allow_origination_eq]=true&q[ordered_by]=name'
+         }
+
+  filter :term_gw_id_eq,
+         as: :select,
+         label: 'Term GW',
+         collection: proc {
+           resource_id = params.fetch(:q, {})[:term_gw_id_eq]
+           resource_id ? Gateway.where(id: resource_id) : []
+         },
+         input_html: {
+           class: 'chosen-ajax',
+           'data-path': '/gateways/search?q[allow_termination_eq]=true&q[ordered_by]=name'
+         }
+
   filter :routing_plan, collection: proc { Routing::RoutingPlan.select(%i[id name]) }, input_html: { class: 'chosen' }
-  filter :routing_group, collection: proc { RoutingGroup.select(%i[id name]) }, input_html: { class: 'chosen' }
-  filter :rateplan, collection: proc { Rateplan.select(%i[id name]) }, input_html: { class: 'chosen' }
+  filter :routing_group, collection: proc { Routing::RoutingGroup.select(%i[id name]) }, input_html: { class: 'chosen' }
+  filter :rateplan, collection: proc { Routing::Rateplan.select(%i[id name]) }, input_html: { class: 'chosen' }
 
-  filter :internal_disconnect_code, as: :string_eq
-  filter :internal_disconnect_reason, as: :string_eq
-  filter :lega_disconnect_code, as: :string_eq
-  filter :lega_disconnect_reason, as: :string_eq
-  filter :legb_disconnect_code, as: :string_eq
-  filter :legb_disconnect_reason, as: :string_eq
+  filter :internal_disconnect_code
+  filter :internal_disconnect_reason, filters: %i[equals contains starts_with ends_with]
+  filter :lega_disconnect_code
+  filter :lega_disconnect_reason, filters: %i[equals contains starts_with ends_with]
+  filter :legb_disconnect_code
+  filter :legb_disconnect_reason, filters: %i[equals contains starts_with ends_with]
 
   filter :src_prefix_in, as: :string_eq
   filter :dst_prefix_in, as: :string_eq
-  filter :src_prefix_out
-  filter :dst_prefix_out
-  filter :lrn
+  filter :src_prefix_out, filters: %i[equals contains starts_with ends_with]
+  filter :dst_prefix_out, filters: %i[equals contains starts_with ends_with]
+  filter :lrn, filters: %i[equals contains starts_with ends_with]
   filter :diversion_in, as: :string_eq
   filter :diversion_out, as: :string_eq
   filter :src_name_in, as: :string_eq
   filter :src_name_out, as: :string_eq
   filter :node, input_html: { class: 'chosen' }
   filter :pop, input_html: { class: 'chosen' }
-  filter :local_tag
-  filter :legb_local_tag
-  filter :orig_call_id, as: :string
-  filter :term_call_id, as: :string
+  filter :local_tag, filters: %i[equals contains starts_with ends_with]
+  filter :legb_local_tag, filters: %i[equals contains starts_with ends_with]
+  filter :orig_call_id, as: :string, filters: %i[equals contains starts_with ends_with]
+  filter :term_call_id, as: :string, filters: %i[equals contains starts_with ends_with]
   filter :routing_attempt
   filter :customer_price
   filter :vendor_price
-  filter :vendor_invoice_id
-  filter :customer_invoice_id
-
   filter :routing_delay
   filter :pdd
   filter :rtt
+  filter :p_charge_info_in, as: :string_eq
+  filter :uuid_equals, label: 'UUID'
+  filter :auth_orig_ip_covers,
+         as: :string,
+         input_html: { class: 'search_filter_string' },
+         label: I18n.t('activerecord.attributes.cdr.auth_orig_ip')
+  filter :sign_orig_ip, filters: %i[equals contains starts_with ends_with]
+  filter :sign_orig_local_ip, filters: %i[equals contains starts_with ends_with]
+  filter :sign_term_local_ip, filters: %i[equals contains starts_with ends_with]
+  filter :sign_term_ip, filters: %i[equals contains starts_with ends_with]
+
+  acts_as_filter_by_routing_tag_ids routing_tag_ids_covers: false
 
   # X-Accel-Redirect: /protected/iso.img;
   #  location /protected/ {
@@ -123,7 +157,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     raise ActiveRecord::RecordNotFound if file.blank?
 
     response.headers['X-Accel-Redirect'] = file
-    head :ok
+    head 200
   end
 
   member_action :download_call_record_lega, method: :get do
@@ -131,7 +165,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     raise ActiveRecord::RecordNotFound if file.blank?
 
     response.headers['X-Accel-Redirect'] = file
-    head :ok
+    head 200
   end
 
   member_action :download_call_record_legb, method: :get do
@@ -139,7 +173,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     raise ActiveRecord::RecordNotFound if file.blank?
 
     response.headers['X-Accel-Redirect'] = file
-    head :ok
+    head 200
   end
 
   member_action :routing_simulation, method: :get do
@@ -148,13 +182,14 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     redirect_to routing_simulation_path(
       anchor: 'detailed',
       routing_simulation: {
+        auth_id: resource.customer_auth&.require_incoming_auth ? resource.orig_gw_id : nil,
         transport_protocol_id: proto,
         remote_ip: resource.auth_orig_ip,
         remote_port: resource.auth_orig_port,
         src_number: resource.src_prefix_in,
         dst_number: resource.dst_prefix_in,
         pop_id: resource.pop_id,
-        x_yeti_auth: resource.customer_auth.try!(:x_yeti_auth),
+        x_yeti_auth: resource.customer_auth&.x_yeti_auth&.first,
         uri_domain: resource.ruri_domain,
         from_domain: resource.from_domain,
         to_domain: resource.to_domain,
@@ -167,12 +202,25 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     )
   end
 
+  action_item :lega_rtp_rx_streams, only: :show do
+    link_to('LegA RX RTP Streams', rtp_rx_streams_path(q: { local_tag_equals: resource.local_tag, time_start_gteq: resource.time_start - 60, time_start_lteq: resource.time_start + 60 }))
+  end
+  action_item :lega_rtp_tx_streams, only: :show do
+    link_to('LegA TX RTP Streams', rtp_tx_streams_path(q: { local_tag_equals: resource.local_tag, time_start_gteq: resource.time_start - 60, time_start_lteq: resource.time_start + 60 }))
+  end
+  action_item :legb_rtp_rx_streams, only: :show do
+    link_to('LegB RX RTP Streams', rtp_rx_streams_path(q: { local_tag_equals: resource.legb_local_tag, time_start_gteq: resource.time_start - 60, time_start_lteq: resource.time_start + 60 }))
+  end
+  action_item :legb_rtp_tx_streams, only: :show do
+    link_to('LegB TX RTP Streams', rtp_tx_streams_path(q: { local_tag_equals: resource.legb_local_tag, time_start_gteq: resource.time_start - 60, time_start_lteq: resource.time_start + 60 }))
+  end
+
   action_item :routing_simulation, only: :show do
     link_to('Routing simulation', routing_simulation_cdr_path(resource))
   end
 
   action_item :log_level_trace, only: :show do
-    link_to("#{resource.log_level_name} trace", dump_cdr_path(resource)) if resource.has_dump?
+    link_to("#{resource.dump_level_name} trace", dump_cdr_path(resource)) if resource.has_dump?
   end
 
   action_item :call_record_lega, only: :show do
@@ -204,34 +252,34 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   show do |cdr|
     panel 'Attempts' do
       unless cdr.attempts.empty?
-        table_for cdr.attempts do
-          column(:id) do |cdr|
-            link_to cdr.id, resource_path(cdr), class: 'resource_id_link'
+        scope = cdr.attempts.preload(Cdr::Cdr::ADMIN_PRELOAD_LIST)
+        records = CdrDecorator.decorate_collection(scope.to_a)
+        table_for records do
+          column(:id) do |cdr_attempt|
+            link_to cdr_attempt.id, resource_path(cdr_attempt), class: 'resource_id_link'
           end
           column :time_start
           column :time_connect
           column :time_end
 
-          column(:duration, class: 'seconds') do |cdr|
-            "#{cdr.duration} sec."
+          column(:duration, class: 'seconds') do |cdr_attempt|
+            "#{cdr_attempt.duration} sec."
           end
-          column('LegA DC') do |cdr|
-            status_tag(cdr.lega_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.lega_disconnect_code == 0) || cdr.lega_disconnect_code.nil?
+          column('LegA DC') do |cdr_attempt|
+            status_tag(cdr_attempt.lega_disconnect_code.to_s, class: cdr_attempt.success? ? :ok : :red) unless (cdr_attempt.lega_disconnect_code == 0) || cdr_attempt.lega_disconnect_code.nil?
           end
           column('LegA Reason', &:lega_disconnect_reason)
-          column('DC') do |cdr|
-            status_tag(cdr.internal_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.internal_disconnect_code == 0) || cdr.internal_disconnect_code.nil?
+          column('DC') do |cdr_attempt|
+            status_tag(cdr_attempt.internal_disconnect_code.to_s, class: cdr_attempt.success? ? :ok : :red) unless (cdr_attempt.internal_disconnect_code == 0) || cdr_attempt.internal_disconnect_code.nil?
           end
           column('Reason', &:internal_disconnect_reason)
-          column('LegB DC') do |cdr|
-            status_tag(cdr.legb_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
+          column('LegB DC') do |cdr_attempt|
+            status_tag(cdr_attempt.legb_disconnect_code.to_s, class: cdr_attempt.success? ? :ok : :red) unless (cdr_attempt.legb_disconnect_code == 0) || cdr_attempt.legb_disconnect_code.nil?
           end
           column('LegB Reason', &:legb_disconnect_reason)
-          column :disconnect_initiator do |cdr|
-            "#{cdr.disconnect_initiator_id} - #{cdr.disconnect_initiator_name}"
-          end
-          column :routing_attempt do |cdr|
-            status_tag(cdr.routing_attempt.to_s, class: cdr.is_last_cdr? ? :ok : nil)
+          column :disconnect_initiator, &:disconnect_initiator_name
+          column :routing_attempt do |cdr_attempt|
+            status_tag(cdr_attempt.routing_attempt.to_s, class: cdr_attempt.is_last_cdr? ? :ok : nil)
           end
           column :src_name_in
           column :src_prefix_in
@@ -251,6 +299,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           column :diversion_in
           column :diversion_out
 
+          column :src_country
+          column :src_network
           column :dst_country
           column :dst_network
 
@@ -265,44 +315,50 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
           column :sign_orig_transport_protocol
 
-          column(:sign_orig_ip) do |cdr|
-            "#{cdr.sign_orig_ip}:#{cdr.sign_orig_port}".chomp(':')
+          column(:sign_orig_ip) do |cdr_attempt|
+            "#{cdr_attempt.sign_orig_ip}:#{cdr_attempt.sign_orig_port}".chomp(':')
           end
-          column(:sign_orig_local_ip) do |cdr|
-            "#{cdr.sign_orig_local_ip}:#{cdr.sign_orig_local_port}".chomp(':')
+          column(:sign_orig_local_ip) do |cdr_attempt|
+            "#{cdr_attempt.sign_orig_local_ip}:#{cdr_attempt.sign_orig_local_port}".chomp(':')
           end
 
           column :auth_orig_transport_protocol
-          column :auth_orig_ip do |cdr|
-            "#{cdr.auth_orig_ip}:#{cdr.auth_orig_port}".chomp(':')
+          column :auth_orig_ip do |cdr_attempt|
+            "#{cdr_attempt.auth_orig_ip}:#{cdr_attempt.auth_orig_port}".chomp(':')
           end
 
           column :term_gw
           column :legb_ruri
           column :legb_outbound_proxy
           column :sign_term_transport_protocol
-          column(:sign_term_ip) do |cdr|
-            "#{cdr.sign_term_ip}:#{cdr.sign_term_port}".chomp(':')
+          column(:sign_term_ip) do |cdr_attempt|
+            "#{cdr_attempt.sign_term_ip}:#{cdr_attempt.sign_term_port}".chomp(':')
           end
-          column(:sign_term_local_ip) do |cdr|
-            "#{cdr.sign_term_local_ip}:#{cdr.sign_term_local_port}".chomp(':')
+          column(:sign_term_local_ip) do |cdr_attempt|
+            "#{cdr_attempt.sign_term_local_ip}:#{cdr_attempt.sign_term_local_port}".chomp(':')
           end
           column :is_redirected
-          column :routing_delay
-          column :pdd
-          column :rtt
+
+          column :routing_delay, &:decorated_routing_delay
+          column :pdd, &:decorated_pdd
+          column :rtt, &:decorated_rtt
+
           column :early_media_present
-          column('Status') do |cdr|
-            status_tag(cdr.status_sym.to_s, cdr.status_sym, class: cdr.success? ? :ok : nil)
+          column('Status') do |cdr_attempt|
+            status_tag(cdr_attempt.status_sym.to_s, class: cdr_attempt.success? ? :ok : nil)
           end
           column :rateplan
           column :destination
-          column :destination_rate_policy
+          column :destination_rate_policy, &:destination_rate_policy_name
           column :destination_fee
-          column :destination_initial_interval
-          column :destination_initial_rate
-          column :destination_next_interval
-          column :destination_next_rate
+
+          column('Destination rates', sortable: 'destination_next_rate') do |cdr|
+            "#{cdr.destination_initial_rate}/#{cdr.destination_next_rate}".chomp('/')
+          end
+          column('Destination intervals', sortable: 'destination_next_interval') do |cdr|
+            "#{cdr.destination_initial_interval}/#{cdr.destination_next_interval}".chomp('/')
+          end
+
           column :customer_price
           column :customer_price_no_vat
           column :customer_duration
@@ -311,10 +367,14 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           column :routing_tags
           column :dialpeer
           column :dialpeer_fee
-          column :dialpeer_initial_interval
-          column :dialpeer_initial_rate
-          column :dialpeer_next_interval
-          column :dialpeer_next_rate
+
+          column('Dialpeer rates', sortable: 'dialpeer_next_rate') do |cdr|
+            "#{cdr.dialpeer_initial_rate}/#{cdr.dialpeer_next_rate}".chomp('/')
+          end
+          column('Dialpeer intervals', sortable: 'dialpeer_next_interval') do |cdr|
+            "#{cdr.dialpeer_initial_interval}/#{cdr.dialpeer_next_interval}".chomp('/')
+          end
+
           column :vendor_price
           column :vendor_duration
           column :time_limit
@@ -323,8 +383,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           column :local_tag
           column :legb_local_tag
           column('Term call', &:term_call_id)
-          column :customer_invoice_id
-          column :vendor_invoice_id
 
           column :pai_in
           column :ppi_in
@@ -337,22 +395,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           column :rpid_out
           column :rpid_privacy_out
 
-          column :lega_rx_payloads
-          column :lega_tx_payloads
-          column :legb_rx_payloads
-          column :legb_tx_payloads
+          column :p_charge_info_in
 
-          column :lega_rx_bytes
-          column :lega_tx_bytes
-          column :lega_rx_decode_errs
-          column :lega_rx_no_buf_errs
-          column :lega_rx_parse_errs
-
-          column :legb_rx_bytes
-          column :legb_tx_bytes
-          column :legb_rx_decode_errs
-          column :legb_rx_no_buf_errs
-          column :legb_rx_parse_errs
           column :core_version
           column :yeti_version
           column :lega_user_agent
@@ -385,11 +429,9 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :time_end
           row :duration
           row :status do
-            status_tag(cdr.status_sym.to_s, cdr.status_sym, class: cdr.success? ? :ok : nil)
+            status_tag(cdr.status_sym.to_s, class: cdr.success? ? :ok : nil)
           end
-          row :disconnect_initiator do
-            "#{cdr.disconnect_initiator_id} - #{cdr.disconnect_initiator_name}"
-          end
+          row :disconnect_initiator, &:disconnect_initiator_name
           row :lega_disconnect_code
           row :lega_disconnect_reason
           row :internal_disconnect_code
@@ -419,6 +461,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :diversion_in
           row :diversion_out
 
+          row :src_country
+          row :src_network
           row :dst_country
           row :dst_network
 
@@ -474,28 +518,14 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
           row :is_redirected
 
+          row :p_charge_info_in
+
           row :local_tag
           row :legb_local_tag
           row :routing_delay
           row :pdd
           row :rtt
           row :early_media_present
-          row :lega_rx_payloads
-          row :lega_tx_payloads
-          row :legb_rx_payloads
-          row :legb_tx_payloads
-
-          row :lega_rx_bytes
-          row :lega_tx_bytes
-          row :lega_rx_decode_errs
-          row :lega_rx_no_buf_errs
-          row :lega_rx_parse_errs
-
-          row :legb_rx_bytes
-          row :legb_tx_bytes
-          row :legb_rx_decode_errs
-          row :legb_rx_no_buf_errs
-          row :legb_rx_parse_errs
           row :core_version
           row :yeti_version
           row :lega_user_agent
@@ -514,7 +544,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
           row :rateplan
           row :destination
-          row :destination_rate_policy
+          row :destination_rate_policy, &:destination_rate_policy_name
           row :destination_fee
           row :destination_initial_interval
           row :destination_initial_rate
@@ -533,9 +563,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :dialpeer_next_rate
 
           row :time_limit
-
-          row :customer_invoice_id
-          row :vendor_invoice_id
         end
       end
       tab :privacy_information do
@@ -552,12 +579,17 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :rpid_privacy_out
         end
       end
+      tab :identity do
+        attributes_table do
+          row :lega_identity
+        end
+      end
     end
   end
 
   index do
     column :id do |cdr|
-      if cdr.dump_level_id > 0
+      if cdr.has_dump?
         link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details') + ' ' + link_to(fa_icon('exchange'), dump_cdr_path(cdr), title: 'Download trace')
       else
         link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details')
@@ -583,9 +615,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       status_tag(cdr.legb_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
     end
     column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
-    column :disconnect_initiator do |cdr|
-      "#{cdr.disconnect_initiator_id} - #{cdr.disconnect_initiator_name}"
-    end
+    column :disconnect_initiator, &:disconnect_initiator_name
     column :routing_attempt do |cdr|
       status_tag(cdr.routing_attempt.to_s, class: cdr.is_last_cdr? ? :ok : nil)
     end
@@ -612,6 +642,9 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
     column :diversion_in
     column :diversion_out
+
+    column :src_country
+    column :src_network
     column :dst_country
     column :dst_network
 
@@ -655,21 +688,27 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       "#{cdr.sign_term_local_ip}:#{cdr.sign_term_local_port}".chomp(':')
     end
     column :is_redirected
-    column :routing_delay
-    column :pdd
-    column :rtt
+
+    column :routing_delay, &:decorated_routing_delay
+    column :pdd, &:decorated_pdd
+    column :rtt, &:decorated_rtt
+
     column :early_media_present
     column('Status', sortable: 'success') do |cdr|
-      status_tag(cdr.status_sym.to_s, cdr.status_sym, class: cdr.success? ? :ok : nil)
+      status_tag(cdr.status_sym.to_s, class: cdr.success? ? :ok : nil)
     end
     column :rateplan
     column :destination
-    column :destination_rate_policy
+    column :destination_rate_policy, &:destination_rate_policy_name
     column :destination_fee
-    column :destination_initial_interval
-    column :destination_initial_rate
-    column :destination_next_interval
-    column :destination_next_rate
+
+    column('Destination rates', sortable: 'destination_next_rate') do |cdr|
+      "#{cdr.destination_initial_rate}/#{cdr.destination_next_rate}".chomp('/')
+    end
+    column('Destination intervals', sortable: 'destination_next_interval') do |cdr|
+      "#{cdr.destination_initial_interval}/#{cdr.destination_next_interval}".chomp('/')
+    end
+
     column :customer_price
     column :customer_acc_vat
     column :customer_price_no_vat
@@ -680,10 +719,13 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     column :dialpeer
 
     column :dialpeer_fee
-    column :dialpeer_initial_interval
-    column :dialpeer_initial_rate
-    column :dialpeer_next_interval
-    column :dialpeer_next_rate
+    column('Dialpeer rates', sortable: 'dialpeer_next_rate') do |cdr|
+      "#{cdr.dialpeer_initial_rate}/#{cdr.dialpeer_next_rate}".chomp('/')
+    end
+    column('Dialpeer intervals', sortable: 'dialpeer_next_interval') do |cdr|
+      "#{cdr.dialpeer_initial_interval}/#{cdr.dialpeer_next_interval}".chomp('/')
+    end
+
     column :vendor_price
     column :vendor_duration
     column :time_limit
@@ -692,8 +734,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     column :local_tag
     column :legb_local_tag
     column :term_call_id
-    column :customer_invoice_id
-    column :vendor_invoice_id
 
     column :pai_in
     column :ppi_in
@@ -706,22 +746,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     column :rpid_out
     column :rpid_privacy_out
 
-    column :lega_rx_payloads
-    column :lega_tx_payloads
-    column :legb_rx_payloads
-    column :legb_tx_payloads
-
-    column :lega_rx_bytes
-    column :lega_tx_bytes
-    #    column :lega_rx_decode_errs
-    #    column :lega_rx_no_buf_errs
-    #    column :lega_rx_parse_errs
-
-    column :legb_rx_bytes
-    column :legb_tx_bytes
-    #    column :legb_rx_decode_errs
-    #    column :legb_rx_no_buf_errs
-    #    column :legb_rx_parse_errs
+    column :p_charge_info_in
 
     column :core_version
     column :yeti_version
@@ -764,20 +789,15 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
         cdr.lega_disconnect_code.to_s unless (cdr.lega_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
       end
       column('LegA Reason', sortable: 'lega_disconnect_reason', &:lega_disconnect_reason)
-      column :lega_rx_payloads
-      column :lega_tx_payloads
       column :auth_orig_transport_protocol
       column :auth_orig_ip do |cdr|
         "#{cdr.auth_orig_ip}:#{cdr.auth_orig_port}".chomp(':')
       end
-      column :lega_rx_bytes
-      column :lega_tx_bytes
-      column :lega_rx_decode_errs
-      column :lega_rx_no_buf_errs
-      column :lega_rx_parse_errs
       column :src_prefix_routing
       column :dst_prefix_routing
       column :destination_prefix
+
+      column :p_charge_info_in
 
     when 'vendor'
       column :time_start
@@ -812,13 +832,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
         cdr.legb_disconnect_code.to_s unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
       end
       column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
-      column :legb_rx_payloads
-      column :legb_tx_payloads
-      column :legb_rx_bytes
-      column :legb_tx_bytes
-      column :legb_rx_decode_errs
-      column :legb_rx_no_buf_errs
-      column :legb_rx_parse_errs
+
       column :pdd
       column :rtt
       column :early_media_present
@@ -843,9 +857,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
         cdr.legb_disconnect_code.to_s unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
       end
       column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
-      column :disconnect_initiator do |cdr|
-        "#{cdr.disconnect_initiator_id} - #{cdr.disconnect_initiator_name}"
-      end
+      column :disconnect_initiator, &:disconnect_initiator_name
       column :routing_attempt do |cdr|
         "#{cdr.routing_attempt} #{cdr.is_last_cdr? ? '(last)' : ''}"
       end
@@ -863,6 +875,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       column :dst_prefix_out
       column :diversion_in
       column :diversion_out
+      column :src_country
+      column :src_network
       column :dst_country
       column :dst_network
       column :node do |row|
@@ -920,9 +934,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       end
       column :rateplan
       column :destination
-      column :destination_rate_policy do |row|
-        "#{row.destination_rate_policy.name} ##{row.destination_rate_policy.id}" if row.destination_rate_policy.present?
-      end
+      column :destination_rate_policy, &:destination_rate_policy_name
       column :destination_fee
       column :destination_initial_interval
       column :destination_initial_rate
@@ -946,17 +958,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       column :local_tag
       column :legb_local_tag
       column :term_call_id
-      column :customer_invoice_id
-      column :vendor_invoice_id
-      column :lega_rx_payloads
-      column :lega_tx_payloads
-      column :legb_rx_payloads
-      column :legb_tx_payloads
-      column :lega_rx_bytes
-      column :lega_tx_bytes
-      column :legb_rx_bytes
-      column :legb_tx_bytes
-
     end
   end
 end

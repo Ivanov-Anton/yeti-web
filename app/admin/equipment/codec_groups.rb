@@ -4,7 +4,7 @@ ActiveAdmin.register CodecGroup do
   menu parent: 'Equipment', priority: 90
 
   acts_as_audit
-  acts_as_clone :codec_group_codecs
+  acts_as_clone duplicates: [:codec_group_codecs]
   acts_as_safe_destroy
 
   acts_as_export :id, :name
@@ -42,7 +42,7 @@ ActiveAdmin.register CodecGroup do
   filter :name
 
   form do |f|
-    f.semantic_errors *f.object.errors.keys.uniq
+    f.semantic_errors *f.object.errors.attribute_names
     f.inputs form_title do
       f.input :name
     end

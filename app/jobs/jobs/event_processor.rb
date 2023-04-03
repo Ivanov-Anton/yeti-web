@@ -2,6 +2,8 @@
 
 module Jobs
   class EventProcessor < ::BaseJob
+    self.cron_line = '* * * * *'
+
     def execute
       processed_count = 0
       events_count = events.count
@@ -16,7 +18,7 @@ module Jobs
     def process_event(ev)
       args = ev.command.split /\s+/
       logger.info "RPC send #{args} to node #{ev.node.id}"
-      ev.node.api.rpc_send(args.shift, args)
+      ev.node.api.custom_request("yeti.#{args.shift}", args)
     end
 
     private
@@ -29,16 +31,24 @@ module Jobs
       process_event(ev)
       ev.destroy!
       true
-    rescue StandardError => e
-      logger.warn { "Processing event ##{ev.id} was failed" }
-      logger.warn { "<#{e.class}>: #{e.message}" }
-      logger.warn { e.backtrace.join("\n") }
-      extra = { job_class: self.class.name, event_id: ev.id, command: ev.command, node_id: ev.node_id }
-      CaptureError.capture(e, extra: extra)
-      ev.retries += 1
-      ev.last_error = e.message
-      ev.save!
+    rescue NodeApi::ConnectionError => e
+      handle_event_error(event: ev, exception: e)
       false
+    rescue StandardError => e
+      handle_event_error(event: ev, exception: e)
+      tags = { job_class: self.class.name }
+      extra = { event_id: ev.id, command: ev.command, node_id: ev.node_id }
+      CaptureError.capture(e, tags: tags, extra: extra)
+      false
+    end
+
+    def handle_event_error(event:, exception:)
+      logger.warn { "Processing event ##{event.id} was failed" }
+      logger.warn { "<#{exception.class}>: #{exception.message}\n#{exception.backtrace&.join("\n")}" }
+      event.update!(
+        retries: event.retries + 1,
+        last_error: exception.message
+      )
     end
   end
 end

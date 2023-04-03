@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Create new Network Prefix', type: :feature, js: true do
+RSpec.describe 'Create new Network Prefix', type: :feature, js: true do
   subject do
     aa_form.submit
   end
@@ -10,10 +8,8 @@ describe 'Create new Network Prefix', type: :feature, js: true do
   active_admin_form_for System::NetworkPrefix, 'new'
   include_context :login_as_admin
 
-  let!(:network) { FactoryGirl.create(:network, name: 'some network') }
+  let!(:network) { System::Network.take! }
   before do
-    FactoryGirl.create(:network)
-
     visit new_system_network_prefix_path
 
     aa_form.set_text 'Prefix', '123'

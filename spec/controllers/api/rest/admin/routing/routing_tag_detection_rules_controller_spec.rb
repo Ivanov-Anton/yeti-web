@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::Routing::RoutingTagDetectionRulesController, type: :controller do
+RSpec.describe Api::Rest::Admin::Routing::RoutingTagDetectionRulesController, type: :controller do
   include_context :jsonapi_admin_headers
 
   let(:resource_type) { 'routing-tag-detection-rules' }
@@ -29,6 +27,9 @@ describe Api::Rest::Admin::Routing::RoutingTagDetectionRulesController, type: :c
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :routing_tag_detection_rule }
 
     it_behaves_like :jsonapi_filters_by_string_field, :src_prefix

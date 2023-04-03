@@ -4,60 +4,105 @@
 #
 # Table name: class4.customers_auth
 #
-#  id                               :integer          not null, primary key
-#  customer_id                      :integer          not null
-#  rateplan_id                      :integer          not null
-#  enabled                          :boolean          default(TRUE), not null
-#  account_id                       :integer
-#  gateway_id                       :integer          not null
-#  src_rewrite_rule                 :string
-#  src_rewrite_result               :string
-#  dst_rewrite_rule                 :string
-#  dst_rewrite_result               :string
-#  name                             :string           not null
-#  dump_level_id                    :integer          default(0), not null
-#  capacity                         :integer
-#  pop_id                           :integer
-#  src_name_rewrite_rule            :string
-#  src_name_rewrite_result          :string
-#  diversion_policy_id              :integer          default(1), not null
-#  diversion_rewrite_rule           :string
-#  diversion_rewrite_result         :string
-#  dst_numberlist_id                :integer
-#  src_numberlist_id                :integer
-#  routing_plan_id                  :integer          not null
+#  id                               :integer(4)       not null, primary key
 #  allow_receive_rate_limit         :boolean          default(FALSE), not null
-#  send_billing_information         :boolean          default(FALSE), not null
-#  radius_auth_profile_id           :integer
-#  enable_audio_recording           :boolean          default(FALSE), not null
-#  src_number_radius_rewrite_rule   :string
-#  src_number_radius_rewrite_result :string
-#  dst_number_radius_rewrite_rule   :string
-#  dst_number_radius_rewrite_result :string
-#  radius_accounting_profile_id     :integer
-#  transport_protocol_id            :integer
-#  dst_number_max_length            :integer          default(100), not null
+#  capacity                         :integer(2)
 #  check_account_balance            :boolean          default(TRUE), not null
-#  require_incoming_auth            :boolean          default(FALSE), not null
-#  dst_number_min_length            :integer          default(0), not null
-#  tag_action_id                    :integer
-#  tag_action_value                 :integer          default([]), not null, is an Array
-#  ip                               :inet             default(["\"127.0.0.0/8\""]), is an Array
-#  src_prefix                       :string           default(["\"\""]), is an Array
+#  cps_limit                        :float
+#  diversion_rewrite_result         :string
+#  diversion_rewrite_rule           :string
+#  dst_number_max_length            :integer(2)       default(100), not null
+#  dst_number_min_length            :integer(2)       default(0), not null
+#  dst_number_radius_rewrite_result :string
+#  dst_number_radius_rewrite_rule   :string
 #  dst_prefix                       :string           default(["\"\""]), is an Array
-#  uri_domain                       :string           default([]), is an Array
+#  dst_rewrite_result               :string
+#  dst_rewrite_rule                 :string
+#  enable_audio_recording           :boolean          default(FALSE), not null
+#  enabled                          :boolean          default(TRUE), not null
 #  from_domain                      :string           default([]), is an Array
-#  to_domain                        :string           default([]), is an Array
-#  x_yeti_auth                      :string           default([]), is an Array
-#  external_id                      :integer
+#  ip                               :inet             default(["\"127.0.0.0/8\""]), is an Array
+#  name                             :string           not null
 #  reject_calls                     :boolean          default(FALSE), not null
-#  src_number_max_length            :integer          default(100), not null
-#  src_number_min_length            :integer          default(0), not null
-#  lua_script_id                    :integer
+#  require_incoming_auth            :boolean          default(FALSE), not null
+#  send_billing_information         :boolean          default(FALSE), not null
+#  src_name_rewrite_result          :string
+#  src_name_rewrite_rule            :string
+#  src_number_max_length            :integer(2)       default(100), not null
+#  src_number_min_length            :integer(2)       default(0), not null
+#  src_number_radius_rewrite_result :string
+#  src_number_radius_rewrite_rule   :string
+#  src_numberlist_use_diversion     :boolean          default(FALSE), not null
+#  src_prefix                       :string           default(["\"\""]), is an Array
+#  src_rewrite_result               :string
+#  src_rewrite_rule                 :string
+#  tag_action_value                 :integer(2)       default([]), not null, is an Array
+#  to_domain                        :string           default([]), is an Array
+#  uri_domain                       :string           default([]), is an Array
+#  x_yeti_auth                      :string           default([]), is an Array
+#  account_id                       :integer(4)
+#  cnam_database_id                 :integer(2)
+#  customer_id                      :integer(4)       not null
+#  diversion_policy_id              :integer(4)       default(1), not null
+#  dst_number_field_id              :integer(2)       default(1), not null
+#  dst_numberlist_id                :integer(2)
+#  dump_level_id                    :integer(2)       default(0), not null
+#  external_id                      :bigint(8)
+#  gateway_id                       :integer(4)       not null
+#  lua_script_id                    :integer(2)
+#  pop_id                           :integer(4)
+#  radius_accounting_profile_id     :integer(2)
+#  radius_auth_profile_id           :integer(2)
+#  rateplan_id                      :integer(4)       not null
+#  routing_plan_id                  :integer(4)       not null
+#  src_name_field_id                :integer(2)       default(1), not null
+#  src_number_field_id              :integer(2)       default(1), not null
+#  src_numberlist_id                :integer(2)
+#  tag_action_id                    :integer(2)
+#  transport_protocol_id            :integer(2)
+#
+# Indexes
+#
+#  customers_auth_account_id_idx   (account_id)
+#  customers_auth_customer_id_idx  (customer_id)
+#  customers_auth_external_id_key  (external_id) UNIQUE
+#  customers_auth_name_key         (name) UNIQUE
+#
+# Foreign Keys
+#
+#  customers_auth_account_id_fkey                    (account_id => accounts.id)
+#  customers_auth_cnam_database_id_fkey              (cnam_database_id => cnam_databases.id)
+#  customers_auth_customer_id_fkey                   (customer_id => contractors.id)
+#  customers_auth_diversion_policy_id_fkey           (diversion_policy_id => diversion_policy.id)
+#  customers_auth_dst_blacklist_id_fkey              (dst_numberlist_id => numberlists.id)
+#  customers_auth_dst_number_field_id_fkey           (dst_number_field_id => customers_auth_dst_number_fields.id)
+#  customers_auth_gateway_id_fkey                    (gateway_id => gateways.id)
+#  customers_auth_lua_script_id_fkey                 (lua_script_id => lua_scripts.id)
+#  customers_auth_pop_id_fkey                        (pop_id => pops.id)
+#  customers_auth_radius_accounting_profile_id_fkey  (radius_accounting_profile_id => radius_accounting_profiles.id)
+#  customers_auth_radius_auth_profile_id_fkey        (radius_auth_profile_id => radius_auth_profiles.id)
+#  customers_auth_rateplan_id_fkey                   (rateplan_id => rateplans.id)
+#  customers_auth_routing_plan_id_fkey               (routing_plan_id => routing_plans.id)
+#  customers_auth_src_blacklist_id_fkey              (src_numberlist_id => numberlists.id)
+#  customers_auth_src_name_field_id_fkey             (src_name_field_id => customers_auth_src_name_fields.id)
+#  customers_auth_src_number_field_id_fkey           (src_number_field_id => customers_auth_src_number_fields.id)
+#  customers_auth_tag_action_id_fkey                 (tag_action_id => tag_actions.id)
+#  customers_auth_transport_protocol_id_fkey         (transport_protocol_id => transport_protocols.id)
 #
 
-class CustomersAuth < Yeti::ActiveRecord
+class CustomersAuth < ApplicationRecord
   self.table_name = 'class4.customers_auth'
+
+  DUMP_LEVEL_DISABLED = 0
+  DUMP_LEVEL_CAPTURE_SIP = 1
+  DUMP_LEVEL_CAPTURE_RTP = 2
+  DUMP_LEVEL_CAPTURE_ALL = 3
+  DUMP_LEVELS = {
+    DUMP_LEVEL_DISABLED => 'Capture nothing',
+    DUMP_LEVEL_CAPTURE_SIP => 'Capture signaling traffic',
+    DUMP_LEVEL_CAPTURE_RTP => 'Capture RTP traffic',
+    DUMP_LEVEL_CAPTURE_ALL => 'Capture all traffic'
+  }.freeze
 
   module CONST
     MATCH_CONDITION_ATTRIBUTES = %i[ip
@@ -73,28 +118,35 @@ class CustomersAuth < Yeti::ActiveRecord
 
   belongs_to :customer, -> { where customer: true }, class_name: 'Contractor', foreign_key: :customer_id
 
-  belongs_to :rateplan
+  belongs_to :rateplan, class_name: 'Routing::Rateplan'
+  has_many :destinations, class_name: 'Routing::Destination', through: :rateplan
+
   belongs_to :routing_plan, class_name: 'Routing::RoutingPlan'
   belongs_to :gateway
-  belongs_to :account
-  belongs_to :dump_level
-  belongs_to :pop
+  belongs_to :account, optional: true
+  belongs_to :pop, optional: true
   belongs_to :diversion_policy
-  belongs_to :dst_numberlist, class_name: 'Routing::Numberlist', foreign_key: :dst_numberlist_id
-  belongs_to :src_numberlist, class_name: 'Routing::Numberlist', foreign_key: :src_numberlist_id
-  belongs_to :radius_auth_profile, class_name: 'Equipment::Radius::AuthProfile', foreign_key: :radius_auth_profile_id
-  belongs_to :radius_accounting_profile, class_name: 'Equipment::Radius::AccountingProfile', foreign_key: :radius_accounting_profile_id
-  belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_protocol_id
+  belongs_to :dst_numberlist, class_name: 'Routing::Numberlist', foreign_key: :dst_numberlist_id, optional: true
+  belongs_to :src_numberlist, class_name: 'Routing::Numberlist', foreign_key: :src_numberlist_id, optional: true
+  belongs_to :radius_auth_profile, class_name: 'Equipment::Radius::AuthProfile', foreign_key: :radius_auth_profile_id, optional: true
+  belongs_to :radius_accounting_profile, class_name: 'Equipment::Radius::AccountingProfile', foreign_key: :radius_accounting_profile_id, optional: true
+  belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_protocol_id, optional: true
 
-  belongs_to :tag_action, class_name: 'Routing::TagAction'
-  belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id
+  belongs_to :tag_action, class_name: 'Routing::TagAction', optional: true
+  belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
+
+  belongs_to :dst_number_field, class_name: 'Routing::CustomerAuthDstNumberField', foreign_key: :dst_number_field_id
+  belongs_to :src_number_field, class_name: 'Routing::CustomerAuthSrcNumberField', foreign_key: :src_number_field_id
+  belongs_to :src_name_field, class_name: 'Routing::CustomerAuthSrcNameField', foreign_key: :src_name_field_id
+
+  belongs_to :cnam_database, class_name: 'Cnam::Database', foreign_key: :cnam_database_id, optional: true
 
   array_belongs_to :tag_action_values, class_name: 'Routing::RoutingTag', foreign_key: :tag_action_value
 
-  has_many :destinations, through: :rateplan
+  #  has_many :destinations, through: :rateplan
   has_many :normalized_copies, class_name: 'CustomersAuthNormalized', foreign_key: :customers_auth_id, dependent: :delete_all
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
   # REDIRECT_METHODS = [
   #     301,
@@ -107,26 +159,35 @@ class CustomersAuth < Yeti::ActiveRecord
   validates :ip, :src_prefix, :dst_prefix, :uri_domain, :from_domain, :to_domain, :x_yeti_auth,
             array_uniqueness: true
 
-  validates_presence_of :ip
+  validates :ip, presence: true
 
-  validates_uniqueness_of :name, allow_blank: :false
-  validates_presence_of :name
-  validates_uniqueness_of :external_id, allow_blank: true
+  validates :name, uniqueness: { allow_blank: :false }
+  validates :name, presence: true
+  validates :external_id, uniqueness: { allow_blank: true }
 
-  validates_presence_of :customer, :rateplan, :routing_plan, :gateway, :account, :dump_level, :diversion_policy
+  validates :customer, :rateplan, :routing_plan, :gateway, :account, :diversion_policy, presence: true
 
-  validates_presence_of :dst_number_min_length, :dst_number_max_length, :src_number_min_length, :src_number_max_length
-  validates_numericality_of :src_number_min_length, greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true
-  validates_numericality_of :src_number_max_length, greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true
-  validates_numericality_of :dst_number_min_length, greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true
-  validates_numericality_of :dst_number_max_length, greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true
+  validates :src_name_field, :src_number_field, :dst_number_field, presence: true
 
-  validates_numericality_of :capacity, greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true
+  validates :dst_number_min_length, :dst_number_max_length, :src_number_min_length, :src_number_max_length, presence: true
+  validates :src_number_min_length, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true }
+  validates :src_number_max_length, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true }
+  validates :dst_number_min_length, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true }
+  validates :dst_number_max_length, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true }
+
+  validates :capacity, numericality: { greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true }
+  validates :cps_limit, numericality: { greater_than_or_equal_to: 0.01, allow_nil: true }
 
   validate :ip_is_valid
   validate :gateway_supports_incoming_auth
 
+  validates :dump_level_id, presence: true
+  validates :dump_level_id, inclusion: { in: CustomersAuth::DUMP_LEVELS.keys }, allow_nil: true
+
   validates_with TagActionValueValidator
+
+  include Yeti::StateUpdater
+  self.state_name = 'customers_auth'
 
   scope :with_radius, -> { where('radius_auth_profile_id is not null') }
   scope :with_dump, -> { where('dump_level_id > 0') }
@@ -136,12 +197,19 @@ class CustomersAuth < Yeti::ActiveRecord
     rescue StandardError
       return none
     end
+    # customers_auth IP subnet contain or equal subnet from filter
     where(
       "#{table_name}.id IN (
-        SELECT customers_auth_id FROM #{CustomersAuthNormalized.table_name} WHERE ip>>='#{ip}'::inet
-      )"
+        SELECT customers_auth_id FROM #{CustomersAuthNormalized.table_name} WHERE ip>>=?::inet
+      )", ip
     )
   }
+  scope :src_prefix_array_contains, ->(src) { where.contains src_prefix: Array(src) }
+  scope :dst_prefix_array_contains, ->(dst) { where.contains dst_prefix: Array(dst) }
+  scope :uri_domain_array_contains, ->(uri) { where.contains uri_domain: Array(uri) }
+  scope :from_domain_array_contains, ->(f_dom) { where.contains from_domain: Array(f_dom) }
+  scope :to_domain_array_contains, ->(to_dom) { where.contains to_domain: Array(to_dom) }
+  scope :x_yeti_auth_array_contains, ->(auth) { where.contains x_yeti_auth: Array(auth) }
 
   include Yeti::ResourceStatus
 
@@ -153,6 +221,10 @@ class CustomersAuth < Yeti::ActiveRecord
 
   def display_name
     "#{name} | #{id}"
+  end
+
+  def dump_level_name
+    dump_level_id.nil? ? DUMP_LEVELS[0] : DUMP_LEVELS[dump_level_id]
   end
 
   # TODO: move to decorator when ActiveAdmin fix problem
@@ -170,28 +242,15 @@ class CustomersAuth < Yeti::ActiveRecord
 
   def display_name_for_debug
     b = "#{customer.display_name} -> #{name} | #{id} IP: #{raw_ip}"
-    b += ", Domain: #{uri_domain}" unless uri_domain.blank?
+    b += ", Domain: #{uri_domain}" if uri_domain.present?
     b += ", POP: #{pop.try(:name)}" unless pop_id.nil?
-    b += ", X-Yeti-Auth: #{x_yeti_auth}" unless x_yeti_auth.blank?
+    b += ", X-Yeti-Auth: #{x_yeti_auth}" if x_yeti_auth.present?
     b
   end
 
   # def pop_name
   #   pop.nil? ? "Any" : pop.name
   # end
-
-  def self.search_for_debug(src, dst)
-    if src.blank? && dst.blank?
-      CustomersAuth.all.reorder(:name)
-    elsif src.blank?
-      CustomersAuth.where('prefix_range(customers_auth.dst_prefix)@>prefix_range(?)', dst).reorder(:name)
-    elsif dst.blank?
-      CustomersAuth.where('prefix_range(customers_auth.src_prefix)@>prefix_range(?)', src).reorder(:name)
-    else
-      CustomersAuth.where("prefix_range(customers_auth.src_prefix)@>prefix_range(?) AND
-  prefix_range(customers_auth.dst_prefix)@>prefix_range(?)", src, dst).reorder(:name)
-    end
-  end
 
   # force update IP
   def keys_for_partial_write
@@ -201,7 +260,15 @@ class CustomersAuth < Yeti::ActiveRecord
   private
 
   def self.ransackable_scopes(_auth_object = nil)
-    [:ip_covers]
+    %i[
+      src_prefix_array_contains
+      dst_prefix_array_contains
+      uri_domain_array_contains
+      from_domain_array_contains
+      to_domain_array_contains
+      x_yeti_auth_array_contains
+      ip_covers
+    ]
   end
 
   protected

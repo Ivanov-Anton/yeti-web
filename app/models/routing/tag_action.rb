@@ -4,12 +4,18 @@
 #
 # Table name: class4.tag_actions
 #
-#  id   :integer          not null, primary key
+#  id   :integer(2)       not null, primary key
 #  name :string           not null
 #
+# Indexes
+#
+#  tag_actions_name_key  (name) UNIQUE
+#
 
-class Routing::TagAction < ActiveRecord::Base
+class Routing::TagAction < ApplicationRecord
   self.table_name = 'class4.tag_actions'
+
+  validates :name, presence: true, uniqueness: true
 
   module CONST
     CLEAR_ID = 1

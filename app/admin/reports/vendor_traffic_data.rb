@@ -11,7 +11,7 @@ ActiveAdmin.register Report::VendorTrafficData, as: 'VendorTrafficData' do
 
   filter :calls_count
   filter :calls_duration
-  filter :customer, as: :select, input_html: { class: 'chosen' }, collection: proc { Contractor.where(customer: true) }
+  contractor_filter :customer_id_eq, label: 'Customer', path_params: { q: { customer_eq: true } }
 
   controller do
     def scoped_collection
@@ -27,6 +27,7 @@ ActiveAdmin.register Report::VendorTrafficData, as: 'VendorTrafficData' do
     div class: :report_sidebar_info do
       attributes_table_for assigns[:vendor_traffic] do
         row :id
+        row :completed
         row :date_start
         row :date_end
         row :vendor

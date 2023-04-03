@@ -4,22 +4,28 @@
 #
 # Table name: class4.radius_accounting_profiles
 #
-#  id                          :integer          not null, primary key
-#  name                        :string           not null
-#  server                      :string           not null
-#  port                        :integer          not null
-#  secret                      :string           not null
-#  timeout                     :integer          default(100), not null
-#  attempts                    :integer          default(2), not null
-#  enable_start_accounting     :boolean          default(FALSE), not null
+#  id                          :integer(2)       not null, primary key
+#  attempts                    :integer(2)       default(2), not null
 #  enable_interim_accounting   :boolean          default(FALSE), not null
-#  interim_accounting_interval :integer          default(30), not null
+#  enable_start_accounting     :boolean          default(FALSE), not null
 #  enable_stop_accounting      :boolean          default(TRUE), not null
+#  interim_accounting_interval :integer(2)       default(30), not null
+#  name                        :string           not null
+#  port                        :integer(4)       not null
+#  secret                      :string           not null
+#  server                      :string           not null
+#  timeout                     :integer(2)       default(100), not null
+#
+# Indexes
+#
+#  radius_accounting_profiles_name_key  (name) UNIQUE
 #
 
-class Equipment::Radius::AccountingProfile < Yeti::ActiveRecord
+class Equipment::Radius::AccountingProfile < ApplicationRecord
   self.table_name = 'class4.radius_accounting_profiles'
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
+  include Yeti::StateUpdater
+  self.state_name = 'radius_accounting_profiles'
 
   has_many :stop_avps, class_name: 'Equipment::Radius::AccountingProfileStopAttribute', foreign_key: :profile_id, inverse_of: :profile, dependent: :destroy
   has_many :start_avps, class_name: 'Equipment::Radius::AccountingProfileStartAttribute', foreign_key: :profile_id, inverse_of: :profile, dependent: :destroy
@@ -38,12 +44,12 @@ class Equipment::Radius::AccountingProfile < Yeti::ActiveRecord
   ATTEMPTS_MIN = 1
   ATTEMPTS_MAX = 10
 
-  validates_uniqueness_of :name
-  validates_presence_of :name, :server, :port, :secret, :timeout, :attempts
+  validates :name, uniqueness: true
+  validates :name, :server, :port, :secret, :timeout, :attempts, presence: true
 
-  validates_numericality_of :timeout, greater_than_or_equal_to: TIMEOUT_MIN, less_than_or_equal_to: TIMEOUT_MAX, allow_nil: true, only_integer: true
-  validates_numericality_of :attempts, greater_than_or_equal_to: ATTEMPTS_MIN, less_than_or_equal_to: ATTEMPTS_MAX, allow_nil: true, only_integer: true
-  validates_numericality_of :port, greater_than_or_equal_to: Yeti::ActiveRecord::L4_PORT_MIN, less_than_or_equal_to: Yeti::ActiveRecord::L4_PORT_MAX, allow_nil: true, only_integer: true
+  validates :timeout, numericality: { greater_than_or_equal_to: TIMEOUT_MIN, less_than_or_equal_to: TIMEOUT_MAX, allow_nil: true, only_integer: true }
+  validates :attempts, numericality: { greater_than_or_equal_to: ATTEMPTS_MIN, less_than_or_equal_to: ATTEMPTS_MAX, allow_nil: true, only_integer: true }
+  validates :port, numericality: { greater_than_or_equal_to: ApplicationRecord::L4_PORT_MIN, less_than_or_equal_to: ApplicationRecord::L4_PORT_MAX, allow_nil: true, only_integer: true }
 
   before_save do
     Event.reload_radius_acc_profiles

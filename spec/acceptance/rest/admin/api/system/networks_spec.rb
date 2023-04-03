@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
 require 'rspec_api_documentation/dsl'
 
-resource 'Networks' do
+RSpec.resource 'Networks' do
   header 'Accept', 'application/vnd.api+json'
   header 'Content-Type', 'application/vnd.api+json'
   header 'Authorization', :auth_token
@@ -19,8 +18,10 @@ resource 'Networks' do
     jsonapi_filters Api::Rest::Admin::System::NetworkResource._allowed_filters
 
     before do
-      FactoryGirl.create(:network, name: 'US')
-      FactoryGirl.create(:network, name: 'CA')
+      System::NetworkPrefix.delete_all
+      System::Network.delete_all
+      FactoryBot.create(:network, name: 'US')
+      FactoryBot.create(:network, name: 'CA')
     end
 
     example_request 'get listing' do
@@ -29,7 +30,7 @@ resource 'Networks' do
   end
 
   get '/api/rest/admin/system/networks/:id' do
-    let(:id) { FactoryGirl.create(:network, name: 'US').id }
+    let(:id) { System::Network.find_by!(name: 'UNITED STATES').id }
 
     example_request 'get specific entry' do
       expect(status).to eq(200)
@@ -59,7 +60,7 @@ resource 'Networks' do
     jsonapi_attributes(required_params, [])
     jsonapi_relationships(required_relationships, [])
 
-    let!(:network) { create(:network, name: 'US') }
+    let!(:network) { System::Network.find_by!(name: 'UNITED STATES') }
     let!(:network_type) { create(:network_type) }
     let(:id) { network.id }
     let(:name) { 'name' }
@@ -71,7 +72,7 @@ resource 'Networks' do
   end
 
   delete '/api/rest/admin/system/networks/:id' do
-    let(:id) { FactoryGirl.create(:network, name: 'US').id }
+    let(:id) { create(:network).id }
 
     example_request 'delete entry' do
       expect(status).to eq(204)

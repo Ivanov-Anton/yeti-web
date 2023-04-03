@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
+RSpec.describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
   include_context :jsonapi_admin_headers
 
   describe 'GET index' do
@@ -15,6 +13,9 @@ describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :customers_auth }
 
     it_behaves_like :jsonapi_filters_by_string_field, :name
@@ -62,7 +63,7 @@ describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
   end
 
   describe 'POST create' do
-    before do
+    subject do
       post :create, params: {
         data: { type: 'customers-auths',
                 attributes: attributes,
@@ -77,13 +78,13 @@ describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
           enabled: true,
           'reject-calls': true,
           ip: '0.0.0.0',
-          'external-id': 100
+          'external-id': 100,
+          'dump-level-id': CustomersAuth::DUMP_LEVEL_CAPTURE_SIP
         }
       end
 
       let(:relationships) do
-        { 'dump-level': wrap_relationship(:'dump-levels', 1),
-          'diversion-policy': wrap_relationship(:'diversion-policies', 1),
+        { 'diversion-policy': wrap_relationship(:'diversion-policies', 1),
           customer: wrap_relationship(:contractors, create(:contractor, customer: true).id),
           rateplan: wrap_relationship(:rateplans, create(:rateplan).id),
           'routing-plan': wrap_relationship(:'routing-plans', create(:routing_plan).id),
@@ -91,22 +92,29 @@ describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
           account: wrap_relationship(:accounts, create(:account).id) }
       end
 
-      it { expect(response.status).to eq(201) }
-      it { expect(CustomersAuth.where(external_id: attributes[:'external-id']).count).to eq(1) }
+      it 'creates customers auth' do
+        subject
+        expect(response.status).to eq(201)
+        expect(CustomersAuth.where(external_id: attributes[:'external-id']).count).to eq(1)
+      end
+
+      include_examples :increments_customers_auth_state
     end
 
     context 'when attributes are invalid' do
       let(:attributes) { {  name: 'name' } }
       let(:relationships) { {} }
 
-      it { expect(response.status).to eq(422) }
-      it { expect(CustomersAuth.count).to eq(0) }
+      it 'does not create customers auth' do
+        subject
+        expect(response.status).to eq(422)
+        expect(CustomersAuth.count).to eq(0)
+      end
     end
   end
 
   describe 'PUT update' do
-    let!(:customers_auth) { create :customers_auth }
-    before do
+    subject do
       put :update, params: {
         id: customers_auth.to_param, data: { type: 'customers-auths',
                                              id: customers_auth.to_param,
@@ -114,35 +122,45 @@ describe Api::Rest::Admin::CustomersAuthsController, type: :controller do
       }
     end
 
+    let!(:customers_auth) { create :customers_auth }
+
     context 'when attributes are valid' do
       let(:attributes) { { name: 'name', enabled: false } }
 
-      it { expect(response.status).to eq(200) }
-      it { expect(customers_auth.reload.name).to eq('name') }
+      it 'updates customers auth' do
+        subject
+        expect(response.status).to eq(200)
+        expect(customers_auth.reload).to have_attributes(name: 'name')
+      end
+
+      include_examples :increments_customers_auth_state
     end
 
     context 'when attributes are invalid' do
       let(:attributes) { { name: 'name', capacity: 0 } }
 
-      it { expect(response.status).to eq(422) }
-      it { expect(customers_auth.reload.name).to_not eq('name') }
-    end
-
-    context 'when attributes are not allowed' do
-      let(:attributes) { { 'external-id': 101 } }
-
-      it { expect(response.status).to eq(400) }
-      it { expect(customers_auth.reload.external_id).to_not eq(101) }
+      it 'does not update customers auth' do
+        subject
+        expect(response.status).to eq(422)
+        expect(customers_auth.reload.name).to_not eq('name')
+      end
     end
   end
 
   describe 'DELETE destroy' do
+    subject do
+      delete :destroy, params: { id: customers_auth.to_param }
+    end
+
     let!(:customers_auth) { create :customers_auth }
 
-    before { delete :destroy, params: { id: customers_auth.to_param } }
+    it 'destroys customers auth' do
+      subject
+      expect(response.status).to eq(204)
+      expect(CustomersAuth.count).to eq(0)
+    end
 
-    it { expect(response.status).to eq(204) }
-    it { expect(CustomersAuth.count).to eq(0) }
+    include_examples :increments_customers_auth_state
   end
 
   describe 'editable tag_action and tag_action_value' do

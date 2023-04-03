@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Admin::Routing::NumberlistItemsController, type: :controller do
+RSpec.describe Api::Rest::Admin::Routing::NumberlistItemsController, type: :controller do
   include_context :jsonapi_admin_headers
 
   let(:resource_type) { 'numberlist-items' }
@@ -19,9 +17,13 @@ describe Api::Rest::Admin::Routing::NumberlistItemsController, type: :controller
   end
 
   describe 'GET index with ransack filters' do
+    subject do
+      get :index, params: json_api_request_query
+    end
     let(:factory) { :numberlist_item }
 
     it_behaves_like :jsonapi_filters_by_string_field, :key
+    it_behaves_like :jsonapi_filters_by_number_field, :action_id
     it_behaves_like :jsonapi_filters_by_datetime_field, :created_at
     it_behaves_like :jsonapi_filters_by_datetime_field, :updated_at
     it_behaves_like :jsonapi_filters_by_string_field, :src_rewrite_rule
@@ -62,8 +64,7 @@ describe Api::Rest::Admin::Routing::NumberlistItemsController, type: :controller
 
     let(:relationships) do
       {
-        'numberlist': wrap_relationship(:numberlists, numberlist.to_param),
-        'action': wrap_relationship(:'numberlist-actions', Routing::NumberlistAction.take.to_param)
+        'numberlist': wrap_relationship(:numberlists, numberlist.to_param)
       }
     end
 

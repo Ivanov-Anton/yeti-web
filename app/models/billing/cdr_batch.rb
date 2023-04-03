@@ -4,12 +4,10 @@
 #
 # Table name: billing.cdr_batches
 #
-#  id         :integer          not null, primary key
+#  id         :bigint(8)        not null, primary key
 #  created_at :datetime         not null
-#  size       :integer          not null
-#  raw_data   :text
 #
 
-class Billing::CdrBatch < Yeti::ActiveRecord
+class Billing::CdrBatch < ApplicationRecord
   self.table_name = 'billing.cdr_batches'
 end

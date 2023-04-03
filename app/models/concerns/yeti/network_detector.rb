@@ -7,13 +7,12 @@ module Yeti
     EMPTY_NETWORK_HINT = 'Unknown network'
 
     included do
-      belongs_to :network_prefix, class_name: 'System::NetworkPrefix'
+      belongs_to :network_prefix, class_name: 'System::NetworkPrefix', optional: true
       has_one :country, through: :network_prefix
       has_one :network, through: :network_prefix
 
-      before_save do
-        detect_network_prefix!
-      end
+      before_create :detect_network_prefix!
+      before_update :detect_network_prefix!, if: :prefix_changed?
     end
 
     def detect_network_prefix!
@@ -21,7 +20,7 @@ module Yeti
     end
 
     def network_details_hint
-      network_prefix.try!(:hint) || EMPTY_NETWORK_HINT
+      network_prefix&.hint || EMPTY_NETWORK_HINT
     end
   end
 end

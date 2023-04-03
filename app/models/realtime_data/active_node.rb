@@ -4,12 +4,19 @@
 #
 # Table name: nodes
 #
-#  id              :integer          not null, primary key
-#  signalling_ip   :string
-#  signalling_port :integer
-#  name            :string
-#  pop_id          :integer          not null
-#  rpc_endpoint    :string
+#  id           :integer(4)       not null, primary key
+#  name         :string
+#  rpc_endpoint :string
+#  pop_id       :integer(4)       not null
+#
+# Indexes
+#
+#  node_name_key           (name) UNIQUE
+#  nodes_rpc_endpoint_key  (rpc_endpoint) UNIQUE
+#
+# Foreign Keys
+#
+#  node_pop_id_fkey  (pop_id => pops.id)
 #
 
 class RealtimeData::ActiveNode < Node
@@ -18,28 +25,14 @@ class RealtimeData::ActiveNode < Node
     find(ids.sample)
   end
 
-  def api
-    @api ||= if rpc_endpoint.present?
-               YetisNode::Client.new(rpc_endpoint, transport: :json_rpc, logger: logger)
-             else
-               YetisNode::Client.new(rpc_uri, logger: logger)
-             end
-  end
-
   def total_calls_count
     api.calls_count
   end
 
-  def stats
-    api.stats
-  end
+  delegate :stats, to: :api
 
   def system_status
     @system_status ||= api.system_status
-  end
-
-  def clear_cache
-    api.router_clear_cache
   end
 
   def drop_call(id)
@@ -59,7 +52,8 @@ class RealtimeData::ActiveNode < Node
       if empty_on_error
         logger.warn { e.message }
         logger.warn { e.backtrace.join("\n") }
-        return []
+        CaptureError.capture(e, extra: { model_class: self.class.name, params: params })
+        []
       else
         raise e
       end

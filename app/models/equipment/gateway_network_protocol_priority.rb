@@ -4,10 +4,16 @@
 #
 # Table name: class4.gateway_network_protocol_priorities
 #
-#  id   :integer          not null, primary key
+#  id   :integer(2)       not null, primary key
 #  name :string           not null
 #
+# Indexes
+#
+#  gateway_network_protocol_priorities_name_key  (name) UNIQUE
+#
 
-class Equipment::GatewayNetworkProtocolPriority < Yeti::ActiveRecord
+class Equipment::GatewayNetworkProtocolPriority < ApplicationRecord
   self.table_name = 'class4.gateway_network_protocol_priorities'
+
+  validates :name, presence: true, uniqueness: true
 end

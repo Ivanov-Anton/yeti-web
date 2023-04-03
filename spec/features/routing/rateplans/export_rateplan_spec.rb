@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe 'Export Rateplan', type: :feature do
+RSpec.describe 'Export Rateplan', type: :feature do
   include_context :login_as_admin
 
   before { create(:rateplan) }
@@ -12,7 +10,7 @@ describe 'Export Rateplan', type: :feature do
   end
 
   before do
-    visit rateplans_path(format: :csv)
+    visit routing_rateplans_path(format: :csv)
   end
 
   subject { CSV.parse(page.body).slice(0, 2).transpose }
@@ -22,7 +20,7 @@ describe 'Export Rateplan', type: :feature do
       [
         ['Id', item.id.to_s],
         ['Name', item.name],
-        ['Profit control mode name', item.profit_control_mode.name]
+        ['Profit control mode name', item.profit_control_mode_name]
       ]
     )
   end

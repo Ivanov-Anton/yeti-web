@@ -4,29 +4,41 @@
 #
 # Table name: codec_group_codecs
 #
-#  id                   :integer          not null, primary key
-#  codec_group_id       :integer          not null
-#  codec_id             :integer          not null
-#  priority             :integer          default(100), not null
-#  dynamic_payload_type :integer
+#  id                   :integer(4)       not null, primary key
+#  dynamic_payload_type :integer(4)
 #  format_parameters    :string
+#  priority             :integer(4)       default(100), not null
+#  codec_group_id       :integer(4)       not null
+#  codec_id             :integer(4)       not null
+#
+# Indexes
+#
+#  codec_group_codecs_codec_group_id_codec_id_key  (codec_group_id,codec_id) UNIQUE
+#  codec_group_codecs_codec_group_id_priority_key  (codec_group_id,priority) UNIQUE
+#
+# Foreign Keys
+#
+#  codec_group_codecs_codec_group_id_fkey  (codec_group_id => codec_groups.id)
+#  codec_group_codecs_codec_id_fkey        (codec_id => codecs.id)
 #
 
-class CodecGroupCodec < ActiveRecord::Base
+class CodecGroupCodec < ApplicationRecord
   belongs_to :codec_group
   belongs_to :codec
 
-  has_paper_trail class_name: 'AuditLogItem'
+  include WithPaperTrail
 
-  validates_uniqueness_of :priority, scope: [:codec_group_id]
-  validates_numericality_of :priority
-  validates_uniqueness_of :codec_id, scope: [:codec_group_id]
-  validates_presence_of :codec, :codec_group
-  validates_numericality_of :dynamic_payload_type, greater_than: 95, less_than: 128, allow_nil: true, only_integer: true
+  validates :priority, uniqueness: { scope: [:codec_group_id] }
+  validates :priority, numericality: true
+  validates :codec_id, uniqueness: { scope: [:codec_group_id] }
+  validates :codec, :codec_group, presence: true
+  validates :dynamic_payload_type, numericality: { greater_than: 95, less_than: 128, allow_nil: true, only_integer: true }
 
   def display_name
     "#{id} #{codec.name}"
   end
 
   include Yeti::CodecReloader
+  include Yeti::StateUpdater
+  self.state_name = 'codec_groups'
 end

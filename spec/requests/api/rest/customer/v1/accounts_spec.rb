@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
-describe Api::Rest::Customer::V1::AccountsController, type: :request do
+RSpec.describe Api::Rest::Customer::V1::AccountsController, type: :request do
   include_context :json_api_customer_v1_helpers, type: :accounts
 
   before do
@@ -19,7 +17,7 @@ describe Api::Rest::Customer::V1::AccountsController, type: :request do
     let(:records_qty) { 2 }
     let!(:accounts) { create_list :account, records_qty, contractor: customer }
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     it_behaves_like :json_api_check_pagination do
       let(:records_ids) { accounts.map { |r| r.reload.uuid } }
@@ -79,10 +77,31 @@ describe Api::Rest::Customer::V1::AccountsController, type: :request do
               request_id: be_present
             },
             extra: {},
-            request_env: be_present
+            rack_env: be_present
           }
         end
       end
+    end
+
+    context 'with ransack filters' do
+      let(:factory) { :account }
+      let(:trait) { %i[with_max_balance with_uuid] }
+      let(:factory_attrs) { { contractor: customer } }
+      let(:pk) { :uuid }
+
+      it_behaves_like :jsonapi_filters_by_string_field, :name
+      it_behaves_like :jsonapi_filters_by_number_field, :balance
+      it_behaves_like :jsonapi_filters_by_number_field, :min_balance
+      it_behaves_like :jsonapi_filters_by_number_field, :max_balance
+      it_behaves_like :jsonapi_filters_by_number_field, :balance_low_threshold
+      it_behaves_like :jsonapi_filters_by_number_field, :balance_high_threshold
+      it_behaves_like :jsonapi_filters_by_number_field, :destination_rate_limit
+      it_behaves_like :jsonapi_filters_by_number_field, :max_call_duration
+      it_behaves_like :jsonapi_filters_by_number_field, :external_id
+      it_behaves_like :jsonapi_filters_by_uuid_field, :uuid
+      it_behaves_like :jsonapi_filters_by_number_field, :origination_capacity
+      it_behaves_like :jsonapi_filters_by_number_field, :termination_capacity
+      it_behaves_like :jsonapi_filters_by_number_field, :total_capacity
     end
 
     # TODO: context when no entity found fin index-action
@@ -97,7 +116,7 @@ describe Api::Rest::Customer::V1::AccountsController, type: :request do
     let(:record_id) { account.reload.uuid }
     let!(:account) { create(:account, contractor: customer) }
 
-    it_behaves_like :json_api_check_authorization
+    it_behaves_like :json_api_customer_v1_check_authorization
 
     context 'when record exists' do
       it 'returns record with expected attributes' do
@@ -130,5 +149,61 @@ describe Api::Rest::Customer::V1::AccountsController, type: :request do
         expect(response.status).to eq(404)
       end
     end
+  end
+
+  describe 'POST /api/rest/customer/v1/accounts' do
+    subject do
+      post json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
+    end
+
+    let(:json_api_request_body) do
+      {
+        data: {
+          type: 'accounts',
+          attributes: json_api_attributes
+        }
+      }
+    end
+    let(:json_api_attributes) do
+      { name: 'some name' }
+    end
+
+    include_examples :raises_exception, ActionController::RoutingError
+  end
+
+  describe 'PATCH /api/rest/customer/v1/accounts/{id}' do
+    subject do
+      patch json_api_request_path, params: json_api_request_body.to_json, headers: json_api_request_headers
+    end
+
+    let(:json_api_request_path) { "#{super()}/#{record_id}" }
+    let(:record_id) { account.reload.uuid }
+    let!(:account) { create(:account, contractor: customer) }
+    let(:json_api_request_body) do
+      {
+        data: {
+          id: record_id,
+          type: 'accounts',
+          attributes: json_api_attributes
+        }
+      }
+    end
+    let(:json_api_attributes) do
+      { name: 'some new name' }
+    end
+
+    include_examples :raises_exception, ActionController::RoutingError
+  end
+
+  describe 'DELETE /api/rest/customer/v1/accounts/{id}' do
+    subject do
+      delete json_api_request_path, params: nil, headers: json_api_request_headers
+    end
+
+    let(:json_api_request_path) { "#{super()}/#{record_id}" }
+    let(:record_id) { account.reload.uuid }
+    let!(:account) { create(:account, contractor: customer) }
+
+    include_examples :raises_exception, ActionController::RoutingError
   end
 end
