@@ -1,17 +1,9 @@
 {
-    "name": "Debian Buster",
-
-    "dockerFile": "Dockerfile",
-
-    "extensions": [],
-
-    "settings": {},
-
-    "forwardPorts": [],
-
-    "appPort": [],
-
-    "postCreateCommand": "",
-    
-    "remoteUser": "vscode"
+  "name": "Debian Buster",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  }
 }
