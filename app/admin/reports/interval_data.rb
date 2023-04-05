@@ -38,8 +38,10 @@ ActiveAdmin.register Report::IntervalData, as: 'IntervalItem' do
   filter :id
   filter :timestamp
 
+  contractor_filter :customer_id_eq, label: 'Customer', path_params: { q: { customer_eq: true, ordered_by: :name } }
+
   Report::IntervalCdr::CDR_COLUMNS.each do |key|
-    next if %i[destination_id dialpeer_id vendor_id].include? key
+    next if %i[destination_id dialpeer_id vendor_id customer_id].include? key
 
     filter key.to_s[0..-4].to_sym, if: proc {
       @report_interval_cdr.group_by_include? key
