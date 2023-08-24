@@ -54,7 +54,8 @@ ActiveAdmin.register CustomersAuth do
                  :dst_number_radius_rewrite_rule, :dst_number_radius_rewrite_result,
                  [:radius_accounting_profile_name, proc { |row| row.radius_accounting_profile.try(:name) || '' }],
                  [:tag_action_name, proc { |row| row.tag_action.try(:name) || '' }],
-                 [:tag_action_value_names, proc { |row| row.model.tag_action_values.map(&:name).join(', ') }]
+                 [:tag_action_value_names, proc { |row| row.model.tag_action_values.map(&:name).join(', ') }],
+                 :rewrite_ss_status_name
 
   acts_as_import resource_class: Importing::CustomersAuth,
                  skip_columns: [:tag_action_value]
@@ -80,7 +81,7 @@ ActiveAdmin.register CustomersAuth do
                 :transport_protocol_id,
                 :tag_action_id, :lua_script_id,
                 :dst_number_field_id, :src_number_field_id, :src_name_field_id,
-                :cnam_database_id, :src_numberlist_use_diversion,
+                :cnam_database_id, :src_numberlist_use_diversion, :rewrite_ss_status_id,
                 tag_action_value: []
   # , :enable_redirect, :redirect_method, :redirect_to
 
@@ -118,6 +119,7 @@ ActiveAdmin.register CustomersAuth do
     column :transport_protocol
     column :ip
     column :external_id
+    column :external_type
     column :pop
     column :src_prefix
     column :src_number_length do |c|
@@ -191,7 +193,8 @@ ActiveAdmin.register CustomersAuth do
   end
 
   filter :id
-  filter :external_id
+  filter :external_id, label: 'External ID'
+  filter :external_type
   filter :name
   filter :enabled, as: :select, collection: [['Yes', true], ['No', false]]
   filter :reject_calls, as: :select, collection: [['Yes', true], ['No', false]]
@@ -341,6 +344,12 @@ ActiveAdmin.register CustomersAuth do
                                      input_html: { class: 'chosen' }
         end
       end
+
+      tab :stir_shaken do
+        f.inputs do
+          f.input :rewrite_ss_status_id, as: :select, include_blank: true, collection: CustomersAuth::SS_STATUSES.invert
+        end
+      end
     end
     f.actions
   end
@@ -351,6 +360,7 @@ ActiveAdmin.register CustomersAuth do
         attributes_table do
           row :name
           row :external_id
+          row :external_type
           row :enabled
           row :reject_calls
           row :customer
@@ -434,6 +444,12 @@ ActiveAdmin.register CustomersAuth do
         attributes_table do
           row :tag_action
           row :display_tag_action_value
+        end
+      end
+
+      tab :stir_shaken do
+        attributes_table do
+          row :rewrite_ss_status, &:rewrite_ss_status_name
         end
       end
     end

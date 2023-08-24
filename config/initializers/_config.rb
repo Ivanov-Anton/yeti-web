@@ -68,6 +68,13 @@ Config.setup do |setup_config|
     optional(:keep_expired_destinations_days)
     optional(:keep_expired_dialpeers_days)
     optional(:keep_balance_notifications_days)
+
+    optional(:cryptomus).schema do
+      optional(:api_key).maybe(:string)
+      optional(:merchant_id).maybe(:string)
+      optional(:url_callback).maybe(:string)
+      optional(:url_return).maybe(:string)
+    end
   end
 end
 
@@ -78,6 +85,9 @@ rescue Config::Validation::Error => e
   warn e.message
   exit 1 # rubocop:disable Rails/Exit
 end
+
+require 'system_info_configs'
+require 'custom_struct'
 
 system_info_path = Rails.root.join('config/system_info.yml')
 SystemInfoConfigs.load_file(system_info_path) if File.exist?(system_info_path)

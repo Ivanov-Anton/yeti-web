@@ -18,6 +18,8 @@ ActiveAdmin.register Routing::RoutingTagDetectionRule do
                  [:tag_action_name, proc { |row| row.tag_action.try(:name) }],
                  [:tag_action_value_names, proc { |row| row.model.tag_action_values.map(&:name).join(', ') }]
 
+  acts_as_import resource_class: Importing::RoutingTagDetectionRule
+
   permit_params :src_area_id, :dst_area_id,
                 :src_prefix, :dst_prefix,
                 :tag_action_id, :routing_tag_mode_id, tag_action_value: [],
@@ -93,5 +95,5 @@ ActiveAdmin.register Routing::RoutingTagDetectionRule do
   filter :src_area, input_html: { class: 'chosen' }
   filter :dst_area, input_html: { class: 'chosen' }
 
-  acts_as_filter_by_routing_tag_ids
+  acts_as_filter_by_routing_tag_ids routing_tag_ids_count: true
 end

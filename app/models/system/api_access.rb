@@ -61,6 +61,14 @@ class System::ApiAccess < ApplicationRecord
     end
   end
 
+  def find_allowed_account(uuid)
+    if account_ids.empty?
+      Account.find_by(contractor_id: customer_id, uuid:)
+    else
+      Account.find_by(id: account_ids, uuid:)
+    end
+  end
+
   # Auth
 
   def authenticate_ip(remote_ip)

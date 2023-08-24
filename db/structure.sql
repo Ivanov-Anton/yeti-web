@@ -1052,10 +1052,16 @@ CREATE TYPE switch20.callprofile_ty AS (
 	orig_gw_external_id bigint,
 	term_gw_external_id bigint,
 	customer_acc_vat numeric,
-	lega_identity_attestation_id smallint,
-	lega_identity_verstat_id smallint,
+	lega_ss_status_id smallint,
+	legb_ss_status_id smallint,
 	bleg_force_cancel_routeset boolean,
-	registered_aor_mode_id smallint
+	registered_aor_mode_id smallint,
+	metadata character varying,
+	customer_auth_external_type character varying,
+	ss_crt_id smallint,
+	ss_otn character varying,
+	ss_dtn character varying,
+	ss_attest_id smallint
 );
 
 
@@ -1069,7 +1075,18 @@ CREATE TYPE switch20.cnam_lua_resp AS (
 	dst_number character varying,
 	src_name character varying,
 	src_number character varying,
-	routing_tag_ids smallint[]
+	routing_tag_ids smallint[],
+	metadata character varying
+);
+
+
+--
+-- Name: defered_rewrite; Type: TYPE; Schema: switch20; Owner: -
+--
+
+CREATE TYPE switch20.defered_rewrite AS (
+	rule character varying,
+	result character varying
 );
 
 
@@ -2887,7 +2904,9 @@ CREATE TABLE class4.gateways (
     force_cancel_routeset boolean DEFAULT false NOT NULL,
     pai_send_mode_id smallint DEFAULT 0 NOT NULL,
     pai_domain character varying,
-    registered_aor_mode_id smallint DEFAULT 0 NOT NULL
+    registered_aor_mode_id smallint DEFAULT 0 NOT NULL,
+    stir_shaken_mode_id smallint DEFAULT 0 NOT NULL,
+    stir_shaken_crt_id smallint
 );
 
 
@@ -14612,7 +14631,7 @@ $$;
 -- Name: check_states(); Type: FUNCTION; Schema: switch20; Owner: -
 --
 
-CREATE FUNCTION switch20.check_states() RETURNS TABLE(trusted_lb bigint, ip_auth bigint, stir_shaken_trusted_certificates bigint, stir_shaken_trusted_repositories bigint, sensors bigint, translations bigint, codec_groups bigint, registrations bigint, radius_authorization_profiles bigint, radius_accounting_profiles bigint, auth_credentials bigint, options_probers bigint)
+CREATE FUNCTION switch20.check_states() RETURNS TABLE(trusted_lb bigint, ip_auth bigint, stir_shaken_trusted_certificates bigint, stir_shaken_trusted_repositories bigint, stir_shaken_signing_certificates bigint, sensors bigint, translations bigint, codec_groups bigint, registrations bigint, radius_authorization_profiles bigint, radius_accounting_profiles bigint, auth_credentials bigint, options_probers bigint)
     LANGUAGE plpgsql COST 10 ROWS 100
     AS $$
     BEGIN
@@ -14622,6 +14641,7 @@ CREATE FUNCTION switch20.check_states() RETURNS TABLE(trusted_lb bigint, ip_auth
         (select value from sys.states where key = 'customers_auth'),
         (select value from sys.states where key = 'stir_shaken_trusted_certificates'),
         (select value from sys.states where key = 'stir_shaken_trusted_repositories'),
+        (select value from sys.states where key = 'stir_shaken_signing_certificates'),
         (select value from sys.states where key = 'sensors'),
         (select value from sys.states where key = 'translations'),
         (select value from sys.states where key = 'codec_groups'),
@@ -15133,6 +15153,34 @@ $$;
 
 
 --
+-- Name: stir_shaken_signing_certificates; Type: TABLE; Schema: class4; Owner: -
+--
+
+CREATE TABLE class4.stir_shaken_signing_certificates (
+    id smallint NOT NULL,
+    name character varying NOT NULL,
+    certificate character varying NOT NULL,
+    key character varying NOT NULL,
+    x5u character varying NOT NULL,
+    updated_at timestamp with time zone
+);
+
+
+--
+-- Name: load_stir_shaken_signing_certificates(); Type: FUNCTION; Schema: switch20; Owner: -
+--
+
+CREATE FUNCTION switch20.load_stir_shaken_signing_certificates() RETURNS SETOF class4.stir_shaken_signing_certificates
+    LANGUAGE plpgsql COST 10
+    AS $$
+
+BEGIN
+  RETURN QUERY SELECT * from class4.stir_shaken_signing_certificates order by id;
+END;
+$$;
+
+
+--
 -- Name: stir_shaken_trusted_certificates; Type: TABLE; Schema: class4; Owner: -
 --
 
@@ -15284,6 +15332,8 @@ CREATE TABLE class4.numberlist_items (
     number_min_length smallint DEFAULT 0 NOT NULL,
     number_max_length smallint DEFAULT 100 NOT NULL,
     lua_script_id smallint,
+    defer_src_rewrite boolean DEFAULT false NOT NULL,
+    defer_dst_rewrite boolean DEFAULT false NOT NULL,
     CONSTRAINT numberlist_items_max_number_length CHECK ((number_max_length >= 0)),
     CONSTRAINT numberlist_items_min_number_length CHECK ((number_min_length >= 0))
 );
@@ -16296,6 +16346,14 @@ BEGIN
   END IF;
   i_profile.pai_out = array_to_string(v_pai_out, ',');
 
+  IF i_vendor_gw.stir_shaken_mode_id = 1 AND COALESCE(i_profile.ss_attest_id,0) > 0 THEN
+      -- insert signature
+      i_profile.ss_crt_id = i_vendor_gw.stir_shaken_crt_id;
+      i_profile.ss_otn = i_profile.src_prefix_routing;
+      i_profile.ss_dtn = i_profile.dst_prefix_routing;
+      i_profile.legb_ss_status_id = i_profile.ss_attest_id;
+  END IF;
+
   v_bleg_append_headers_req = array_cat(v_bleg_append_headers_req, string_to_array(i_vendor_gw.term_append_headers_req,'\r\n')::varchar[]);
   i_profile.append_headers_req = array_to_string(v_bleg_append_headers_req,'\r\n');
 
@@ -16944,6 +17002,14 @@ BEGIN
   END IF;
   i_profile.pai_out = array_to_string(v_pai_out, ',');
 
+  IF i_vendor_gw.stir_shaken_mode_id = 1 AND COALESCE(i_profile.ss_attest_id,0) > 0 THEN
+      -- insert signature
+      i_profile.ss_crt_id = i_vendor_gw.stir_shaken_crt_id;
+      i_profile.ss_otn = i_profile.src_prefix_routing;
+      i_profile.ss_dtn = i_profile.dst_prefix_routing;
+      i_profile.legb_ss_status_id = i_profile.ss_attest_id;
+  END IF;
+
   v_bleg_append_headers_req = array_cat(v_bleg_append_headers_req, string_to_array(i_vendor_gw.term_append_headers_req,'\r\n')::varchar[]);
   i_profile.append_headers_req = array_to_string(v_bleg_append_headers_req,'\r\n');
 
@@ -17545,6 +17611,14 @@ BEGIN
   END IF;
   i_profile.pai_out = array_to_string(v_pai_out, ',');
 
+  IF i_vendor_gw.stir_shaken_mode_id = 1 AND COALESCE(i_profile.ss_attest_id,0) > 0 THEN
+      -- insert signature
+      i_profile.ss_crt_id = i_vendor_gw.stir_shaken_crt_id;
+      i_profile.ss_otn = i_profile.src_prefix_routing;
+      i_profile.ss_dtn = i_profile.dst_prefix_routing;
+      i_profile.legb_ss_status_id = i_profile.ss_attest_id;
+  END IF;
+
   v_bleg_append_headers_req = array_cat(v_bleg_append_headers_req, string_to_array(i_vendor_gw.term_append_headers_req,'\r\n')::varchar[]);
   i_profile.append_headers_req = array_to_string(v_bleg_append_headers_req,'\r\n');
 
@@ -17857,6 +17931,11 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
         v_cnam_resp_json json;
         v_cnam_lua_resp switch20.cnam_lua_resp;
         v_cnam_database class4.cnam_databases%rowtype;
+        v_rewrite switch20.defered_rewrite;
+        v_defered_src_rewrites switch20.defered_rewrite[] not null default ARRAY[]::switch20.defered_rewrite[];
+        v_defered_dst_rewrites switch20.defered_rewrite[] not null default ARRAY[]::switch20.defered_rewrite[];
+        v_rate_groups integer[];
+        v_routing_groups integer[];
       BEGIN
         /*dbg{*/
         v_start:=now();
@@ -17971,6 +18050,7 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
 
                 v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
                 v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+                v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
                 v_ret.customer_id:=v_customer_auth_normalized.customer_id;
                 select into strict v_ret.customer_external_id external_id from public.contractors where id=v_ret.customer_id;
@@ -18030,6 +18110,7 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
 
                 v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
                 v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+                v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
                 v_ret.customer_id:=v_customer_auth_normalized.customer_id;
                 select into strict v_ret.customer_external_id external_id from public.contractors where id=v_ret.customer_id;
@@ -18083,11 +18164,15 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
         END IF;
 
         select into v_identity_data array_agg(d) from  json_populate_recordset(null::switch20.identity_data_ty, i_identity_data) d;
+        IF v_customer_auth_normalized.rewrite_ss_status_id IS NOT NULL THEN
+          v_ret.ss_attest_id = v_customer_auth_normalized.rewrite_ss_status_id;
+        END IF;
 
         -- feel customer data ;-)
         v_ret.dump_level_id:=v_customer_auth_normalized.dump_level_id;
         v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
         v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+        v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
         v_ret.customer_id:=v_customer_auth_normalized.customer_id;
         select into strict v_ret.customer_external_id external_id from public.contractors where id=v_customer_auth_normalized.customer_id;
@@ -18216,13 +18301,15 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
           select into v_cnam_resp_json yeti_ext.lnp_resolve_cnam(v_cnam_database.id, v_cnam_req_json);
 
           /*dbg{*/
-          v_end:=clock_timestamp();
+          v_end=clock_timestamp();
           RAISE NOTICE '% ms -> CNAM. resolver response: %',EXTRACT(MILLISECOND from v_end-v_start),v_cnam_resp_json;
           /*}dbg*/
 
           if json_extract_path_text(v_cnam_resp_json,'error') is not null then
+            /*dbg{*/
+            v_end=clock_timestamp();
             RAISE NOTICE '% ms -> CNAM. error',EXTRACT(MILLISECOND from v_end-v_start);
-
+            /*}dbg*/
             if v_cnam_database.drop_call_on_error then
               v_ret.disconnect_code_id=8009; -- CNAM Error
               RETURN NEXT v_ret;
@@ -18232,10 +18319,12 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             select into v_cnam_lua_resp * from switch20.cnam_lua_response_exec(v_cnam_database.response_lua, json_extract_path_text(v_cnam_resp_json,'response'));
 
             /*dbg{*/
-            v_end:=clock_timestamp();
+            v_end=clock_timestamp();
             RAISE NOTICE '% ms -> CNAM. Lua parsed response: %',EXTRACT(MILLISECOND from v_end-v_start),row_to_json(v_cnam_lua_resp);
             /*}dbg*/
-
+            if v_cnam_lua_resp.metadata is not null then
+                v_ret.metadata = json_build_object('cnam_resp', v_cnam_lua_resp.metadata::json)::varchar;
+            end if;
             v_ret.src_name_out = coalesce(v_cnam_lua_resp.src_name,v_ret.src_name_out);
             v_ret.src_prefix_out = coalesce(v_cnam_lua_resp.src_number,v_ret.src_prefix_out);
             v_ret.dst_prefix_out = coalesce(v_cnam_lua_resp.dst_number,v_ret.dst_prefix_out);
@@ -18274,16 +18363,30 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is not null and v_numberlist_item.action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist_item.src_rewrite_rule,
-                v_numberlist_item.src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist_item.dst_rewrite_rule,
-                v_numberlist_item.dst_rewrite_result
-            );
+            IF v_numberlist_item.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist_item.src_rewrite_rule, v_numberlist_item.src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist_item.src_rewrite_rule,
+                    v_numberlist_item.src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist_item.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist_item.dst_rewrite_rule, v_numberlist_item.dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist_item.dst_rewrite_rule,
+                    v_numberlist_item.dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist_item.tag_action_id, v_call_tags, v_numberlist_item.tag_action_value);
             -- pass call NOP.
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=1 then
@@ -18296,16 +18399,30 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+            IF v_numberlist.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist.default_src_rewrite_rule, v_numberlist.default_src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
                 v_ret.src_prefix_out,
                 v_numberlist.default_src_rewrite_rule,
                 v_numberlist.default_src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist.default_dst_rewrite_rule,
-                v_numberlist.default_dst_rewrite_result
-            );
+                );
+            END IF;
+            IF v_numberlist.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist.default_dst_rewrite_rule, v_numberlist.default_dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist.default_dst_rewrite_rule,
+                    v_numberlist.default_dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist.tag_action_id, v_call_tags, v_numberlist.tag_action_value);
             -- pass by default
           end if;
@@ -18342,16 +18459,30 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is not null and v_numberlist_item.action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist_item.src_rewrite_rule,
-                v_numberlist_item.src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist_item.dst_rewrite_rule,
-                v_numberlist_item.dst_rewrite_result
-            );
+            IF v_numberlist_item.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist_item.src_rewrite_rule, v_numberlist_item.src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist_item.src_rewrite_rule,
+                    v_numberlist_item.src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist_item.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist_item.dst_rewrite_rule, v_numberlist_item.dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist_item.dst_rewrite_rule,
+                    v_numberlist_item.dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist_item.tag_action_id, v_call_tags, v_numberlist_item.tag_action_value);
             -- pass call NOP.
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=1 then
@@ -18363,16 +18494,30 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist.default_src_rewrite_rule,
-                v_numberlist.default_src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist.default_dst_rewrite_rule,
-                v_numberlist.default_dst_rewrite_result
-            );
+            IF v_numberlist.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist.default_src_rewrite_rule, v_numberlist.default_src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist.default_src_rewrite_rule,
+                    v_numberlist.default_src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist.default_dst_rewrite_rule, v_numberlist.default_dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist.default_dst_rewrite_rule,
+                    v_numberlist.default_dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist.tag_action_id, v_call_tags, v_numberlist.tag_action_value);
             -- pass by default
           end if;
@@ -18420,6 +18565,9 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
           dst_area_id is null
         limit 1;
         if found then
+            /*dbg{*/
+            RAISE NOTICE '% ms -> Routing tag detection rule found: %',EXTRACT(MILLISECOND from clock_timestamp() - v_start), row_to_json(v_area_direction);
+            /*}dbg*/
             v_call_tags=yeti_ext.tag_action(v_area_direction.tag_action_id, v_call_tags, v_area_direction.tag_action_value);
         end if;
 
@@ -18427,7 +18575,7 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
 
         /*dbg{*/
         v_end:=clock_timestamp();
-        RAISE NOTICE '% ms -> Routing tag detected: %',EXTRACT(MILLISECOND from v_end-v_start), v_ret.routing_tag_ids;
+        RAISE NOTICE '% ms -> Routing tags: %',EXTRACT(MILLISECOND from v_end-v_start), v_ret.routing_tag_ids;
         /*}dbg*/
         ----------------------------------------------------------------------
 
@@ -18580,13 +18728,14 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
           RETURN;
         END IF;
 
+        SELECT INTO v_rate_groups array_agg(rate_group_id) from class4.rate_plan_groups where rateplan_id = v_customer_auth_normalized.rateplan_id;
+
         SELECT into v_destination d.*/*,switch.tracelog(d.*)*/
         FROM class4.destinations d
-        JOIN class4.rate_plan_groups rpg ON d.rate_group_id=rpg.rate_group_id
         WHERE
           prefix_range(prefix)@>prefix_range(v_routing_key)
           AND length(v_routing_key) between d.dst_number_min_length and d.dst_number_max_length
-          AND rpg.rateplan_id=v_customer_auth_normalized.rateplan_id
+          AND d.rate_group_id = ANY(v_rate_groups)
           AND enabled
           AND valid_from <= v_now
           AND valid_till >= v_now
@@ -18639,13 +18788,36 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
         v_end:=clock_timestamp();
         RAISE NOTICE '% ms -> DP. search start. Routing key: %. Rate limit: %. Routing tag: %',EXTRACT(MILLISECOND from v_end-v_start), v_routing_key, v_rate_limit, v_ret.routing_tag_ids;
         /*}dbg*/
+
+
+        /* apply defered rewrites there, not really after routing, but without affecting v_routing_key */
+
+        FOREACH v_rewrite IN ARRAY v_defered_src_rewrites LOOP
+            v_ret.src_prefix_out = yeti_ext.regexp_replace_rand(
+                v_ret.src_prefix_out,
+                v_rewrite.rule,
+                v_rewrite.result
+            );
+        END LOOP;
+
+        FOREACH v_rewrite IN ARRAY v_defered_dst_rewrites LOOP
+            v_ret.dst_prefix_out = yeti_ext.regexp_replace_rand(
+                v_ret.dst_prefix_out,
+                v_rewrite.rule,
+                v_rewrite.result
+            );
+        END LOOP;
+
+        SELECT INTO v_routing_groups array_agg(routing_group_id) from class4.routing_plan_groups where routing_plan_id = v_customer_auth_normalized.routing_plan_id;
+
         CASE v_rp.sorting_id
           WHEN'1' THEN -- LCR,Prio, ACD&ASR control
           FOR routedata IN (
             WITH step1 AS(
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   t_dp.next_rate as dp_next_rate,
                   t_dp.lcr_rate_multiplier AS dp_lcr_rate_multiplier,
                   t_dp.priority AS dp_priority,
@@ -18662,28 +18834,28 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                     ORDER BY t_dp.exclusive_route desc -- force top rank for exclusive route
                     ) as exclusive_rank
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id = t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids, v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
-            from step1
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
+            FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               AND dp_next_rate<=v_rate_limit
               AND dp_enabled
               and not dp_locked --ACD&ASR control for DP
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_next_rate*dp_lcr_rate_multiplier, dp_priority DESC
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -18696,8 +18868,8 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  --  (t_vendor_gateway.*)::class4.gateways as s1_vendor_gateway,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -18712,27 +18884,27 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                   t_dp.next_rate as dp_next_rate,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id)>0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               AND dp_enabled
               and dp_next_rate<=v_rate_limit
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -18745,7 +18917,8 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -18762,28 +18935,28 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                   t_dp.locked as dp_locked,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids, v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                    s1_dialpeer as s2_dialpeer,
+                    (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
-              and exclusive_rank=1
-              and dp_next_rate<=v_rate_limit
-              and dp_enabled
-              and not dp_locked
+              AND exclusive_rank=1
+              AND dp_next_rate<=v_rate_limit
+              AND dp_enabled
+              AND NOT dp_locked
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric_priority DESC, dp_metric
             LIMIT v_rp.max_rerouting_attempts
           )LOOP
@@ -18796,7 +18969,8 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             WITH step1 AS(
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -18812,28 +18986,28 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                   t_dp.locked as dp_locked,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id = t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id)>0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
-            from step1
+            SELECT
+                    s1_dialpeer as s2_dialpeer,
+                    (t_vendor_account.*)::billing.accounts as s2_vendor_account
+            FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               and dp_next_rate <= v_rate_limit
               and dp_enabled
               and not dp_locked --ACD&ASR control for DP
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY r2 ASC
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -18846,7 +19020,8 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -18862,28 +19037,28 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                   t_dp.next_rate as dp_next_rate,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
-                  and t_dp.vendor_id=v_test_vendor_id
+                  and t_dp.vendor_id = v_test_vendor_id
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               and dp_enabled
               and dp_next_rate<=v_rate_limit
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric_priority DESC, dp_metric
             LIMIT v_rp.max_rerouting_attempts
           )LOOP
@@ -18923,7 +19098,6 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                 FROM class4.dialpeers t_dp
                   JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
                   join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                   left join class4.routing_plan_static_routes rpsr
                     ON rpsr.routing_plan_id=v_customer_auth_normalized.routing_plan_id
                       and rpsr.vendor_id=t_dp.vendor_id
@@ -18931,7 +19105,7 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
                   AND t_vendor_account.balance<t_vendor_account.max_balance
@@ -18990,7 +19164,6 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                 FROM class4.dialpeers t_dp
                   JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
                   join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                   join class4.routing_plan_static_routes rpsr
                     ON rpsr.routing_plan_id=v_customer_auth_normalized.routing_plan_id
                       and rpsr.vendor_id=t_dp.vendor_id
@@ -18998,7 +19171,7 @@ CREATE FUNCTION switch20.route(i_node_id integer, i_pop_id integer, i_protocol_i
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
                   AND t_vendor_account.balance<t_vendor_account.max_balance
@@ -19105,6 +19278,11 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
         v_cnam_resp_json json;
         v_cnam_lua_resp switch20.cnam_lua_resp;
         v_cnam_database class4.cnam_databases%rowtype;
+        v_rewrite switch20.defered_rewrite;
+        v_defered_src_rewrites switch20.defered_rewrite[] not null default ARRAY[]::switch20.defered_rewrite[];
+        v_defered_dst_rewrites switch20.defered_rewrite[] not null default ARRAY[]::switch20.defered_rewrite[];
+        v_rate_groups integer[];
+        v_routing_groups integer[];
       BEGIN
         /*dbg{*/
         v_start:=now();
@@ -19219,6 +19397,7 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
 
                 v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
                 v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+                v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
                 v_ret.customer_id:=v_customer_auth_normalized.customer_id;
                 select into strict v_ret.customer_external_id external_id from public.contractors where id=v_ret.customer_id;
@@ -19278,6 +19457,7 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
 
                 v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
                 v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+                v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
                 v_ret.customer_id:=v_customer_auth_normalized.customer_id;
                 select into strict v_ret.customer_external_id external_id from public.contractors where id=v_ret.customer_id;
@@ -19331,11 +19511,15 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
         END IF;
 
         select into v_identity_data array_agg(d) from  json_populate_recordset(null::switch20.identity_data_ty, i_identity_data) d;
+        IF v_customer_auth_normalized.rewrite_ss_status_id IS NOT NULL THEN
+          v_ret.ss_attest_id = v_customer_auth_normalized.rewrite_ss_status_id;
+        END IF;
 
         -- feel customer data ;-)
         v_ret.dump_level_id:=v_customer_auth_normalized.dump_level_id;
         v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
         v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+        v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
         v_ret.customer_id:=v_customer_auth_normalized.customer_id;
         select into strict v_ret.customer_external_id external_id from public.contractors where id=v_customer_auth_normalized.customer_id;
@@ -19464,13 +19648,15 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
           select into v_cnam_resp_json yeti_ext.lnp_resolve_cnam(v_cnam_database.id, v_cnam_req_json);
 
           /*dbg{*/
-          v_end:=clock_timestamp();
+          v_end=clock_timestamp();
           RAISE NOTICE '% ms -> CNAM. resolver response: %',EXTRACT(MILLISECOND from v_end-v_start),v_cnam_resp_json;
           /*}dbg*/
 
           if json_extract_path_text(v_cnam_resp_json,'error') is not null then
+            /*dbg{*/
+            v_end=clock_timestamp();
             RAISE NOTICE '% ms -> CNAM. error',EXTRACT(MILLISECOND from v_end-v_start);
-
+            /*}dbg*/
             if v_cnam_database.drop_call_on_error then
               v_ret.disconnect_code_id=8009; -- CNAM Error
               RETURN NEXT v_ret;
@@ -19480,10 +19666,12 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             select into v_cnam_lua_resp * from switch20.cnam_lua_response_exec(v_cnam_database.response_lua, json_extract_path_text(v_cnam_resp_json,'response'));
 
             /*dbg{*/
-            v_end:=clock_timestamp();
+            v_end=clock_timestamp();
             RAISE NOTICE '% ms -> CNAM. Lua parsed response: %',EXTRACT(MILLISECOND from v_end-v_start),row_to_json(v_cnam_lua_resp);
             /*}dbg*/
-
+            if v_cnam_lua_resp.metadata is not null then
+                v_ret.metadata = json_build_object('cnam_resp', v_cnam_lua_resp.metadata::json)::varchar;
+            end if;
             v_ret.src_name_out = coalesce(v_cnam_lua_resp.src_name,v_ret.src_name_out);
             v_ret.src_prefix_out = coalesce(v_cnam_lua_resp.src_number,v_ret.src_prefix_out);
             v_ret.dst_prefix_out = coalesce(v_cnam_lua_resp.dst_number,v_ret.dst_prefix_out);
@@ -19522,16 +19710,30 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is not null and v_numberlist_item.action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist_item.src_rewrite_rule,
-                v_numberlist_item.src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist_item.dst_rewrite_rule,
-                v_numberlist_item.dst_rewrite_result
-            );
+            IF v_numberlist_item.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist_item.src_rewrite_rule, v_numberlist_item.src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist_item.src_rewrite_rule,
+                    v_numberlist_item.src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist_item.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist_item.dst_rewrite_rule, v_numberlist_item.dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist_item.dst_rewrite_rule,
+                    v_numberlist_item.dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist_item.tag_action_id, v_call_tags, v_numberlist_item.tag_action_value);
             -- pass call NOP.
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=1 then
@@ -19544,16 +19746,30 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+            IF v_numberlist.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist.default_src_rewrite_rule, v_numberlist.default_src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
                 v_ret.src_prefix_out,
                 v_numberlist.default_src_rewrite_rule,
                 v_numberlist.default_src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist.default_dst_rewrite_rule,
-                v_numberlist.default_dst_rewrite_result
-            );
+                );
+            END IF;
+            IF v_numberlist.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist.default_dst_rewrite_rule, v_numberlist.default_dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist.default_dst_rewrite_rule,
+                    v_numberlist.default_dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist.tag_action_id, v_call_tags, v_numberlist.tag_action_value);
             -- pass by default
           end if;
@@ -19590,16 +19806,30 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is not null and v_numberlist_item.action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist_item.src_rewrite_rule,
-                v_numberlist_item.src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist_item.dst_rewrite_rule,
-                v_numberlist_item.dst_rewrite_result
-            );
+            IF v_numberlist_item.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist_item.src_rewrite_rule, v_numberlist_item.src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist_item.src_rewrite_rule,
+                    v_numberlist_item.src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist_item.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist_item.dst_rewrite_rule, v_numberlist_item.dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist_item.dst_rewrite_rule,
+                    v_numberlist_item.dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist_item.tag_action_id, v_call_tags, v_numberlist_item.tag_action_value);
             -- pass call NOP.
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=1 then
@@ -19611,16 +19841,30 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist.default_src_rewrite_rule,
-                v_numberlist.default_src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist.default_dst_rewrite_rule,
-                v_numberlist.default_dst_rewrite_result
-            );
+            IF v_numberlist.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist.default_src_rewrite_rule, v_numberlist.default_src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist.default_src_rewrite_rule,
+                    v_numberlist.default_src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist.default_dst_rewrite_rule, v_numberlist.default_dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist.default_dst_rewrite_rule,
+                    v_numberlist.default_dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist.tag_action_id, v_call_tags, v_numberlist.tag_action_value);
             -- pass by default
           end if;
@@ -19668,6 +19912,9 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
           dst_area_id is null
         limit 1;
         if found then
+            /*dbg{*/
+            RAISE NOTICE '% ms -> Routing tag detection rule found: %',EXTRACT(MILLISECOND from clock_timestamp() - v_start), row_to_json(v_area_direction);
+            /*}dbg*/
             v_call_tags=yeti_ext.tag_action(v_area_direction.tag_action_id, v_call_tags, v_area_direction.tag_action_value);
         end if;
 
@@ -19675,7 +19922,7 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
 
         /*dbg{*/
         v_end:=clock_timestamp();
-        RAISE NOTICE '% ms -> Routing tag detected: %',EXTRACT(MILLISECOND from v_end-v_start), v_ret.routing_tag_ids;
+        RAISE NOTICE '% ms -> Routing tags: %',EXTRACT(MILLISECOND from v_end-v_start), v_ret.routing_tag_ids;
         /*}dbg*/
         ----------------------------------------------------------------------
 
@@ -19828,13 +20075,14 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
           RETURN;
         END IF;
 
+        SELECT INTO v_rate_groups array_agg(rate_group_id) from class4.rate_plan_groups where rateplan_id = v_customer_auth_normalized.rateplan_id;
+
         SELECT into v_destination d.*/*,switch.tracelog(d.*)*/
         FROM class4.destinations d
-        JOIN class4.rate_plan_groups rpg ON d.rate_group_id=rpg.rate_group_id
         WHERE
           prefix_range(prefix)@>prefix_range(v_routing_key)
           AND length(v_routing_key) between d.dst_number_min_length and d.dst_number_max_length
-          AND rpg.rateplan_id=v_customer_auth_normalized.rateplan_id
+          AND d.rate_group_id = ANY(v_rate_groups)
           AND enabled
           AND valid_from <= v_now
           AND valid_till >= v_now
@@ -19887,13 +20135,36 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
         v_end:=clock_timestamp();
         RAISE NOTICE '% ms -> DP. search start. Routing key: %. Rate limit: %. Routing tag: %',EXTRACT(MILLISECOND from v_end-v_start), v_routing_key, v_rate_limit, v_ret.routing_tag_ids;
         /*}dbg*/
+
+
+        /* apply defered rewrites there, not really after routing, but without affecting v_routing_key */
+
+        FOREACH v_rewrite IN ARRAY v_defered_src_rewrites LOOP
+            v_ret.src_prefix_out = yeti_ext.regexp_replace_rand(
+                v_ret.src_prefix_out,
+                v_rewrite.rule,
+                v_rewrite.result
+            );
+        END LOOP;
+
+        FOREACH v_rewrite IN ARRAY v_defered_dst_rewrites LOOP
+            v_ret.dst_prefix_out = yeti_ext.regexp_replace_rand(
+                v_ret.dst_prefix_out,
+                v_rewrite.rule,
+                v_rewrite.result
+            );
+        END LOOP;
+
+        SELECT INTO v_routing_groups array_agg(routing_group_id) from class4.routing_plan_groups where routing_plan_id = v_customer_auth_normalized.routing_plan_id;
+
         CASE v_rp.sorting_id
           WHEN'1' THEN -- LCR,Prio, ACD&ASR control
           FOR routedata IN (
             WITH step1 AS(
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   t_dp.next_rate as dp_next_rate,
                   t_dp.lcr_rate_multiplier AS dp_lcr_rate_multiplier,
                   t_dp.priority AS dp_priority,
@@ -19910,28 +20181,28 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                     ORDER BY t_dp.exclusive_route desc -- force top rank for exclusive route
                     ) as exclusive_rank
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id = t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids, v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
-            from step1
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
+            FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               AND dp_next_rate<=v_rate_limit
               AND dp_enabled
               and not dp_locked --ACD&ASR control for DP
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_next_rate*dp_lcr_rate_multiplier, dp_priority DESC
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -19944,8 +20215,8 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  --  (t_vendor_gateway.*)::class4.gateways as s1_vendor_gateway,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -19960,27 +20231,27 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                   t_dp.next_rate as dp_next_rate,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id)>0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               AND dp_enabled
               and dp_next_rate<=v_rate_limit
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -19993,7 +20264,8 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -20010,28 +20282,28 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                   t_dp.locked as dp_locked,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids, v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                    s1_dialpeer as s2_dialpeer,
+                    (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
-              and exclusive_rank=1
-              and dp_next_rate<=v_rate_limit
-              and dp_enabled
-              and not dp_locked
+              AND exclusive_rank=1
+              AND dp_next_rate<=v_rate_limit
+              AND dp_enabled
+              AND NOT dp_locked
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric_priority DESC, dp_metric
             LIMIT v_rp.max_rerouting_attempts
           )LOOP
@@ -20044,7 +20316,8 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             WITH step1 AS(
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -20060,28 +20333,28 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                   t_dp.locked as dp_locked,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id = t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id)>0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
-            from step1
+            SELECT
+                    s1_dialpeer as s2_dialpeer,
+                    (t_vendor_account.*)::billing.accounts as s2_vendor_account
+            FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               and dp_next_rate <= v_rate_limit
               and dp_enabled
               and not dp_locked --ACD&ASR control for DP
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY r2 ASC
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -20094,7 +20367,8 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -20110,28 +20384,28 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                   t_dp.next_rate as dp_next_rate,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
-                  and t_dp.vendor_id=v_test_vendor_id
+                  and t_dp.vendor_id = v_test_vendor_id
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               and dp_enabled
               and dp_next_rate<=v_rate_limit
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric_priority DESC, dp_metric
             LIMIT v_rp.max_rerouting_attempts
           )LOOP
@@ -20171,7 +20445,6 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                 FROM class4.dialpeers t_dp
                   JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
                   join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                   left join class4.routing_plan_static_routes rpsr
                     ON rpsr.routing_plan_id=v_customer_auth_normalized.routing_plan_id
                       and rpsr.vendor_id=t_dp.vendor_id
@@ -20179,7 +20452,7 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
                   AND t_vendor_account.balance<t_vendor_account.max_balance
@@ -20238,7 +20511,6 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                 FROM class4.dialpeers t_dp
                   JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
                   join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                   join class4.routing_plan_static_routes rpsr
                     ON rpsr.routing_plan_id=v_customer_auth_normalized.routing_plan_id
                       and rpsr.vendor_id=t_dp.vendor_id
@@ -20246,7 +20518,7 @@ CREATE FUNCTION switch20.route_debug(i_node_id integer, i_pop_id integer, i_prot
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
                   AND t_vendor_account.balance<t_vendor_account.max_balance
@@ -20350,6 +20622,11 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
         v_cnam_resp_json json;
         v_cnam_lua_resp switch20.cnam_lua_resp;
         v_cnam_database class4.cnam_databases%rowtype;
+        v_rewrite switch20.defered_rewrite;
+        v_defered_src_rewrites switch20.defered_rewrite[] not null default ARRAY[]::switch20.defered_rewrite[];
+        v_defered_dst_rewrites switch20.defered_rewrite[] not null default ARRAY[]::switch20.defered_rewrite[];
+        v_rate_groups integer[];
+        v_routing_groups integer[];
       BEGIN
         
 
@@ -20448,6 +20725,7 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
 
                 v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
                 v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+                v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
                 v_ret.customer_id:=v_customer_auth_normalized.customer_id;
                 select into strict v_ret.customer_external_id external_id from public.contractors where id=v_ret.customer_id;
@@ -20501,6 +20779,7 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
 
                 v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
                 v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+                v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
                 v_ret.customer_id:=v_customer_auth_normalized.customer_id;
                 select into strict v_ret.customer_external_id external_id from public.contractors where id=v_ret.customer_id;
@@ -20551,11 +20830,15 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
         END IF;
 
         select into v_identity_data array_agg(d) from  json_populate_recordset(null::switch20.identity_data_ty, i_identity_data) d;
+        IF v_customer_auth_normalized.rewrite_ss_status_id IS NOT NULL THEN
+          v_ret.ss_attest_id = v_customer_auth_normalized.rewrite_ss_status_id;
+        END IF;
 
         -- feel customer data ;-)
         v_ret.dump_level_id:=v_customer_auth_normalized.dump_level_id;
         v_ret.customer_auth_id:=v_customer_auth_normalized.customers_auth_id;
         v_ret.customer_auth_external_id:=v_customer_auth_normalized.external_id;
+        v_ret.customer_auth_external_type:=v_customer_auth_normalized.external_type;
 
         v_ret.customer_id:=v_customer_auth_normalized.customer_id;
         select into strict v_ret.customer_external_id external_id from public.contractors where id=v_customer_auth_normalized.customer_id;
@@ -20680,8 +20963,7 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
           
 
           if json_extract_path_text(v_cnam_resp_json,'error') is not null then
-            RAISE NOTICE '% ms -> CNAM. error',EXTRACT(MILLISECOND from v_end-v_start);
-
+            
             if v_cnam_database.drop_call_on_error then
               v_ret.disconnect_code_id=8009; -- CNAM Error
               RETURN NEXT v_ret;
@@ -20691,7 +20973,9 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             select into v_cnam_lua_resp * from switch20.cnam_lua_response_exec(v_cnam_database.response_lua, json_extract_path_text(v_cnam_resp_json,'response'));
 
             
-
+            if v_cnam_lua_resp.metadata is not null then
+                v_ret.metadata = json_build_object('cnam_resp', v_cnam_lua_resp.metadata::json)::varchar;
+            end if;
             v_ret.src_name_out = coalesce(v_cnam_lua_resp.src_name,v_ret.src_name_out);
             v_ret.src_prefix_out = coalesce(v_cnam_lua_resp.src_number,v_ret.src_prefix_out);
             v_ret.dst_prefix_out = coalesce(v_cnam_lua_resp.dst_number,v_ret.dst_prefix_out);
@@ -20718,16 +21002,30 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is not null and v_numberlist_item.action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist_item.src_rewrite_rule,
-                v_numberlist_item.src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist_item.dst_rewrite_rule,
-                v_numberlist_item.dst_rewrite_result
-            );
+            IF v_numberlist_item.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist_item.src_rewrite_rule, v_numberlist_item.src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist_item.src_rewrite_rule,
+                    v_numberlist_item.src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist_item.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist_item.dst_rewrite_rule, v_numberlist_item.dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist_item.dst_rewrite_rule,
+                    v_numberlist_item.dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist_item.tag_action_id, v_call_tags, v_numberlist_item.tag_action_value);
             -- pass call NOP.
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=1 then
@@ -20737,16 +21035,30 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+            IF v_numberlist.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist.default_src_rewrite_rule, v_numberlist.default_src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
                 v_ret.src_prefix_out,
                 v_numberlist.default_src_rewrite_rule,
                 v_numberlist.default_src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist.default_dst_rewrite_rule,
-                v_numberlist.default_dst_rewrite_result
-            );
+                );
+            END IF;
+            IF v_numberlist.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist.default_dst_rewrite_rule, v_numberlist.default_dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist.default_dst_rewrite_rule,
+                    v_numberlist.default_dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist.tag_action_id, v_call_tags, v_numberlist.tag_action_value);
             -- pass by default
           end if;
@@ -20771,16 +21083,30 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is not null and v_numberlist_item.action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist_item.src_rewrite_rule,
-                v_numberlist_item.src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist_item.dst_rewrite_rule,
-                v_numberlist_item.dst_rewrite_result
-            );
+            IF v_numberlist_item.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist_item.src_rewrite_rule, v_numberlist_item.src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist_item.src_rewrite_rule,
+                    v_numberlist_item.src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist_item.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist_item.dst_rewrite_rule, v_numberlist_item.dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist_item.dst_rewrite_rule,
+                    v_numberlist_item.dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist_item.tag_action_id, v_call_tags, v_numberlist_item.tag_action_value);
             -- pass call NOP.
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=1 then
@@ -20789,16 +21115,30 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             RETURN NEXT v_ret;
             RETURN;
           elsif v_numberlist_item.action_id is null and v_numberlist.default_action_id=2 then
-            v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.src_prefix_out,
-                v_numberlist.default_src_rewrite_rule,
-                v_numberlist.default_src_rewrite_result
-            );
-            v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
-                v_ret.dst_prefix_out,
-                v_numberlist.default_dst_rewrite_rule,
-                v_numberlist.default_dst_rewrite_result
-            );
+            IF v_numberlist.defer_src_rewrite THEN
+                v_defered_src_rewrites = array_append(
+                    v_defered_src_rewrites,
+                    (v_numberlist.default_src_rewrite_rule, v_numberlist.default_src_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.src_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.src_prefix_out,
+                    v_numberlist.default_src_rewrite_rule,
+                    v_numberlist.default_src_rewrite_result
+                );
+            END IF;
+            IF v_numberlist.defer_dst_rewrite THEN
+                v_defered_dst_rewrites = array_append(
+                    v_defered_dst_rewrites,
+                    (v_numberlist.default_dst_rewrite_rule, v_numberlist.default_dst_rewrite_result)::switch20.defered_rewrite
+                );
+            ELSE
+                v_ret.dst_prefix_out=yeti_ext.regexp_replace_rand(
+                    v_ret.dst_prefix_out,
+                    v_numberlist.default_dst_rewrite_rule,
+                    v_numberlist.default_dst_rewrite_result
+                );
+            END IF;
             v_call_tags=yeti_ext.tag_action(v_numberlist.tag_action_id, v_call_tags, v_numberlist.tag_action_value);
             -- pass by default
           end if;
@@ -20840,6 +21180,7 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
           dst_area_id is null
         limit 1;
         if found then
+            
             v_call_tags=yeti_ext.tag_action(v_area_direction.tag_action_id, v_call_tags, v_area_direction.tag_action_value);
         end if;
 
@@ -20955,13 +21296,14 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
           RETURN;
         END IF;
 
+        SELECT INTO v_rate_groups array_agg(rate_group_id) from class4.rate_plan_groups where rateplan_id = v_customer_auth_normalized.rateplan_id;
+
         SELECT into v_destination d.*/*,switch.tracelog(d.*)*/
         FROM class4.destinations d
-        JOIN class4.rate_plan_groups rpg ON d.rate_group_id=rpg.rate_group_id
         WHERE
           prefix_range(prefix)@>prefix_range(v_routing_key)
           AND length(v_routing_key) between d.dst_number_min_length and d.dst_number_max_length
-          AND rpg.rateplan_id=v_customer_auth_normalized.rateplan_id
+          AND d.rate_group_id = ANY(v_rate_groups)
           AND enabled
           AND valid_from <= v_now
           AND valid_till >= v_now
@@ -21005,13 +21347,36 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                     FIND dialpeers logic. Queries must use prefix index for best performance
         */
         
+
+
+        /* apply defered rewrites there, not really after routing, but without affecting v_routing_key */
+
+        FOREACH v_rewrite IN ARRAY v_defered_src_rewrites LOOP
+            v_ret.src_prefix_out = yeti_ext.regexp_replace_rand(
+                v_ret.src_prefix_out,
+                v_rewrite.rule,
+                v_rewrite.result
+            );
+        END LOOP;
+
+        FOREACH v_rewrite IN ARRAY v_defered_dst_rewrites LOOP
+            v_ret.dst_prefix_out = yeti_ext.regexp_replace_rand(
+                v_ret.dst_prefix_out,
+                v_rewrite.rule,
+                v_rewrite.result
+            );
+        END LOOP;
+
+        SELECT INTO v_routing_groups array_agg(routing_group_id) from class4.routing_plan_groups where routing_plan_id = v_customer_auth_normalized.routing_plan_id;
+
         CASE v_rp.sorting_id
           WHEN'1' THEN -- LCR,Prio, ACD&ASR control
           FOR routedata IN (
             WITH step1 AS(
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   t_dp.next_rate as dp_next_rate,
                   t_dp.lcr_rate_multiplier AS dp_lcr_rate_multiplier,
                   t_dp.priority AS dp_priority,
@@ -21028,28 +21393,28 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                     ORDER BY t_dp.exclusive_route desc -- force top rank for exclusive route
                     ) as exclusive_rank
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id = t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids, v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
-            from step1
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
+            FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               AND dp_next_rate<=v_rate_limit
               AND dp_enabled
               and not dp_locked --ACD&ASR control for DP
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_next_rate*dp_lcr_rate_multiplier, dp_priority DESC
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -21062,8 +21427,8 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  --  (t_vendor_gateway.*)::class4.gateways as s1_vendor_gateway,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -21078,27 +21443,27 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                   t_dp.next_rate as dp_next_rate,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id)>0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               AND dp_enabled
               and dp_next_rate<=v_rate_limit
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -21111,7 +21476,8 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -21128,28 +21494,28 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                   t_dp.locked as dp_locked,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids, v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                    s1_dialpeer as s2_dialpeer,
+                    (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
-              and exclusive_rank=1
-              and dp_next_rate<=v_rate_limit
-              and dp_enabled
-              and not dp_locked
+              AND exclusive_rank=1
+              AND dp_next_rate<=v_rate_limit
+              AND dp_enabled
+              AND NOT dp_locked
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric_priority DESC, dp_metric
             LIMIT v_rp.max_rerouting_attempts
           )LOOP
@@ -21162,7 +21528,8 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             WITH step1 AS(
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -21178,28 +21545,28 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                   t_dp.locked as dp_locked,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id = t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id)>0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
-            from step1
+            SELECT
+                    s1_dialpeer as s2_dialpeer,
+                    (t_vendor_account.*)::billing.accounts as s2_vendor_account
+            FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               and dp_next_rate <= v_rate_limit
               and dp_enabled
               and not dp_locked --ACD&ASR control for DP
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY r2 ASC
             LIMIT v_rp.max_rerouting_attempts
           ) LOOP
@@ -21212,7 +21579,8 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
             WITH step1 AS( -- filtering
                 SELECT
                   (t_dp.*)::class4.dialpeers as s1_dialpeer,
-                  (t_vendor_account.*)::billing.accounts as s1_vendor_account,
+                  t_dp.vendor_id as s1_vendor_id,
+                  t_dp.account_id as s1_vendor_account_id,
                   rank() OVER (
                     PARTITION BY t_dp.vendor_id, t_dp.routeset_discriminator_id
                     ORDER BY
@@ -21228,28 +21596,28 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                   t_dp.next_rate as dp_next_rate,
                   t_dp.enabled as dp_enabled
                 FROM class4.dialpeers t_dp
-                  JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
-                  join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
-                  AND t_vendor_account.balance<t_vendor_account.max_balance
-                  and t_vendor.enabled and t_vendor.vendor
-                  and t_dp.vendor_id=v_test_vendor_id
+                  and t_dp.vendor_id = v_test_vendor_id
                   AND yeti_ext.tag_compare(t_dp.routing_tag_ids,v_call_tags, t_dp.routing_tag_mode_id) > 0
             )
-            SELECT s1_dialpeer as s2_dialpeer,
-                  s1_vendor_account as s2_vendor_account
+            SELECT
+                s1_dialpeer as s2_dialpeer,
+                (t_vendor_account.*)::billing.accounts as s2_vendor_account
             FROM step1
+            JOIN public.contractors t_vendor ON step1.s1_vendor_id = t_vendor.id
+            JOIN billing.accounts t_vendor_account ON step1.s1_vendor_account_id = t_vendor_account.id
             WHERE
               r=1
               and exclusive_rank=1
               and dp_enabled
               and dp_next_rate<=v_rate_limit
+              AND t_vendor_account.balance < t_vendor_account.max_balance
+              AND t_vendor.enabled AND t_vendor.vendor
             ORDER BY dp_metric_priority DESC, dp_metric
             LIMIT v_rp.max_rerouting_attempts
           )LOOP
@@ -21289,7 +21657,6 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                 FROM class4.dialpeers t_dp
                   JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
                   join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                   left join class4.routing_plan_static_routes rpsr
                     ON rpsr.routing_plan_id=v_customer_auth_normalized.routing_plan_id
                       and rpsr.vendor_id=t_dp.vendor_id
@@ -21297,7 +21664,7 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
                   AND t_vendor_account.balance<t_vendor_account.max_balance
@@ -21356,7 +21723,6 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                 FROM class4.dialpeers t_dp
                   JOIN billing.accounts t_vendor_account ON t_dp.account_id=t_vendor_account.id
                   join public.contractors t_vendor on t_dp.vendor_id=t_vendor.id
-                  JOIN class4.routing_plan_groups t_rpg ON t_dp.routing_group_id=t_rpg.routing_group_id
                   join class4.routing_plan_static_routes rpsr
                     ON rpsr.routing_plan_id=v_customer_auth_normalized.routing_plan_id
                       and rpsr.vendor_id=t_dp.vendor_id
@@ -21364,7 +21730,7 @@ CREATE FUNCTION switch20.route_release(i_node_id integer, i_pop_id integer, i_pr
                 WHERE
                   prefix_range(t_dp.prefix)@>prefix_range(v_routing_key)
                   AND length(v_routing_key) between t_dp.dst_number_min_length and t_dp.dst_number_max_length
-                  AND t_rpg.routing_plan_id=v_customer_auth_normalized.routing_plan_id
+                  AND t_dp.routing_group_id = ANY(v_routing_groups)
                   and t_dp.valid_from<=v_now
                   and t_dp.valid_till>=v_now
                   AND t_vendor_account.balance<t_vendor_account.max_balance
@@ -21962,7 +22328,9 @@ CREATE TABLE billing.payments (
     id bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     uuid uuid DEFAULT public.uuid_generate_v1() NOT NULL,
-    private_notes character varying
+    private_notes character varying,
+    status_id smallint DEFAULT 20 NOT NULL,
+    type_id smallint DEFAULT 20 NOT NULL
 );
 
 
@@ -22081,7 +22449,10 @@ CREATE TABLE class4.numberlists (
     tag_action_id smallint,
     tag_action_value smallint[] DEFAULT '{}'::smallint[] NOT NULL,
     lua_script_id smallint,
-    external_id bigint
+    external_id bigint,
+    external_type character varying,
+    defer_src_rewrite boolean DEFAULT false NOT NULL,
+    defer_dst_rewrite boolean DEFAULT false NOT NULL
 );
 
 
@@ -22343,6 +22714,8 @@ CREATE TABLE class4.customers_auth (
     cnam_database_id smallint,
     cps_limit double precision,
     src_numberlist_use_diversion boolean DEFAULT false NOT NULL,
+    external_type character varying,
+    rewrite_ss_status_id smallint,
     CONSTRAINT ip_not_empty CHECK ((ip <> '{}'::inet[]))
 );
 
@@ -22438,6 +22811,8 @@ CREATE TABLE class4.customers_auth_normalized (
     cnam_database_id smallint,
     cps_limit double precision,
     src_numberlist_use_diversion boolean DEFAULT false NOT NULL,
+    external_type character varying,
+    rewrite_ss_status_id smallint,
     CONSTRAINT customers_auth_max_dst_number_length CHECK ((dst_number_min_length >= 0)),
     CONSTRAINT customers_auth_max_src_number_length CHECK ((src_number_max_length >= 0)),
     CONSTRAINT customers_auth_min_dst_number_length CHECK ((dst_number_min_length >= 0)),
@@ -23809,6 +24184,26 @@ ALTER SEQUENCE class4.sip_options_probers_id_seq OWNED BY class4.sip_options_pro
 
 
 --
+-- Name: stir_shaken_signing_certificates_id_seq; Type: SEQUENCE; Schema: class4; Owner: -
+--
+
+CREATE SEQUENCE class4.stir_shaken_signing_certificates_id_seq
+    AS smallint
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: stir_shaken_signing_certificates_id_seq; Type: SEQUENCE OWNED BY; Schema: class4; Owner: -
+--
+
+ALTER SEQUENCE class4.stir_shaken_signing_certificates_id_seq OWNED BY class4.stir_shaken_signing_certificates.id;
+
+
+--
 -- Name: stir_shaken_trusted_certificates_id_seq; Type: SEQUENCE; Schema: class4; Owner: -
 --
 
@@ -24753,6 +25148,49 @@ CREATE SEQUENCE data_import.import_routing_groups_id_seq
 --
 
 ALTER SEQUENCE data_import.import_routing_groups_id_seq OWNED BY data_import.import_routing_groups.id;
+
+
+--
+-- Name: import_routing_tag_detection_rules; Type: TABLE; Schema: data_import; Owner: -
+--
+
+CREATE TABLE data_import.import_routing_tag_detection_rules (
+    id bigint NOT NULL,
+    routing_tag_ids smallint[] DEFAULT '{}'::smallint[] NOT NULL,
+    src_area_id integer,
+    dst_area_id integer,
+    tag_action_id smallint,
+    routing_tag_names character varying,
+    src_area_name character varying,
+    dst_area_name character varying,
+    src_prefix character varying,
+    dst_prefix character varying,
+    tag_action_name character varying,
+    tag_action_value smallint[] DEFAULT '{}'::smallint[] NOT NULL,
+    tag_action_value_names character varying,
+    error_string character varying,
+    o_id bigint,
+    is_changed boolean
+);
+
+
+--
+-- Name: import_routing_tag_detection_rules_id_seq; Type: SEQUENCE; Schema: data_import; Owner: -
+--
+
+CREATE SEQUENCE data_import.import_routing_tag_detection_rules_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: import_routing_tag_detection_rules_id_seq; Type: SEQUENCE OWNED BY; Schema: data_import; Owner: -
+--
+
+ALTER SEQUENCE data_import.import_routing_tag_detection_rules_id_seq OWNED BY data_import.import_routing_tag_detection_rules.id;
 
 
 --
@@ -26939,6 +27377,13 @@ ALTER TABLE ONLY class4.sip_options_probers ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: stir_shaken_signing_certificates id; Type: DEFAULT; Schema: class4; Owner: -
+--
+
+ALTER TABLE ONLY class4.stir_shaken_signing_certificates ALTER COLUMN id SET DEFAULT nextval('class4.stir_shaken_signing_certificates_id_seq'::regclass);
+
+
+--
 -- Name: stir_shaken_trusted_certificates id; Type: DEFAULT; Schema: class4; Owner: -
 --
 
@@ -27062,6 +27507,13 @@ ALTER TABLE ONLY data_import.import_registrations ALTER COLUMN id SET DEFAULT ne
 --
 
 ALTER TABLE ONLY data_import.import_routing_groups ALTER COLUMN id SET DEFAULT nextval('data_import.import_routing_groups_id_seq'::regclass);
+
+
+--
+-- Name: import_routing_tag_detection_rules id; Type: DEFAULT; Schema: data_import; Owner: -
+--
+
+ALTER TABLE ONLY data_import.import_routing_tag_detection_rules ALTER COLUMN id SET DEFAULT nextval('data_import.import_routing_tag_detection_rules_id_seq'::regclass);
 
 
 --
@@ -27628,14 +28080,6 @@ ALTER TABLE ONLY class4.customers_auth_dst_number_fields
 
 
 --
--- Name: customers_auth customers_auth_external_id_key; Type: CONSTRAINT; Schema: class4; Owner: -
---
-
-ALTER TABLE ONLY class4.customers_auth
-    ADD CONSTRAINT customers_auth_external_id_key UNIQUE (external_id);
-
-
---
 -- Name: customers_auth customers_auth_name_key; Type: CONSTRAINT; Schema: class4; Owner: -
 --
 
@@ -28044,14 +28488,6 @@ ALTER TABLE ONLY class4.lnp_databases_thinq
 
 
 --
--- Name: numberlists numberlists_external_id_key; Type: CONSTRAINT; Schema: class4; Owner: -
---
-
-ALTER TABLE ONLY class4.numberlists
-    ADD CONSTRAINT numberlists_external_id_key UNIQUE (external_id);
-
-
---
 -- Name: radius_accounting_profile_interim_attributes radius_accounting_profile_interim_attributes_pkey; Type: CONSTRAINT; Schema: class4; Owner: -
 --
 
@@ -28364,6 +28800,14 @@ ALTER TABLE ONLY class4.sip_options_probers
 
 
 --
+-- Name: stir_shaken_signing_certificates stir_shaken_signing_certificates_pkey; Type: CONSTRAINT; Schema: class4; Owner: -
+--
+
+ALTER TABLE ONLY class4.stir_shaken_signing_certificates
+    ADD CONSTRAINT stir_shaken_signing_certificates_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: stir_shaken_trusted_certificates stir_shaken_trusted_certificates_pkey; Type: CONSTRAINT; Schema: class4; Owner: -
 --
 
@@ -28537,6 +28981,14 @@ ALTER TABLE ONLY data_import.import_registrations
 
 ALTER TABLE ONLY data_import.import_routing_groups
     ADD CONSTRAINT import_routing_groups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: import_routing_tag_detection_rules import_routing_tag_detection_rules_pkey; Type: CONSTRAINT; Schema: data_import; Owner: -
+--
+
+ALTER TABLE ONLY data_import.import_routing_tag_detection_rules
+    ADD CONSTRAINT import_routing_tag_detection_rules_pkey PRIMARY KEY (id);
 
 
 --
@@ -29397,6 +29849,20 @@ CREATE INDEX customers_auth_customer_id_idx ON class4.customers_auth USING btree
 
 
 --
+-- Name: customers_auth_external_id_external_type_key_uniq; Type: INDEX; Schema: class4; Owner: -
+--
+
+CREATE UNIQUE INDEX customers_auth_external_id_external_type_key_uniq ON class4.customers_auth USING btree (external_id, external_type);
+
+
+--
+-- Name: customers_auth_external_id_key_uniq; Type: INDEX; Schema: class4; Owner: -
+--
+
+CREATE UNIQUE INDEX customers_auth_external_id_key_uniq ON class4.customers_auth USING btree (external_id) WHERE (external_type IS NULL);
+
+
+--
 -- Name: customers_auth_normalized_ip_prefix_range_prefix_range1_idx; Type: INDEX; Schema: class4; Owner: -
 --
 
@@ -29516,6 +29982,20 @@ CREATE INDEX lnp_cache_expires_at_idx ON class4.lnp_cache USING btree (expires_a
 
 
 --
+-- Name: numberlists_external_id_external_type_key_uniq; Type: INDEX; Schema: class4; Owner: -
+--
+
+CREATE UNIQUE INDEX numberlists_external_id_external_type_key_uniq ON class4.numberlists USING btree (external_id, external_type);
+
+
+--
+-- Name: numberlists_external_id_key_uniq; Type: INDEX; Schema: class4; Owner: -
+--
+
+CREATE UNIQUE INDEX numberlists_external_id_key_uniq ON class4.numberlists USING btree (external_id) WHERE (external_type IS NULL);
+
+
+--
 -- Name: rate_plan_groups_rateplan_id_rate_group_id_idx; Type: INDEX; Schema: class4; Owner: -
 --
 
@@ -29555,6 +30035,27 @@ CREATE INDEX routing_plan_static_routes_vendor_id_idx ON class4.routing_plan_sta
 --
 
 CREATE INDEX routing_tag_detection_rules_prefix_range_idx ON class4.routing_tag_detection_rules USING gist (((src_prefix)::public.prefix_range), ((dst_prefix)::public.prefix_range));
+
+
+--
+-- Name: index_import_routing_tag_detection_rules_on_dst_area_id; Type: INDEX; Schema: data_import; Owner: -
+--
+
+CREATE INDEX index_import_routing_tag_detection_rules_on_dst_area_id ON data_import.import_routing_tag_detection_rules USING btree (dst_area_id);
+
+
+--
+-- Name: index_import_routing_tag_detection_rules_on_src_area_id; Type: INDEX; Schema: data_import; Owner: -
+--
+
+CREATE INDEX index_import_routing_tag_detection_rules_on_src_area_id ON data_import.import_routing_tag_detection_rules USING btree (src_area_id);
+
+
+--
+-- Name: index_import_routing_tag_detection_rules_on_tag_action_id; Type: INDEX; Schema: data_import; Owner: -
+--
+
+CREATE INDEX index_import_routing_tag_detection_rules_on_tag_action_id ON data_import.import_routing_tag_detection_rules USING btree (tag_action_id);
 
 
 --
@@ -30338,6 +30839,14 @@ ALTER TABLE ONLY class4.gateways
 
 
 --
+-- Name: gateways gateways_stir_shaken_crt_id_fkey; Type: FK CONSTRAINT; Schema: class4; Owner: -
+--
+
+ALTER TABLE ONLY class4.gateways
+    ADD CONSTRAINT gateways_stir_shaken_crt_id_fkey FOREIGN KEY (stir_shaken_crt_id) REFERENCES class4.stir_shaken_signing_certificates(id);
+
+
+--
 -- Name: gateways gateways_term_disconnect_policy_id_fkey; Type: FK CONSTRAINT; Schema: class4; Owner: -
 --
 
@@ -30615,6 +31124,30 @@ ALTER TABLE ONLY class4.sip_options_probers
 
 ALTER TABLE ONLY class4.sip_options_probers
     ADD CONSTRAINT sip_options_probers_transport_protocol_id_fkey FOREIGN KEY (transport_protocol_id) REFERENCES class4.transport_protocols(id);
+
+
+--
+-- Name: import_routing_tag_detection_rules fk_rails_c247bd5783; Type: FK CONSTRAINT; Schema: data_import; Owner: -
+--
+
+ALTER TABLE ONLY data_import.import_routing_tag_detection_rules
+    ADD CONSTRAINT fk_rails_c247bd5783 FOREIGN KEY (tag_action_id) REFERENCES class4.tag_actions(id);
+
+
+--
+-- Name: import_routing_tag_detection_rules fk_rails_c8cbef7aaf; Type: FK CONSTRAINT; Schema: data_import; Owner: -
+--
+
+ALTER TABLE ONLY data_import.import_routing_tag_detection_rules
+    ADD CONSTRAINT fk_rails_c8cbef7aaf FOREIGN KEY (dst_area_id) REFERENCES class4.areas(id);
+
+
+--
+-- Name: import_routing_tag_detection_rules fk_rails_db4b62868c; Type: FK CONSTRAINT; Schema: data_import; Owner: -
+--
+
+ALTER TABLE ONLY data_import.import_routing_tag_detection_rules
+    ADD CONSTRAINT fk_rails_db4b62868c FOREIGN KEY (src_area_id) REFERENCES class4.areas(id);
 
 
 --
@@ -31014,6 +31547,24 @@ INSERT INTO "public"."schema_migrations" (version) VALUES
 ('20230224000357'),
 ('20230227110659'),
 ('20230310102534'),
-('20230318105458');
+('20230318105458'),
+('20230330131911'),
+('20230407140050'),
+('20230412134246'),
+('20230420082151'),
+('20230420144539'),
+('20230425141522'),
+('20230514130310'),
+('20230516110137'),
+('20230518130328'),
+('20230524191752'),
+('20230602113601'),
+('20230608134717'),
+('20230702152539'),
+('20230706164807'),
+('20230706202154'),
+('20230708194737'),
+('20230717103315'),
+('20230808192245');
 
 

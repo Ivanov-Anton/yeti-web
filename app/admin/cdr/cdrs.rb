@@ -68,7 +68,13 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   filter :src_area, collection: proc { Routing::Area.select(%i[id name]) }, input_html: { class: 'chosen' }
   filter :dst_prefix_routing, filters: %i[equals contains starts_with ends_with]
   filter :dst_area, collection: proc { Routing::Area.select(%i[id name]) }, input_html: { class: 'chosen' }
-  filter :dst_country, input_html: { class: 'chosen' }
+
+  country_filter :src_country_id_eq, label: 'SRC Country'
+  network_filter :src_network_id_eq, label: 'SRC Network'
+
+  country_filter :dst_country_id_eq, label: 'DST Country'
+  network_filter :dst_network_id_eq, label: 'DST Network'
+
   filter :status, as: :select, collection: proc { [['FAILURE', false], ['SUCCESS', true]] }
   filter :duration
   filter :is_last_cdr, as: :select, collection: proc { [['Yes', true], ['No', false]] }
@@ -408,6 +414,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
           column :customer_external_id
           column :customer_auth_external_id
+          column :customer_auth_external_type
           column :customer_acc_vat
           column :customer_acc_external_id
 
@@ -582,6 +589,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       tab :identity do
         attributes_table do
           row :lega_identity
+          row :lega_ss_status
+          row :legb_ss_status
         end
       end
     end

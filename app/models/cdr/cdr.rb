@@ -11,6 +11,7 @@
 #  core_version                    :string
 #  customer_acc_vat                :decimal(, )
 #  customer_account_check_balance  :boolean
+#  customer_auth_external_type     :string
 #  customer_auth_name              :string
 #  customer_duration               :integer(4)
 #  customer_price                  :decimal(, )
@@ -54,6 +55,7 @@
 #  legb_user_agent                 :string
 #  local_tag                       :string
 #  lrn                             :string
+#  metadata                        :jsonb
 #  p_charge_info_in                :string
 #  pai_in                          :string
 #  pai_out                         :string
@@ -86,10 +88,10 @@
 #  src_prefix_out                  :string
 #  src_prefix_routing              :string
 #  success                         :boolean
-#  time_connect                    :datetime
-#  time_end                        :datetime
+#  time_connect                    :timestamptz
+#  time_end                        :timestamptz
 #  time_limit                      :string
-#  time_start                      :datetime         not null
+#  time_start                      :timestamptz      not null
 #  to_domain                       :string
 #  uuid                            :uuid
 #  vendor_duration                 :integer(4)
@@ -113,8 +115,8 @@
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
-#  lega_identity_attestation_id    :integer(2)
-#  lega_identity_verstat_id        :integer(2)
+#  lega_ss_status_id               :integer(2)
+#  legb_ss_status_id               :integer(2)
 #  lnp_database_id                 :integer(2)
 #  node_id                         :integer(4)
 #  orig_call_id                    :string
@@ -174,6 +176,20 @@ class Cdr::Cdr < Cdr::Base
     DISCONNECT_INITIATOR_SWITCH => 'Switch',
     DISCONNECT_INITIATOR_DEST => 'Destination',
     DISCONNECT_INITIATOR_ORIG => 'Origination'
+  }.freeze
+
+  SS_STATUS_INVALID = -1
+  SS_STATUS_NONE = 0
+  SS_STATUS_A = 1
+  SS_STATUS_B = 2
+  SS_STATUS_C = 3
+
+  SS_STATUSES = {
+    SS_STATUS_INVALID => 'Validation failed',
+    SS_STATUS_NONE => 'No identity',
+    SS_STATUS_A => 'A',
+    SS_STATUS_B => 'B',
+    SS_STATUS_C => 'C'
   }.freeze
 
   ADMIN_PRELOAD_LIST = %i[
@@ -293,6 +309,14 @@ class Cdr::Cdr < Cdr::Base
 
   def disconnect_initiator_name
     disconnect_initiator_id.nil? ? nil : DISCONNECT_INITIATORS[disconnect_initiator_id]
+  end
+
+  def lega_ss_status
+    lega_ss_status_id.nil? ? nil : SS_STATUSES[lega_ss_status_id]
+  end
+
+  def legb_ss_status
+    legb_ss_status_id.nil? ? nil : SS_STATUSES[legb_ss_status_id]
   end
 
   def has_dump?

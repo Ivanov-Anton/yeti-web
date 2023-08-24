@@ -11,9 +11,17 @@ RSpec.resource 'Numberlist' do
   required_params = %i[name]
 
   optional_params = %i[
-    default-src-rewrite-rule default-src-rewrite-result
-    default-dst-rewrite-rule default-dst-rewrite-result
+    default-action-id
+    mode-id
+    default-src-rewrite-rule
+    default-src-rewrite-result
+    defer-src-rewrite
+    default-dst-rewrite-rule
+    default-dst-rewrite-result
+    defer-dst-rewrite
     tag-action-value
+    external-id
+    external-type
   ]
 
   required_relationships = %i[]

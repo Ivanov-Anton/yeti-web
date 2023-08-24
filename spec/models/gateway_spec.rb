@@ -118,6 +118,8 @@
 #  sensor_level_id                  :integer(2)       default(1), not null
 #  session_refresh_method_id        :integer(4)       default(3), not null
 #  sip_schema_id                    :integer(2)       default(1), not null
+#  stir_shaken_crt_id               :integer(2)
+#  stir_shaken_mode_id              :integer(2)       default(0), not null
 #  term_disconnect_policy_id        :integer(4)
 #  term_proxy_transport_protocol_id :integer(2)       default(1), not null
 #  termination_dst_numberlist_id    :integer(2)
@@ -154,6 +156,7 @@
 #  gateways_sensor_level_id_fkey                   (sensor_level_id => sensor_levels.id)
 #  gateways_session_refresh_method_id_fkey         (session_refresh_method_id => session_refresh_methods.id)
 #  gateways_sip_schema_id_fkey                     (sip_schema_id => sip_schemas.id)
+#  gateways_stir_shaken_crt_id_fkey                (stir_shaken_crt_id => stir_shaken_signing_certificates.id)
 #  gateways_term_disconnect_policy_id_fkey         (term_disconnect_policy_id => disconnect_policy.id)
 #  gateways_term_proxy_transport_protocol_id_fkey  (term_proxy_transport_protocol_id => transport_protocols.id)
 #  gateways_transport_protocol_id_fkey             (transport_protocol_id => transport_protocols.id)
@@ -269,6 +272,38 @@ RSpec.describe Gateway, type: :model do
       include_examples :calls_event_with, :reload_incoming_auth
       include_examples :creates_record
       include_examples :changes_records_qty_of, described_class, by: 1
+    end
+
+    context 'with raw IPv6 host' do
+      let(:create_params) { super().merge(host: 'dd:ee:aa:dd::') }
+      it 'should convert address to reference' do
+        subject
+        expect(subject.host).to eq('[dd:ee:aa:dd::]')
+      end
+    end
+
+    context 'with raw IPv6 reference host' do
+      let(:create_params) { super().merge(host: '[dd:ee:aa:dd::]') }
+      it 'should convert address to reference' do
+        subject
+        expect(subject.host).to eq('[dd:ee:aa:dd::]')
+      end
+    end
+
+    context 'with raw IPv4 host' do
+      let(:create_params) { super().merge(host: '1.2.3.4') }
+      it 'should not change value' do
+        subject
+        expect(subject.host).to eq('1.2.3.4')
+      end
+    end
+
+    context 'with not IPv4 nor IPv6 host' do
+      let(:create_params) { super().merge(host: '11:222sdasda') }
+      it 'should not change value' do
+        subject
+        expect(subject.host).to eq('11:222sdasda')
+      end
     end
   end
 

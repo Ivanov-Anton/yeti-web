@@ -20,6 +20,7 @@
 #  dst_rewrite_rule                 :string
 #  enable_audio_recording           :boolean          default(FALSE), not null
 #  enabled                          :boolean          default(TRUE), not null
+#  external_type                    :string
 #  from_domain                      :string           default([]), is an Array
 #  ip                               :inet             default(["\"127.0.0.0/8\""]), is an Array
 #  name                             :string           not null
@@ -54,6 +55,7 @@
 #  radius_accounting_profile_id     :integer(2)
 #  radius_auth_profile_id           :integer(2)
 #  rateplan_id                      :integer(4)       not null
+#  rewrite_ss_status_id             :integer(2)
 #  routing_plan_id                  :integer(4)       not null
 #  src_name_field_id                :integer(2)       default(1), not null
 #  src_number_field_id              :integer(2)       default(1), not null
@@ -63,10 +65,11 @@
 #
 # Indexes
 #
-#  customers_auth_account_id_idx   (account_id)
-#  customers_auth_customer_id_idx  (customer_id)
-#  customers_auth_external_id_key  (external_id) UNIQUE
-#  customers_auth_name_key         (name) UNIQUE
+#  customers_auth_account_id_idx                      (account_id)
+#  customers_auth_customer_id_idx                     (customer_id)
+#  customers_auth_external_id_external_type_key_uniq  (external_id,external_type) UNIQUE
+#  customers_auth_external_id_key_uniq                (external_id) UNIQUE WHERE (external_type IS NULL)
+#  customers_auth_name_key                            (name) UNIQUE
 #
 # Foreign Keys
 #
@@ -104,6 +107,20 @@ class CustomersAuth < ApplicationRecord
     DUMP_LEVEL_CAPTURE_ALL => 'Capture all traffic'
   }.freeze
 
+  SS_STATUS_INVALID = -1
+  SS_STATUS_NONE = 0
+  SS_STATUS_A = 1
+  SS_STATUS_B = 2
+  SS_STATUS_C = 3
+
+  SS_STATUSES = {
+    SS_STATUS_INVALID => 'Validation failed',
+    SS_STATUS_NONE => 'No identity',
+    SS_STATUS_A => 'Attestation A',
+    SS_STATUS_B => 'Attestation B',
+    SS_STATUS_C => 'Attestation C'
+  }.freeze
+
   module CONST
     MATCH_CONDITION_ATTRIBUTES = %i[ip
                                     src_prefix
@@ -115,6 +132,8 @@ class CustomersAuth < ApplicationRecord
 
     freeze
   end
+
+  attribute :external_type, :string_presence
 
   belongs_to :customer, -> { where customer: true }, class_name: 'Contractor', foreign_key: :customer_id
 
@@ -163,9 +182,18 @@ class CustomersAuth < ApplicationRecord
 
   validates :name, uniqueness: { allow_blank: :false }
   validates :name, presence: true
-  validates :external_id, uniqueness: { allow_blank: true }
+
+  validates :external_type, absence: { message: 'requires external_id' }, unless: :external_id
+  validates :external_id,
+            uniqueness: { scope: :external_type },
+            if: proc { external_id && external_type }
+  validates :external_id,
+            uniqueness: { conditions: -> { where(external_type: nil) } },
+            if: proc { external_id && !external_type }
 
   validates :customer, :rateplan, :routing_plan, :gateway, :account, :diversion_policy, presence: true
+  validate :validate_account
+  validate :validate_gateway
 
   validates :src_name_field, :src_number_field, :dst_number_field, presence: true
 
@@ -183,6 +211,7 @@ class CustomersAuth < ApplicationRecord
 
   validates :dump_level_id, presence: true
   validates :dump_level_id, inclusion: { in: CustomersAuth::DUMP_LEVELS.keys }, allow_nil: true
+  validates :rewrite_ss_status_id, inclusion: { in: CustomersAuth::SS_STATUSES.keys }, allow_nil: true
 
   validates_with TagActionValueValidator
 
@@ -227,6 +256,10 @@ class CustomersAuth < ApplicationRecord
     dump_level_id.nil? ? DUMP_LEVELS[0] : DUMP_LEVELS[dump_level_id]
   end
 
+  def rewrite_ss_status_name
+    rewrite_ss_status_id.nil? ? nil : SS_STATUSES[rewrite_ss_status_id]
+  end
+
   # TODO: move to decorator when ActiveAdmin fix problem
   # Problem is:
   # on "update" AA uses decorated object
@@ -258,6 +291,18 @@ class CustomersAuth < ApplicationRecord
   end
 
   private
+
+  def validate_account
+    return if customer.nil? || account.nil?
+
+    errors.add(:account, 'belongs to different customer') if account.contractor_id != customer_id
+  end
+
+  def validate_gateway
+    return if customer.nil? || gateway.nil?
+
+    errors.add(:gateway, 'belongs to different customer') if !gateway.is_shared && gateway.contractor_id != customer_id
+  end
 
   def self.ransackable_scopes(_auth_object = nil)
     %i[

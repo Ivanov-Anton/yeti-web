@@ -17,8 +17,13 @@ Rails.application.routes.draw do
   post 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#create'
   get 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#show'
   delete 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#destroy'
+
+  get 'api/rest/customer/v1/origination-statistics', to: 'api/rest/customer/v1/origination_statistics#show'
+
   get 'with_contractor_accounts', to: 'accounts#with_contractor'
   ActiveAdmin.routes(self)
+
+  post 'api/cryptomus_callbacks', to: 'api/cryptomus_callbacks#create'
 
   resources :active_calls, constraints: { id: %r{[^/]+} }, only: %i[show index destroy]
 
@@ -143,7 +148,9 @@ Rails.application.routes.draw do
             jsonapi_resources :routing_tags
             jsonapi_resources :routing_tag_modes
             jsonapi_resources :routeset_discriminators
-            jsonapi_resources :destinations
+            jsonapi_resources :destinations do
+              # remove relationships endpoints because they fail work with cross namespace relationships.
+            end
             jsonapi_resources :destination_next_rates
           end
         end
@@ -161,6 +168,7 @@ Rails.application.routes.draw do
             jsonapi_resources :chart_active_calls, only: %i[create]
             jsonapi_resources :chart_originated_cps, only: %i[create]
             jsonapi_resources :payments, only: %i[index show]
+            jsonapi_resources :cryptomus_payments, only: %i[create show]
             jsonapi_resources :invoices, only: %i[index show] do
               jsonapi_relationships
               member { get :download }
@@ -169,6 +177,7 @@ Rails.application.routes.draw do
               jsonapi_relationships
               member { get :download }
             end
+            jsonapi_resources :countries, only: %i[index show]
           end
         end
 

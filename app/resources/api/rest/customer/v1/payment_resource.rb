@@ -5,6 +5,8 @@ class Api::Rest::Customer::V1::PaymentResource < Api::Rest::Customer::V1::BaseRe
 
   attributes :amount,
              :notes,
+             :status,
+             :type_name,
              :created_at
 
   has_one :account, foreign_key_on: :related
@@ -14,11 +16,17 @@ class Api::Rest::Customer::V1::PaymentResource < Api::Rest::Customer::V1::BaseRe
   ransack_filter :amount, type: :number
   ransack_filter :created_at, type: :datetime
   association_uuid_filter :account_id, class_name: 'Account'
+  ransack_filter :status, type: :enum, collection: Payment::CONST::STATUS_IDS.values
+  ransack_filter :type_name, type: :enum, collection: Payment::CONST::TYPE_IDS.values
 
   def self.apply_allowed_accounts(records, options)
     context = options[:context]
     records = records.ransack(account_contractor_id_eq: context[:customer_id]).result
     records = records.where(account_id: context[:allowed_account_ids]) if context[:allowed_account_ids].present?
     records
+  end
+
+  def self.sortable_fields(_context)
+    %i[amount notes created_at]
   end
 end

@@ -1,6 +1,6 @@
 # Welcome to YETI
 ![Tests](https://github.com/yeti-switch/yeti-web/workflows/Tests/badge.svg?branch=master)
-[![Coverage Status](https://coveralls.io/repos/github/yeti-switch/yeti-web/badge.svg?branch=master)](https://coveralls.io/github/yeti-switch/yeti-web?branch=master)
+![Coverage Status](https://img.shields.io/badge/Code%20Coverage-87%25-success?style=flat)
 [![Made in Ukraine](https://img.shields.io/badge/made_in-ukraine-ffd700.svg?labelColor=0057b7)](https://stand-with-ukraine.pp.ua)
 
 
@@ -11,7 +11,7 @@
 
 ## Ruby
 
-You have to use Ruby version 2.7 with installed bundler.
+You have to use Ruby version 3.2 with installed bundler.
 
 ## Postgresql
 

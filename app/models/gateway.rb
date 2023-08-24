@@ -118,6 +118,8 @@
 #  sensor_level_id                  :integer(2)       default(1), not null
 #  session_refresh_method_id        :integer(4)       default(3), not null
 #  sip_schema_id                    :integer(2)       default(1), not null
+#  stir_shaken_crt_id               :integer(2)
+#  stir_shaken_mode_id              :integer(2)       default(0), not null
 #  term_disconnect_policy_id        :integer(4)
 #  term_proxy_transport_protocol_id :integer(2)       default(1), not null
 #  termination_dst_numberlist_id    :integer(2)
@@ -154,6 +156,7 @@
 #  gateways_sensor_level_id_fkey                   (sensor_level_id => sensor_levels.id)
 #  gateways_session_refresh_method_id_fkey         (session_refresh_method_id => session_refresh_methods.id)
 #  gateways_sip_schema_id_fkey                     (sip_schema_id => sip_schemas.id)
+#  gateways_stir_shaken_crt_id_fkey                (stir_shaken_crt_id => stir_shaken_signing_certificates.id)
 #  gateways_term_disconnect_policy_id_fkey         (term_disconnect_policy_id => disconnect_policy.id)
 #  gateways_term_proxy_transport_protocol_id_fkey  (term_proxy_transport_protocol_id => transport_protocols.id)
 #  gateways_transport_protocol_id_fkey             (transport_protocol_id => transport_protocols.id)
@@ -186,6 +189,25 @@ class Gateway < ApplicationRecord
     PAI_SEND_MODE_BUILD_SIP => 'Use AOR, replace userpart with dst number'
   }.freeze
 
+  STIR_SHAKEN_MODE_DISABLE = 0
+  STIR_SHAKEN_MODE_INSERT = 1
+  STIR_SHAKEN_MODES = {
+    STIR_SHAKEN_MODE_DISABLE => 'Disable',
+    STIR_SHAKEN_MODE_INSERT => 'Insert identity'
+  }.freeze
+
+  class << self
+    # Returns a reference if host is IPv6, otherwise returns host
+    # @param value [String]
+    # @return [String]
+    def normalize_host(value)
+      ip_addr = IPAddr.new(value)
+      ip_addr.ipv6? ? "[#{ip_addr}]" : value
+    rescue IPAddr::Error => _e
+      value
+    end
+  end
+
   belongs_to :contractor
   belongs_to :vendor, -> { vendors }, class_name: 'Contractor', foreign_key: :contractor_id, optional: true
   belongs_to :session_refresh_method
@@ -214,6 +236,7 @@ class Gateway < ApplicationRecord
   belongs_to :termination_src_numberlist, class_name: 'Routing::Numberlist', foreign_key: :termination_src_numberlist_id, optional: true
   belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
   belongs_to :diversion_send_mode, class_name: 'Equipment::GatewayDiversionSendMode', foreign_key: :diversion_send_mode_id
+  belongs_to :stir_shaken_crt, class_name: 'Equipment::StirShaken::SigningCertificate', foreign_key: :stir_shaken_crt_id, optional: :true
 
   has_many :customers_auths, class_name: 'CustomersAuth', dependent: :restrict_with_error
   has_many :dialpeers, class_name: 'Dialpeer', dependent: :restrict_with_error
@@ -266,6 +289,9 @@ class Gateway < ApplicationRecord
 
   validates :transit_headers_from_origination, :transit_headers_from_termination,
             format: { with: /\A[a-zA-Z\-\,\*]*\z/, message: 'Enter headers separated by comma. Header name can contain letters, * and -' }
+
+  validates :stir_shaken_mode_id, inclusion: { in: STIR_SHAKEN_MODES.keys }, allow_nil: false
+  validates :stir_shaken_crt_id, presence: true, if: -> { stir_shaken_mode_id == STIR_SHAKEN_MODE_INSERT }
 
   validate :vendor_owners_the_gateway_group
   validate :vendor_can_be_changed
@@ -336,6 +362,10 @@ class Gateway < ApplicationRecord
     self[:orig_append_headers_reply] = value
   end
 
+  def host=(value)
+    self[:host] = self.class.normalize_host(value)
+  end
+
   def display_name
     "#{name} | #{id}"
   end
@@ -360,6 +390,10 @@ class Gateway < ApplicationRecord
 
   def registered_aor_mode_name
     REGISTERED_AOR_MODES[registered_aor_mode_id]
+  end
+
+  def stir_shaken_mode_name
+    STIR_SHAKEN_MODES[stir_shaken_mode_id]
   end
 
   def use_registered_aor?

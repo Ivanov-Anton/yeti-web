@@ -11,6 +11,7 @@
 #  core_version                    :string
 #  customer_acc_vat                :decimal(, )
 #  customer_account_check_balance  :boolean
+#  customer_auth_external_type     :string
 #  customer_auth_name              :string
 #  customer_duration               :integer(4)
 #  customer_price                  :decimal(, )
@@ -54,6 +55,7 @@
 #  legb_user_agent                 :string
 #  local_tag                       :string
 #  lrn                             :string
+#  metadata                        :jsonb
 #  p_charge_info_in                :string
 #  pai_in                          :string
 #  pai_out                         :string
@@ -86,10 +88,10 @@
 #  src_prefix_out                  :string
 #  src_prefix_routing              :string
 #  success                         :boolean
-#  time_connect                    :datetime
-#  time_end                        :datetime
+#  time_connect                    :timestamptz
+#  time_end                        :timestamptz
 #  time_limit                      :string
-#  time_start                      :datetime         not null
+#  time_start                      :timestamptz      not null
 #  to_domain                       :string
 #  uuid                            :uuid
 #  vendor_duration                 :integer(4)
@@ -113,8 +115,8 @@
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
-#  lega_identity_attestation_id    :integer(2)
-#  lega_identity_verstat_id        :integer(2)
+#  lega_ss_status_id               :integer(2)
+#  legb_ss_status_id               :integer(2)
 #  lnp_database_id                 :integer(2)
 #  node_id                         :integer(4)
 #  orig_call_id                    :string

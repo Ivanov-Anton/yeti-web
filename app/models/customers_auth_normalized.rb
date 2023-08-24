@@ -20,6 +20,7 @@
 #  dst_rewrite_rule                 :string
 #  enable_audio_recording           :boolean          default(FALSE), not null
 #  enabled                          :boolean          default(TRUE), not null
+#  external_type                    :string
 #  from_domain                      :string
 #  ip                               :inet             not null
 #  name                             :string           not null
@@ -55,6 +56,7 @@
 #  radius_accounting_profile_id     :integer(2)
 #  radius_auth_profile_id           :integer(2)
 #  rateplan_id                      :integer(4)       not null
+#  rewrite_ss_status_id             :integer(2)
 #  routing_plan_id                  :integer(4)       not null
 #  src_name_field_id                :integer(2)       default(1), not null
 #  src_number_field_id              :integer(2)       default(1), not null
