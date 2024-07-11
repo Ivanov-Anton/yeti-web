@@ -443,13 +443,13 @@ RSpec.describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
     end
     let(:factory) { :cdr }
     let(:trait) { :with_id_and_uuid }
+    let(:json_api_request_query) { nil }
 
     it_behaves_like :jsonapi_filters_by_datetime_field, :time_start
     it_behaves_like :jsonapi_filters_by_number_field, :destination_next_rate
     it_behaves_like :jsonapi_filters_by_number_field, :destination_fee
     it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_next_rate
     it_behaves_like :jsonapi_filters_by_number_field, :dialpeer_fee
-    it_behaves_like :jsonapi_filters_by_string_field, :time_limit
     it_behaves_like :jsonapi_filters_by_number_field, :internal_disconnect_code
     it_behaves_like :jsonapi_filters_by_string_field, :internal_disconnect_reason
     it_behaves_like :jsonapi_filters_by_number_field, :disconnect_initiator_id
@@ -586,7 +586,6 @@ RSpec.describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
             'destination-fee' => cdr.destination_fee.to_s,
             'dialpeer-next-rate' => cdr.dialpeer_next_rate,
             'dialpeer-fee' => cdr.dialpeer_fee,
-            'time-limit' => cdr.time_limit,
             'internal-disconnect-code' => cdr.internal_disconnect_code,
             'internal-disconnect-reason' => cdr.internal_disconnect_reason,
             'disconnect-initiator-id' => cdr.disconnect_initiator_id,
@@ -716,22 +715,28 @@ RSpec.describe Api::Rest::Admin::Cdr::CdrsController, type: :controller do
               'data' => nil
             ),
             'vendor' => hash_including(
-              'data' => nil
+              'data' => {
+                'type' => 'contractors',
+                'id' => cdr.vendor_id.to_s
+              }
             ),
             'customer' => hash_including(
               'data' => {
                 'type' => 'contractors',
-                'id' => cdr.customer.id.to_s
+                'id' => cdr.customer_id.to_s
               }
             ),
             'customer-acc' => hash_including(
               'data' => {
                 'type' => 'accounts',
-                'id' => cdr.customer_acc.id.to_s
+                'id' => cdr.customer_acc_id.to_s
               }
             ),
             'vendor-acc' => hash_including(
-              'data' => nil
+              'data' => {
+                'type' => 'accounts',
+                'id' => cdr.vendor_acc_id.to_s
+              }
             ),
             'orig-gw' => hash_including(
               'data' => nil

@@ -23,7 +23,6 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
              :destination_fee,
              :dialpeer_next_rate,
              :dialpeer_fee,
-             :time_limit,
              :internal_disconnect_code,
              :internal_disconnect_reason,
              :disconnect_initiator_id,
@@ -236,7 +235,6 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
   ransack_filter :destination_fee, type: :number
   ransack_filter :dialpeer_next_rate, type: :number
   ransack_filter :dialpeer_fee, type: :number
-  ransack_filter :time_limit, type: :string
   ransack_filter :internal_disconnect_code, type: :number
   ransack_filter :internal_disconnect_reason, type: :string
   ransack_filter :disconnect_initiator_id, type: :number
@@ -341,6 +339,7 @@ class Api::Rest::Admin::Cdr::CdrResource < BaseResource
   ransack_filter :customer_duration, type: :number
   ransack_filter :vendor_duration, type: :number
   ransack_filter :destination_rate_policy_id, type: :number
+  ransack_filter :audio_recorded, type: :boolean
 
   # add supporting associations from non cdr namespaces
   def self.resource_for(type)

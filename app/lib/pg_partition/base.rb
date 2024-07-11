@@ -116,10 +116,22 @@ module PgPartition
       select_all_serialized(query, *bindings)
     end
 
-    def remove_partition(partition_name)
-      execute <<-SQL
-        DROP TABLE #{partition_name};
-      SQL
+    def remove_partition(table_name, partition_name)
+      if YetiConfig.partition_detach_before_drop
+        Rails.logger.info { "Detaching partition #{partition_name} from table #{table_name}" }
+        begin
+          execute "ALTER TABLE #{table_name} DETACH PARTITION #{partition_name} CONCURRENTLY;"
+        rescue ActiveRecord::StatementInvalid => e
+          Rails.logger.info { "Detach failed, exception #{e.inspect}" }
+          if e.cause.is_a?(PG::ObjectNotInPrerequisiteState)
+            Rails.logger.info { 'Try DETACH FINALIZE' }
+            execute "ALTER TABLE #{table_name} DETACH PARTITION #{partition_name} FINALIZE;"
+          end
+        end
+      end
+
+      Rails.logger.info { "Dropping partition #{partition_name}" }
+      execute "DROP TABLE #{partition_name};"
     end
 
     def sql_caller

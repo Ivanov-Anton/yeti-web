@@ -54,6 +54,14 @@ class Routing::Numberlist < ApplicationRecord
     MODE_RANDOM => 'Random'
   }.freeze
 
+  class << self
+    def ransackable_scopes(_auth_object = nil)
+      %i[
+        search_for
+      ]
+    end
+  end
+
   attribute :external_type, :string_presence
 
   belongs_to :tag_action, class_name: 'Routing::TagAction', optional: true
@@ -66,6 +74,8 @@ class Routing::Numberlist < ApplicationRecord
   has_many :dst_customers_auths, class_name: 'CustomersAuth', foreign_key: :dst_numberlist_id, dependent: :restrict_with_error
   has_many :termination_dst_gateways, class_name: 'Gateway', foreign_key: :termination_dst_numberlist_id, dependent: :restrict_with_error
   has_many :termination_src_gateways, class_name: 'Gateway', foreign_key: :termination_src_numberlist_id, dependent: :restrict_with_error
+  has_many :src_routing_plans, class_name: 'Routing::RoutingPlan', foreign_key: :src_numberlist_id, dependent: :restrict_with_error
+  has_many :dst_routing_plans, class_name: 'Routing::RoutingPlan', foreign_key: :dst_numberlist_id, dependent: :restrict_with_error
 
   validates :name, presence: true
   validates :name, uniqueness: true
@@ -81,6 +91,8 @@ class Routing::Numberlist < ApplicationRecord
             if: proc { external_id && !external_type }
 
   validates_with TagActionValueValidator
+
+  scope :search_for, ->(term) { where("numberlists.name || ' | ' || numberlists.id::varchar ILIKE ?", "%#{term}%") }
 
   def display_name
     "#{name} | #{id}"

@@ -22,6 +22,7 @@ RSpec.describe 'Export Customers Auth', type: :feature do
            from_domain: ['from.com', 'from.net'],
            to_domain: ['to.com', 'to.net'],
            x_yeti_auth: %w[qwe asd],
+           interface: %w[primary secondary],
            tag_action: Routing::TagAction.take,
            tag_action_value: [tag_us.id, tag_emergency.id],
            cnam_database: create(:cnam_database),
@@ -56,6 +57,7 @@ RSpec.describe 'Export Customers Auth', type: :feature do
         ['From Domain', item.from_domain.join(', '), anything],
         ['To Domain', item.to_domain.join(', '), anything],
         ['X-Yeti-Auth', item.x_yeti_auth.join(', '), anything],
+        ['Interface', item.interface.join(', '), anything],
         ['Customer name', item.customer.name, anything],
         ['Account name', item.account.name, anything],
         ['Check account balance', item.check_account_balance.to_s, anything],
@@ -93,7 +95,14 @@ RSpec.describe 'Export Customers Auth', type: :feature do
         ['Tag action name', item.tag_action.name, anything],
         ['Tag action value names', item.tag_action_values.map(&:name).join(', '), anything],
         ['Cnam database name', item.cnam_database.name, anything],
-        ['Rewrite ss status name', item.rewrite_ss_status_name, anything]
+        ['Rewrite ss status name', item.rewrite_ss_status_name, anything],
+        ['Ss mode name', item.ss_mode_name, anything],
+        ['Ss no identity action name', item.ss_no_identity_action_name, anything],
+        ['Ss invalid identity action name', item.ss_invalid_identity_action_name, anything],
+        ['Ss src rewrite rule', item.ss_src_rewrite_rule.to_s, anything],
+        ['Ss src rewrite result', item.ss_src_rewrite_result.to_s, anything],
+        ['Ss dst rewrite rule', item.ss_dst_rewrite_rule.to_s, anything],
+        ['Ss dst rewrite result', item.ss_dst_rewrite_result.to_s, anything]
       ]
     )
   end

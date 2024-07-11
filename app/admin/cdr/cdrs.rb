@@ -48,6 +48,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   scope :with_trace, show_count: false
   scope :not_authorized, show_count: false
   scope :bad_routing, show_count: false
+  scope :package_billing, show_count: false
 
   filter :id
   filter :routing_tag_ids_include,
@@ -63,7 +64,10 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   contractor_filter :vendor_id_eq, label: 'Vendor', path_params: { q: { vendor_eq: true } }
   account_filter :vendor_acc_id_eq, label: 'Vendor account'
 
-  filter :customer_auth, collection: proc { CustomersAuth.select(%i[id name]).reorder(:name) }, input_html: { class: 'chosen' }
+  association_ajax_filter :customer_auth_id_eq,
+                          label: 'Customer Auth',
+                          scope: -> { CustomersAuth.order(:name) },
+                          path: '/customers_auths/search'
   filter :src_prefix_routing, filters: %i[equals contains starts_with ends_with]
   filter :src_area, collection: proc { Routing::Area.select(%i[id name]) }, input_html: { class: 'chosen' }
   filter :dst_prefix_routing, filters: %i[equals contains starts_with ends_with]
@@ -116,8 +120,11 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   filter :internal_disconnect_reason, filters: %i[equals contains starts_with ends_with]
   filter :lega_disconnect_code
   filter :lega_disconnect_reason, filters: %i[equals contains starts_with ends_with]
+  filter :lega_q850_cause_eq, label: 'LegA Q.850 cause', as: :select, collection: System::Q850::CAUSES.invert, input_html: { class: 'chosen' }
+
   filter :legb_disconnect_code
   filter :legb_disconnect_reason, filters: %i[equals contains starts_with ends_with]
+  filter :legb_q850_cause_eq, label: 'LegB Q.850 cause', as: :select, collection: System::Q850::CAUSES.invert, input_html: { class: 'chosen' }
 
   filter :src_prefix_in, as: :string_eq
   filter :dst_prefix_in, as: :string_eq
@@ -150,6 +157,9 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   filter :sign_orig_local_ip, filters: %i[equals contains starts_with ends_with]
   filter :sign_term_local_ip, filters: %i[equals contains starts_with ends_with]
   filter :sign_term_ip, filters: %i[equals contains starts_with ends_with]
+  filter :customer_auth_external_type_eq, as: :string, label: 'CUSTOMER AUTH EXTERNAL TYPE'
+  filter :lega_ss_status_id_eq, label: 'LegA SS status', as: :select, collection: Cdr::Cdr::SS_STATUSES.invert, input_html: { class: 'chosen' }
+  filter :legb_ss_status_id_eq, label: 'LegB SS status', as: :select, collection: Cdr::Cdr::SS_STATUSES.invert, input_html: { class: 'chosen' }
 
   acts_as_filter_by_routing_tag_ids routing_tag_ids_covers: false
 
@@ -166,19 +176,12 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     head 200
   end
 
-  member_action :download_call_record_lega, method: :get do
-    file = resource.call_record_filename_lega
+  member_action :download_call_record, method: :get do
+    file = resource.call_record_filename
     raise ActiveRecord::RecordNotFound if file.blank?
 
     response.headers['X-Accel-Redirect'] = file
-    head 200
-  end
-
-  member_action :download_call_record_legb, method: :get do
-    file = resource.call_record_filename_legb
-    raise ActiveRecord::RecordNotFound if file.blank?
-
-    response.headers['X-Accel-Redirect'] = file
+    response.headers['Content-Type'] = resource.call_record_ct
     head 200
   end
 
@@ -229,30 +232,8 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     link_to("#{resource.dump_level_name} trace", dump_cdr_path(resource)) if resource.has_dump?
   end
 
-  action_item :call_record_lega, only: :show do
-    link_to('Call record LegA', download_call_record_lega_cdr_path(resource)) if resource.audio_recorded?
-  end
-
-  action_item :call_record_lega, only: :show do
-    link_to('Call record LegB', download_call_record_legb_cdr_path(resource)) if resource.audio_recorded?
-  end
-
-  action_item :download_csv, only: :index do
-    dropdown_menu 'Download CSV' do
-      _cdrs_params = params.to_unsafe_h.deep_symbolize_keys.slice(:q, :order, :scope)
-                           .merge(format: :csv)
-      item(
-        'Full CSV', cdrs_path(csv_policy: 'all', **_cdrs_params)
-      )
-      item(
-        'CSV for Customer leg',
-        cdrs_path(csv_policy: 'customer', **_cdrs_params.deep_merge(q: { is_last_cdr_eq: true }))
-      )
-      item(
-        'CSV for Vendor leg',
-        cdrs_path(csv_policy: 'vendor', **_cdrs_params)
-      )
-    end
+  action_item :call_record, only: :show do
+    link_to('Call record', download_call_record_cdr_path(resource)) if resource.has_recording?
   end
 
   show do |cdr|
@@ -273,20 +254,30 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           end
           column('LegA DC') do |cdr_attempt|
             status_tag(cdr_attempt.lega_disconnect_code.to_s, class: cdr_attempt.success? ? :ok : :red) unless (cdr_attempt.lega_disconnect_code == 0) || cdr_attempt.lega_disconnect_code.nil?
+            status_tag("q850: #{cdr.lega_q850_cause}", class: cdr.success? ? :ok : :red) unless cdr.lega_q850_cause.nil?
           end
           column('LegA Reason', &:lega_disconnect_reason)
           column('DC') do |cdr_attempt|
             status_tag(cdr_attempt.internal_disconnect_code.to_s, class: cdr_attempt.success? ? :ok : :red) unless (cdr_attempt.internal_disconnect_code == 0) || cdr_attempt.internal_disconnect_code.nil?
           end
-          column('Reason', &:internal_disconnect_reason)
+          column('Reason') do |cdr|
+            if cdr.internal_disconnect_code_id.nil?
+              cdr.internal_disconnect_reason
+            else
+              link_to(cdr.internal_disconnect_code_id, disconnect_code_path(cdr.internal_disconnect_code_id)) + ' ' + cdr.internal_disconnect_reason
+            end
+          end
           column('LegB DC') do |cdr_attempt|
             status_tag(cdr_attempt.legb_disconnect_code.to_s, class: cdr_attempt.success? ? :ok : :red) unless (cdr_attempt.legb_disconnect_code == 0) || cdr_attempt.legb_disconnect_code.nil?
+            status_tag("q850: #{cdr.legb_q850_cause}", class: cdr.success? ? :ok : :red) unless cdr.legb_q850_cause.nil?
           end
           column('LegB Reason', &:legb_disconnect_reason)
           column :disconnect_initiator, &:disconnect_initiator_name
           column :routing_attempt do |cdr_attempt|
             status_tag(cdr_attempt.routing_attempt.to_s, class: cdr_attempt.is_last_cdr? ? :ok : nil)
           end
+          column :lega_reason
+          column :legb_reason
           column :src_name_in
           column :src_prefix_in
           column :from_domain
@@ -383,7 +374,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
           column :vendor_price
           column :vendor_duration
-          column :time_limit
           column :profit
           column('Orig call', &:orig_call_id)
           column :local_tag
@@ -442,9 +432,27 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :lega_disconnect_code
           row :lega_disconnect_reason
           row :internal_disconnect_code
-          row :internal_disconnect_reason
+          row :internal_disconnect_reason do |cdr|
+            if cdr.internal_disconnect_code_id.nil?
+              cdr.internal_disconnect_reason
+            else
+              link_to(cdr.internal_disconnect_code_id, disconnect_code_path(cdr.internal_disconnect_code_id)) + ' ' + cdr.internal_disconnect_reason
+            end
+          end
           row :legb_disconnect_code
           row :legb_disconnect_reason
+
+          row :lega_q850_cause do |cdr|
+            System::Q850::CAUSES[cdr.lega_q850_cause] || cdr.lega_q850_cause
+          end
+          row :lega_q850_text
+          row :lega_q850_params
+          row :legb_q850_cause do |cdr|
+            System::Q850::CAUSES[cdr.legb_q850_cause] || cdr.legb_q850_cause
+          end
+          row :legb_q850_text
+          row :legb_q850_params
+
           row :routing_attempt
           row :is_last_cdr
           row :src_name_in
@@ -557,6 +565,7 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :destination_initial_rate
           row :destination_next_interval
           row :destination_next_rate
+          row :package_counter
 
           row :routing_plan
           row :routing_group
@@ -568,8 +577,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
           row :dialpeer_initial_rate
           row :dialpeer_next_interval
           row :dialpeer_next_rate
-
-          row :time_limit
         end
       end
       tab :privacy_information do
@@ -589,8 +596,12 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
       tab :identity do
         attributes_table do
           row :lega_identity
-          row :lega_ss_status
-          row :legb_ss_status
+          row :lega_ss_status do
+            status_tag(cdr.lega_ss_status.to_s, class: cdr.lega_ss_status_class) unless cdr.lega_ss_status_id.nil?
+          end
+          row :legb_ss_status do
+            status_tag(cdr.legb_ss_status.to_s, class: cdr.legb_ss_status_class) unless cdr.legb_ss_status_id.nil?
+          end
         end
       end
     end
@@ -599,7 +610,13 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   index do
     column :id do |cdr|
       if cdr.has_dump?
-        link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details') + ' ' + link_to(fa_icon('exchange'), dump_cdr_path(cdr), title: 'Download trace')
+        if cdr.has_recording?
+          link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details') + ' ' + link_to(fa_icon('exchange'), dump_cdr_path(cdr), title: 'Download trace') + ' ' + link_to(fa_icon('file-audio-o'), download_call_record_cdr_path(cdr), title: 'Download record')
+        else
+          link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details') + ' ' + link_to(fa_icon('exchange'), dump_cdr_path(cdr), title: 'Download trace')
+        end
+      elsif cdr.has_recording?
+        link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details') + ' ' + link_to(fa_icon('file-audio-o'), download_call_record_cdr_path(cdr), title: 'Download record')
       else
         link_to(cdr.id, resource_path(cdr), class: 'resource_id_link', title: 'Details')
       end
@@ -614,14 +631,22 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     end
     column('LegA DC', sortable: 'lega_disconnect_code') do |cdr|
       status_tag(cdr.lega_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.lega_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
+      status_tag("q850: #{cdr.lega_q850_cause}", class: cdr.success? ? :ok : :red) unless cdr.lega_q850_cause.nil?
     end
     column('LegA Reason', sortable: 'lega_disconnect_reason', &:lega_disconnect_reason)
     column('DC', sortable: 'internal_disconnect_code') do |cdr|
       status_tag(cdr.internal_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.internal_disconnect_code == 0) || cdr.internal_disconnect_code.nil?
     end
-    column('Reason', sortable: 'internal_disconnect_reason', &:internal_disconnect_reason)
+    column('Reason', sortable: 'internal_disconnect_reason') do |cdr|
+      if cdr.internal_disconnect_code_id.nil?
+        cdr.internal_disconnect_reason
+      else
+        link_to(cdr.internal_disconnect_code_id, disconnect_code_path(cdr.internal_disconnect_code_id)) + ' ' + cdr.internal_disconnect_reason
+      end
+    end
     column('LegB DC', sortable: 'legb_disconnect_code') do |cdr|
       status_tag(cdr.legb_disconnect_code.to_s, class: cdr.success? ? :ok : :red) unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
+      status_tag("q850: #{cdr.legb_q850_cause}", class: cdr.success? ? :ok : :red) unless cdr.legb_q850_cause.nil?
     end
     column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
     column :disconnect_initiator, &:disconnect_initiator_name
@@ -638,6 +663,12 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
     column :dst_prefix_in
     column :to_domain
     column :ruri_domain
+
+    column('S/S Status') do |cdr|
+      status_tag(cdr.lega_ss_status.to_s, class: cdr.lega_ss_status_class) unless cdr.lega_ss_status_id.nil?
+      status_tag(cdr.legb_ss_status.to_s, class: cdr.legb_ss_status_class) unless cdr.legb_ss_status_id.nil?
+    end
+
     column :src_prefix_routing
     column :src_area
     column :dst_prefix_routing
@@ -737,7 +768,6 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
 
     column :vendor_price
     column :vendor_duration
-    column :time_limit
     column :profit
     column :orig_call_id
     column :local_tag
@@ -767,206 +797,124 @@ ActiveAdmin.register Cdr::Cdr, as: 'CDR' do
   end
 
   csv do
-    policy = params[:csv_policy]
-    case policy
-    when 'customer'
-      column :time_start
-      column :time_connect
-      column :time_end
-      column(:duration, sortable: 'duration', class: 'seconds') do |cdr|
-        "#{cdr.duration} sec."
-      end
-      column('Status', sortable: 'success') do |cdr|
-        cdr.status_sym.to_s
-      end
-      column :destination_initial_interval
-      column :destination_initial_rate
-      column :destination_next_interval
-      column :destination_next_rate
-      column :destination_fee
-      column :customer_price
-      column :src_name_in
-      column :src_prefix_in
-      column :from_domain
-      column :dst_prefix_in
-      column :to_domain
-      column :ruri_domain
-      column :diversion_in
-      column :local_tag
-      column :legb_local_tag
-      column('LegA DC', sortable: 'lega_disconnect_code') do |cdr|
-        cdr.lega_disconnect_code.to_s unless (cdr.lega_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
-      end
-      column('LegA Reason', sortable: 'lega_disconnect_reason', &:lega_disconnect_reason)
-      column :auth_orig_transport_protocol
-      column :auth_orig_ip do |cdr|
-        "#{cdr.auth_orig_ip}:#{cdr.auth_orig_port}".chomp(':')
-      end
-      column :src_prefix_routing
-      column :dst_prefix_routing
-      column :destination_prefix
-
-      column :p_charge_info_in
-
-    when 'vendor'
-      column :time_start
-      column :time_connect
-      column :time_end
-      column(:duration, sortable: 'duration', class: 'seconds') do |cdr|
-        "#{cdr.duration} sec."
-      end
-      column('Status', sortable: 'success') do |cdr|
-        cdr.status_sym.to_s
-      end
-      column :dialpeer_fee
-      column :dialpeer_initial_interval
-      column :dialpeer_initial_rate
-      column :dialpeer_next_interval
-      column :dialpeer_next_rate
-      column :dialpeer_prefix
-      column :vendor_price
-      column :src_prefix_out
-      column :dst_prefix_out
-      column :src_name_out
-      column :diversion_out
-      column :sign_term_transport_protocol
-      column(:sign_term_ip, sortable: :sign_term_ip) do |cdr|
-        "#{cdr.sign_term_ip}:#{cdr.sign_term_port}".chomp(':')
-      end
-      column(:sign_term_local_ip, sortable: 'sign_term_local_ip') do |cdr|
-        "#{cdr.sign_term_local_ip}:#{cdr.sign_term_local_port}".chomp(':')
-      end
-      column :local_tag
-      column('LegB DC', sortable: 'legb_disconnect_code') do |cdr|
-        cdr.legb_disconnect_code.to_s unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
-      end
-      column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
-
-      column :pdd
-      column :rtt
-      column :early_media_present
-
-    else # all or not defined policy
-      column :id
-      column :time_start
-      column :time_connect
-      column :time_end
-      column(:duration, sortable: 'duration', class: 'seconds') do |cdr|
-        "#{cdr.duration} sec."
-      end
-      column('LegA DC', sortable: 'lega_disconnect_code') do |cdr|
-        cdr.lega_disconnect_code.to_s unless (cdr.lega_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
-      end
-      column('LegA Reason', sortable: 'lega_disconnect_reason', &:lega_disconnect_reason)
-      column('DC', sortable: 'internal_disconnect_code') do |cdr|
-        cdr.internal_disconnect_code.to_s unless (cdr.internal_disconnect_code == 0) || cdr.internal_disconnect_code.nil?
-      end
-      column('Reason', sortable: 'internal_disconnect_reason', &:internal_disconnect_reason)
-      column('LegB DC', sortable: 'legb_disconnect_code') do |cdr|
-        cdr.legb_disconnect_code.to_s unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
-      end
-      column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
-      column :disconnect_initiator, &:disconnect_initiator_name
-      column :routing_attempt do |cdr|
-        "#{cdr.routing_attempt} #{cdr.is_last_cdr? ? '(last)' : ''}"
-      end
-      column :src_name_in
-      column :src_prefix_in
-      column :dst_prefix_in
-      column :src_prefix_routing
-      column :src_area
-      column :dst_prefix_routing
-      column :dst_area
-      column :lrn
-      column :lnp_database
-      column :src_name_out
-      column :src_prefix_out
-      column :dst_prefix_out
-      column :diversion_in
-      column :diversion_out
-      column :src_country
-      column :src_network
-      column :dst_country
-      column :dst_network
-      column :node do |row|
-        "#{row.node.name} ##{row.node.id}" if row.node.present?
-      end
-      column :pop do |row|
-        "#{row.pop.name} ##{row.pop.id}" if row.pop.present?
-      end
-      column :customer do |row|
-        "#{row.customer.name} ##{row.customer.id}" if row.customer.present?
-      end
-      column :vendor do |row|
-        "#{row.vendor.name} ##{row.vendor.id}" if row.vendor.present?
-      end
-      column :customer_acc do |row|
-        "#{row.customer_acc.name} ##{row.customer_acc.id}" if row.customer_acc.present?
-      end
-      column :vendor_acc do |row|
-        "#{row.vendor_acc.name} ##{row.vendor_acc.id}" if row.vendor_acc.present?
-      end
-      column :customer_auth do |row|
-        "#{row.customer_auth.name} ##{row.customer_auth.id}" if row.customer_auth.present?
-      end
-      column :orig_gw do |row|
-        "#{row.orig_gw.name} ##{row.orig_gw.id}" if row.orig_gw.present?
-      end
-      column :sign_orig_transport_protocol
-      column(:sign_orig_ip, sortable: 'sign_orig_ip') do |cdr|
-        "#{cdr.sign_orig_ip}:#{cdr.sign_orig_port}".chomp(':')
-      end
-      column(:sign_orig_local_ip, sortable: 'sign_orig_local_ip') do |cdr|
-        "#{cdr.sign_orig_local_ip}:#{cdr.sign_orig_local_port}".chomp(':')
-      end
-      column :auth_orig_transport_protocol
-      column :auth_orig_ip do |cdr|
-        "#{cdr.auth_orig_ip}:#{cdr.auth_orig_port}".chomp(':')
-      end
-      column :term_gw do |row|
-        "#{row.term_gw.name} ##{row.term_gw.id}" if row.term_gw.present?
-      end
-      column :sign_term_transport_protocol
-      column(:sign_term_ip, sortable: :sign_term_ip) do |cdr|
-        "#{cdr.sign_term_ip}:#{cdr.sign_term_port}".chomp(':')
-      end
-      column(:sign_term_local_ip, sortable: 'sign_term_local_ip') do |cdr|
-        "#{cdr.sign_term_local_ip}:#{cdr.sign_term_local_port}".chomp(':')
-      end
-      column :is_redirected
-      column :routing_delay
-      column :pdd
-      column :rtt
-      column :early_media_present
-      column('Status', sortable: 'success') do |cdr|
-        cdr.status_sym.to_s
-      end
-      column :rateplan
-      column :destination
-      column :destination_rate_policy, &:destination_rate_policy_name
-      column :destination_fee
-      column :destination_initial_interval
-      column :destination_initial_rate
-      column :destination_next_interval
-      column :destination_next_rate
-      column :customer_price
-      column :routing_plan
-      column :routing_group
-      column :dialpeer do |row|
-        "Dialpeer ##{row.dialpeer.id}" if row.dialpeer.present?
-      end
-      column :dialpeer_fee
-      column :dialpeer_initial_interval
-      column :dialpeer_initial_rate
-      column :dialpeer_next_interval
-      column :dialpeer_next_rate
-      column :vendor_price
-      column :time_limit
-      column :profit
-      column :orig_call_id
-      column :local_tag
-      column :legb_local_tag
-      column :term_call_id
+    column :id
+    column :time_start
+    column :time_connect
+    column :time_end
+    column(:duration, sortable: 'duration', class: 'seconds') do |cdr|
+      "#{cdr.duration} sec."
     end
+    column('LegA DC', sortable: 'lega_disconnect_code') do |cdr|
+      cdr.lega_disconnect_code.to_s unless (cdr.lega_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
+    end
+    column('LegA Reason', sortable: 'lega_disconnect_reason', &:lega_disconnect_reason)
+    column('DC', sortable: 'internal_disconnect_code') do |cdr|
+      cdr.internal_disconnect_code.to_s unless (cdr.internal_disconnect_code == 0) || cdr.internal_disconnect_code.nil?
+    end
+    column('Reason', sortable: 'internal_disconnect_reason', &:internal_disconnect_reason)
+    column('LegB DC', sortable: 'legb_disconnect_code') do |cdr|
+      cdr.legb_disconnect_code.to_s unless (cdr.legb_disconnect_code == 0) || cdr.legb_disconnect_code.nil?
+    end
+    column('LegB Reason', sortable: 'legb_disconnect_reason', &:legb_disconnect_reason)
+    column :disconnect_initiator, &:disconnect_initiator_name
+    column :routing_attempt do |cdr|
+      "#{cdr.routing_attempt} #{cdr.is_last_cdr? ? '(last)' : ''}"
+    end
+    column :src_name_in
+    column :src_prefix_in
+    column :dst_prefix_in
+    column :src_prefix_routing
+    column :src_area
+    column :dst_prefix_routing
+    column :dst_area
+    column :lrn
+    column :lnp_database
+    column :src_name_out
+    column :src_prefix_out
+    column :dst_prefix_out
+    column :diversion_in
+    column :diversion_out
+    column :src_country
+    column :src_network
+    column :dst_country
+    column :dst_network
+    column :node do |row|
+      "#{row.node.name} ##{row.node.id}" if row.node.present?
+    end
+    column :pop do |row|
+      "#{row.pop.name} ##{row.pop.id}" if row.pop.present?
+    end
+    column :customer do |row|
+      "#{row.customer.name} ##{row.customer.id}" if row.customer.present?
+    end
+    column :vendor do |row|
+      "#{row.vendor.name} ##{row.vendor.id}" if row.vendor.present?
+    end
+    column :customer_acc do |row|
+      "#{row.customer_acc.name} ##{row.customer_acc.id}" if row.customer_acc.present?
+    end
+    column :vendor_acc do |row|
+      "#{row.vendor_acc.name} ##{row.vendor_acc.id}" if row.vendor_acc.present?
+    end
+    column :customer_auth do |row|
+      "#{row.customer_auth.name} ##{row.customer_auth.id}" if row.customer_auth.present?
+    end
+    column :orig_gw do |row|
+      "#{row.orig_gw.name} ##{row.orig_gw.id}" if row.orig_gw.present?
+    end
+    column :sign_orig_transport_protocol
+    column(:sign_orig_ip, sortable: 'sign_orig_ip') do |cdr|
+      "#{cdr.sign_orig_ip}:#{cdr.sign_orig_port}".chomp(':')
+    end
+    column(:sign_orig_local_ip, sortable: 'sign_orig_local_ip') do |cdr|
+      "#{cdr.sign_orig_local_ip}:#{cdr.sign_orig_local_port}".chomp(':')
+    end
+    column :auth_orig_transport_protocol
+    column :auth_orig_ip do |cdr|
+      "#{cdr.auth_orig_ip}:#{cdr.auth_orig_port}".chomp(':')
+    end
+    column :term_gw do |row|
+      "#{row.term_gw.name} ##{row.term_gw.id}" if row.term_gw.present?
+    end
+    column :sign_term_transport_protocol
+    column(:sign_term_ip, sortable: :sign_term_ip) do |cdr|
+      "#{cdr.sign_term_ip}:#{cdr.sign_term_port}".chomp(':')
+    end
+    column(:sign_term_local_ip, sortable: 'sign_term_local_ip') do |cdr|
+      "#{cdr.sign_term_local_ip}:#{cdr.sign_term_local_port}".chomp(':')
+    end
+    column :is_redirected
+    column :routing_delay
+    column :pdd
+    column :rtt
+    column :early_media_present
+    column('Status', sortable: 'success') do |cdr|
+      cdr.status_sym.to_s
+    end
+    column :rateplan
+    column :destination
+    column :destination_rate_policy, &:destination_rate_policy_name
+    column :destination_fee
+    column :destination_initial_interval
+    column :destination_initial_rate
+    column :destination_next_interval
+    column :destination_next_rate
+    column :customer_price
+    column :routing_plan
+    column :routing_group
+    column :dialpeer do |row|
+      "Dialpeer ##{row.dialpeer.id}" if row.dialpeer.present?
+    end
+    column :dialpeer_fee
+    column :dialpeer_initial_interval
+    column :dialpeer_initial_rate
+    column :dialpeer_next_interval
+    column :dialpeer_next_rate
+    column :vendor_price
+    column :profit
+    column :orig_call_id
+    column :local_tag
+    column :legb_local_tag
+    column :term_call_id
   end
 end

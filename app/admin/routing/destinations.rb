@@ -12,6 +12,25 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   acts_as_async_destroy('Routing::Destination')
   acts_as_async_update BatchUpdateForm::Destination
 
+  scoped_collection_action :async_schedule_rate_changes,
+                           title: 'Schedule rate changes',
+                           class: 'scoped_collection_action_button ui',
+                           form: -> { Destination::ScheduleRateChangesForm.form_inputs },
+                           if: -> { authorized?(:batch_update, resource_klass) } do
+    attrs = params[:changes]&.permit(:apply_time, :initial_interval, :initial_rate, :next_interval, :next_rate, :connect_fee)
+
+    form = Destination::ScheduleRateChangesForm.new(attrs)
+    form.ids_sql = scoped_collection_records.select(:id).to_sql
+
+    if form.save
+      flash[:notice] = 'Rate changes are scheduled'
+    else
+      flash[:error] = "Validation Error: #{form.errors.full_messages.to_sentence}"
+    end
+
+    head 200
+  end
+
   acts_as_delayed_job_lock
 
   decorate_with DestinationDecorator
@@ -26,7 +45,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
                  :dp_margin_fixed, :dp_margin_percent,
                  :profit_control_mode_name,
                  :valid_from, :valid_till,
-                 :asr_limit, :acd_limit, :short_calls_limit, :reverse_billing,
+                 :asr_limit, :acd_limit, :short_calls_limit, :reverse_billing, :allow_package_billing,
                  [:routing_tag_names, proc { |row| row.model.routing_tags.map(&:name).join(', ') }],
                  [:routing_tag_mode_name, proc { |row| row.routing_tag_mode.try(:name) }]
 
@@ -47,6 +66,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   filter :initial_rate
   filter :next_rate
   filter :connect_fee
+  filter :allow_package_billing
 
   filter :network_prefix_country_id_eq,
          as: :select,
@@ -86,7 +106,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
                 :dp_margin_percent, :rate_policy_id, :reverse_billing, :initial_rate,
                 :reject_calls, :use_dp_intervals, :test, :profit_control_mode_id,
                 :valid_from, :valid_till, :asr_limit, :acd_limit, :short_calls_limit, :batch_prefix,
-                :reverse_billing, :routing_tag_mode_id, routing_tag_ids: []
+                :reverse_billing, :routing_tag_mode_id, :allow_package_billing, routing_tag_ids: []
 
   action_item :show_rates, only: [:show] do
     link_to 'Show Rates', destination_destination_next_rates_path(resource.id)
@@ -155,6 +175,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
 
     column :rate_policy, &:rate_policy_name
     column :reverse_billing
+    column :allow_package_billing
 
     ## fixed price
     column :initial_interval
@@ -203,6 +224,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       f.input :valid_till, as: :date_time_picker
       f.input :rate_policy_id, as: :select, include_blank: false, collection: Routing::DestinationRatePolicy::POLICIES.invert
       f.input :reverse_billing
+      f.input :allow_package_billing
       f.input :initial_interval
       f.input :next_interval
       f.input :use_dp_intervals
@@ -253,6 +275,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
           row :valid_till, &:decorated_valid_till
           row :rate_policy, &:rate_policy_name
           row :reverse_billing
+          row :allow_package_billing
           row :initial_interval
           row :next_interval
           row :use_dp_intervals

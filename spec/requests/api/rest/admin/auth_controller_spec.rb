@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Api::Rest::Admin::AuthController do
+RSpec.describe Api::Rest::Admin::AuthController, type: :request do
   let(:json_request_path) { '/api/rest/admin/auth' }
   let(:json_request_headers) do
     {
@@ -98,6 +98,12 @@ RSpec.describe Api::Rest::Admin::AuthController do
                                      status: '401'
                                    ]
                                  )
+      end
+
+      it 'should create API Log record' do
+        expect { subject }.to change(Log::ApiLog, :count).by(1)
+
+        expect(Log::ApiLog.last!).to have_attributes(remote_ip: '127.0.0.1')
       end
     end
   end

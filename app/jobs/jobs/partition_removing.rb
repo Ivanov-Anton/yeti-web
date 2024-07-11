@@ -3,6 +3,7 @@
 module Jobs
   class PartitionRemoving < ::BaseJob
     self.cron_line = '20 * * * *'
+    self.timeout = 7200
 
     def execute
       remove_partition! PartitionModel::Cdr, Cdr::Cdr
@@ -20,7 +21,9 @@ module Jobs
 
     def execute_cmd(cmd)
       Open3.popen3(cmd) do |_stdin, _stdout, _stderr, wait_thr|
-        return wait_thr.value # Process::Status object returned.
+        o = _stdout.read
+        e = _stderr.read
+        return wait_thr.value, o, e
       end
     end
 
@@ -50,7 +53,9 @@ module Jobs
       if YetiConfig.partition_remove_hook.present?
         cmd = "#{YetiConfig.partition_remove_hook} #{cdr_remove_candidate.class} #{cdr_remove_candidate.parent_table} #{cdr_remove_candidate.name}"
         logger.info { "Running partition removing hook: #{cmd}" }
-        return_value = execute_cmd(cmd)
+        return_value, sout, serr = execute_cmd(cmd)
+        logger.info { "Partition remove hook stdout:\n#{sout}" }
+        logger.info { "Partition remove hook stderr:\n#{serr}" }
         if return_value.success?
           logger.info { "Partition remove hook succeed, exit code: #{return_value.exitstatus}" }
         else

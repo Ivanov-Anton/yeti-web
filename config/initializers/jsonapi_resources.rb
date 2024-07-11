@@ -4,6 +4,7 @@ require 'jsonapi/exceptions/authorization_failed'
 require 'jsonapi/exceptions/authentication_failed'
 require 'jsonapi/operation_dispatcher_patch'
 require 'jsonapi/relationship_patch'
+require 'jsonapi/request_parser_patch'
 
 JSONAPI.configure do |config|
   # can be paged, offset, none (default)
@@ -30,7 +31,6 @@ module JsonapiResourceClassPatch
 
     # {
     #   'api/rest/admin/equipment/sip_schemas' => 'api/rest/admin/system/sip_schemas',
-    #   'sip_schema' => 'api/rest/admin/system/sip_schemas',
     #   'api/rest/admin/equipment/pops' => 'api/rest/admin/pops',
     #   'pop' => 'api/rest/admin/pops',
     #   'api/rest/admin/equipment/nodes' => 'api/rest/admin/nodes',
@@ -64,6 +64,8 @@ end
 
 JSONAPI::Resource.singleton_class.prepend(JsonapiResourceClassPatch)
 
-JSONAPI::Resource.register_resource_override 'api/rest/admin', 'SipSchema', 'Api::Rest::Admin::System::SipSchema'
 JSONAPI::Resource.register_resource_override 'api/rest/admin', 'Pop', 'Api::Rest::Admin::Pop'
 JSONAPI::Resource.register_resource_override 'api/rest/admin', 'Node', 'Api::Rest::Admin::Node'
+JSONAPI::Resource.register_resource_override 'api/rest/admin/billing', 'Account', 'Api::Rest::Admin::Account'
+JSONAPI::Resource.register_resource_override 'api/rest/admin/billing', 'Country', 'Api::Rest::Admin::System::Country'
+JSONAPI::Resource.register_resource_override 'api/rest/admin/billing', 'Network', 'Api::Rest::Admin::System::Network'

@@ -7,8 +7,12 @@ class Api::Rest::Customer::V1::AuthController < ApplicationController
   rescue_from Authentication::CustomerV1Auth::AuthenticationError, with: :handle_authentication_error
 
   include CustomerV1Authorizable
+  include Memoizable
+  include WithPayloads
   before_action :authorize!, only: :show
   after_action :setup_authorization_cookie, only: :show
+
+  define_memoizable :debug_mode, apply: -> { System::ApiLogConfig.exists?(controller: self.class.name) }
 
   def create
     if auth_params[:cookie_auth]
@@ -24,7 +28,7 @@ class Api::Rest::Customer::V1::AuthController < ApplicationController
   end
 
   def show
-    head 200
+    render json: { 'allow-rec': current_customer.allow_listen_recording }
   end
 
   def destroy
@@ -34,6 +38,10 @@ class Api::Rest::Customer::V1::AuthController < ApplicationController
       httponly: true
     }
     head 204
+  end
+
+  def meta
+    nil
   end
 
   private

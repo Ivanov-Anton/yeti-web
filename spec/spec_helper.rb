@@ -71,7 +71,6 @@ RSpec.configure do |config|
     :filter_types,
     :sdp_c_location,
     :codecs,
-    :invoice_periods,
     'class4.customers_auth_dst_number_fields',
     'class4.customers_auth_src_number_fields',
     'class4.customers_auth_src_name_fields',
@@ -88,7 +87,6 @@ RSpec.configure do |config|
     'class4.gateway_group_balancing_modes',
     'sys.timezones',
     'sys.jobs',
-    'sys.sip_schemas',
     'sys.states'
   ]
 
@@ -183,6 +181,14 @@ RSpec.configure do |config|
     #  disable the should syntax...
     c.syntax = :expect
   end
+
+  config.before(:each, type: :request) do
+    allow(ApiLogThread).to receive(:new).and_yield
+  end
+
+  config.before(:each, type: :controller) do
+    allow(ApiLogThread).to receive(:new).and_yield
+  end
 end
 
 RspecApiDocumentation.configure do |config|
@@ -197,7 +203,7 @@ RspecApiDocumentation.configure do |config|
     c.exclusion_filter = :admin # must be overriden to anything
     c.filter = :customer_v1
     c.docs_dir = Rails.root.join 'doc/api/customer/v1'
-    c.api_name = 'Customer API V2'
+    c.api_name = 'Customer API V1'
   end
 
   config.response_body_formatter = proc do |content_type, response_body|

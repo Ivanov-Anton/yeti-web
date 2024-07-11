@@ -80,6 +80,8 @@ RSpec.describe 'Export Gateways', type: :feature do
         ['Src rewrite result',                 item.src_rewrite_result.to_s],
         ['Dst rewrite rule',                   item.dst_rewrite_rule.to_s],
         ['Dst rewrite result',                 item.dst_rewrite_result.to_s],
+        ['To rewrite rule',                    item.to_rewrite_rule.to_s],
+        ['To rewrite result',                  item.to_rewrite_result.to_s],
         ['Auth enabled',                       item.auth_enabled.to_s],
         ['Auth user',                          item.auth_user.to_s],
         ['Auth password',                      item.auth_password.to_s],
@@ -113,7 +115,6 @@ RSpec.describe 'Export Gateways', type: :feature do
         ['Single codec in 200ok',              item.single_codec_in_200ok.to_s],
         ['Force symmetric rtp',                item.force_symmetric_rtp.to_s],
         ['Symmetric rtp nonstop',              item.symmetric_rtp_nonstop.to_s],
-        ['Symmetric rtp ignore rtcp',          item.symmetric_rtp_ignore_rtcp.to_s],
         ['Force dtmf relay',                   item.force_dtmf_relay.to_s],
         ['Rtp ping',                           item.rtp_ping.to_s],
         ['Rtp timeout',                        item.rtp_timeout.to_s],
@@ -130,14 +131,15 @@ RSpec.describe 'Export Gateways', type: :feature do
         ['Max 30x redirects',                  item.max_30x_redirects.to_s],
         ['Media encryption mode',              item.media_encryption_mode.name],
         ['Network protocol priority name',     item.network_protocol_priority.name],
-        ['Sip schema name',                    item.sip_schema.name],
+        ['Sip schema name',                    item.sip_schema_name],
         ['Preserve anonymous from domain',     item.preserve_anonymous_from_domain.to_s],
         ['Termination dst numberlist name',    item.termination_dst_numberlist.name],
         ['Termination src numberlist name',    item.termination_src_numberlist.name],
         ['Lua script name',                    item.lua_script.name],
         ['Force cancel routeset',              item.force_cancel_routeset.to_s],
         ['Stir shaken mode name',              item.stir_shaken_mode_name],
-        ['Stir shaken crt name',               item.stir_shaken_crt.name]
+        ['Stir shaken crt name',               item.stir_shaken_crt.name],
+        ['Privacy mode name',                  item.privacy_mode_name]
       ]
     )
   end

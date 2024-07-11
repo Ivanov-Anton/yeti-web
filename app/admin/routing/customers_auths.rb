@@ -12,6 +12,9 @@ ActiveAdmin.register CustomersAuth do
 
   acts_as_delayed_job_lock
 
+  search_support!(search_name: :search_with_return_external_id, id_column: :external_id)
+  search_support!
+
   decorate_with CustomersAuthDecorator
 
   acts_as_export :id, :enabled, :reject_calls, :name,
@@ -23,7 +26,7 @@ ActiveAdmin.register CustomersAuth do
                  :dst_prefix,
                  :dst_number_min_length, :dst_number_max_length,
                  :uri_domain, :from_domain, :to_domain,
-                 :x_yeti_auth,
+                 :x_yeti_auth, :interface,
                  [:customer_name, proc { |row| row.customer.try(:name) }],
                  [:account_name, proc { |row| row.account.try(:name) || '' }],
                  :check_account_balance,
@@ -55,10 +58,16 @@ ActiveAdmin.register CustomersAuth do
                  [:radius_accounting_profile_name, proc { |row| row.radius_accounting_profile.try(:name) || '' }],
                  [:tag_action_name, proc { |row| row.tag_action.try(:name) || '' }],
                  [:tag_action_value_names, proc { |row| row.model.tag_action_values.map(&:name).join(', ') }],
-                 :rewrite_ss_status_name
+                 :ss_mode_name,
+                 :ss_invalid_identity_action_name,
+                 :ss_no_identity_action_name,
+                 :rewrite_ss_status_name,
+                 :ss_src_rewrite_rule,
+                 :ss_src_rewrite_result,
+                 :ss_dst_rewrite_rule,
+                 :ss_dst_rewrite_result
 
-  acts_as_import resource_class: Importing::CustomersAuth,
-                 skip_columns: [:tag_action_value]
+  acts_as_import resource_class: Importing::CustomersAuth, skip_columns: [:tag_action_value]
 
   permit_params :name, :enabled, :reject_calls, :customer_id, :rateplan_id, :routing_plan_id,
                 :gateway_id, :require_incoming_auth, :account_id, :check_account_balance, :diversion_policy_id,
@@ -72,7 +81,7 @@ ActiveAdmin.register CustomersAuth do
                 :ip, :pop_id,
                 :src_prefix, :src_number_min_length, :src_number_max_length,
                 :dst_prefix, :dst_number_min_length, :dst_number_max_length,
-                :uri_domain, :from_domain, :to_domain, :x_yeti_auth,
+                :uri_domain, :from_domain, :to_domain, :x_yeti_auth, :interface,
                 :radius_auth_profile_id,
                 :src_number_radius_rewrite_rule, :src_number_radius_rewrite_result,
                 :dst_number_radius_rewrite_rule, :dst_number_radius_rewrite_result,
@@ -82,6 +91,8 @@ ActiveAdmin.register CustomersAuth do
                 :tag_action_id, :lua_script_id,
                 :dst_number_field_id, :src_number_field_id, :src_name_field_id,
                 :cnam_database_id, :src_numberlist_use_diversion, :rewrite_ss_status_id,
+                :ss_mode_id, :ss_invalid_identity_action_id, :ss_no_identity_action_id,
+                :ss_src_rewrite_rule, :ss_src_rewrite_result, :ss_dst_rewrite_rule, :ss_dst_rewrite_result,
                 tag_action_value: []
   # , :enable_redirect, :redirect_method, :redirect_to
 
@@ -118,8 +129,6 @@ ActiveAdmin.register CustomersAuth do
     column :reject_calls
     column :transport_protocol
     column :ip
-    column :external_id
-    column :external_type
     column :pop
     column :src_prefix
     column :src_number_length do |c|
@@ -133,6 +142,7 @@ ActiveAdmin.register CustomersAuth do
     column :from_domain
     column :to_domain
     column :x_yeti_auth
+    column :interface
 
     column :customer, sortable: 'contractors.name' do |row|
       auto_link(row.customer, row.customer.decorated_customer_display_name)
@@ -190,6 +200,8 @@ ActiveAdmin.register CustomersAuth do
 
     column :tag_action
     column :display_tag_action_value
+    column :external_id
+    column :external_type
   end
 
   filter :id
@@ -226,6 +238,7 @@ ActiveAdmin.register CustomersAuth do
   filter :from_domain_array_contains, label: I18n.t('activerecord.attributes.customers_auth.from_domain')
   filter :to_domain_array_contains, label: I18n.t('activerecord.attributes.customers_auth.to_domain')
   filter :x_yeti_auth_array_contains, label: I18n.t('activerecord.attributes.customers_auth.x_yeti_auth')
+  filter :interface_contains, label: I18n.t('activerecord.attributes.customers_auth.interface')
   filter :lua_script, input_html: { class: 'chosen' }
   boolean_filter :require_incoming_auth
   boolean_filter :check_account_balance
@@ -236,6 +249,16 @@ ActiveAdmin.register CustomersAuth do
          label: 'Incoming Auth Password',
          as: :string
   filter :cnam_database, input_html: { class: 'chosen' }
+
+  association_ajax_filter :src_numberlist_id_eq,
+                          label: 'SRC Numberlist',
+                          scope: -> { Routing::Numberlist.order(:name) },
+                          path: '/numberlists/search'
+
+  association_ajax_filter :dst_numberlist_id_eq,
+                          label: 'DST Numberlist',
+                          scope: -> { Routing::Numberlist.order(:name) },
+                          path: '/numberlists/search'
 
   form do |f|
     f.semantic_errors *f.object.errors.attribute_names
@@ -251,6 +274,7 @@ ActiveAdmin.register CustomersAuth do
 
           f.account_input :account_id,
                           fill_params: { contractor_id_eq: f.object.customer_id },
+                          fill_required: :contractor_id_eq,
                           input_html: {
                             'data-path-params': { 'q[contractor_id_eq]': '.customer_id-input' }.to_json,
                             'data-required-param': 'q[contractor_id_eq]'
@@ -263,6 +287,7 @@ ActiveAdmin.register CustomersAuth do
                                    scope: Gateway.order(:name),
                                    path: '/gateways/search',
                                    fill_params: { origination_contractor_id_eq: f.object.customer_id },
+                                   fill_required: :origination_contractor_id_eq,
                                    input_html: {
                                      'data-path-params': { 'q[origination_contractor_id_eq]': '.customer_id-input' }.to_json,
                                      'data-required-param': 'q[origination_contractor_id_eq]'
@@ -273,8 +298,15 @@ ActiveAdmin.register CustomersAuth do
           f.input :rateplan, input_html: { class: 'chosen' }
           f.input :routing_plan, input_html: { class: 'chosen' }
 
-          f.input :dst_numberlist, input_html: { class: 'chosen' }, include_blank: 'None'
-          f.input :src_numberlist, input_html: { class: 'chosen' }, include_blank: 'None'
+          f.association_ajax_input :dst_numberlist_id,
+                                  label: 'DST Numberlist',
+                                  scope: Routing::Numberlist.order(:name),
+                                  path: '/numberlists/search'
+
+          f.association_ajax_input :src_numberlist_id,
+                                  label: 'SRC Numberlist',
+                                  scope: Routing::Numberlist.order(:name),
+                                  path: '/numberlists/search'
           f.input :dump_level_id, as: :select, include_blank: false, collection: CustomersAuth::DUMP_LEVELS.invert
           f.input :enable_audio_recording
           f.input :capacity
@@ -297,6 +329,7 @@ ActiveAdmin.register CustomersAuth do
           f.input :from_domain, as: :array_of_strings
           f.input :to_domain, as: :array_of_strings
           f.input :x_yeti_auth, as: :array_of_strings
+          f.input :interface, as: :array_of_strings
         end
       end
 
@@ -347,7 +380,14 @@ ActiveAdmin.register CustomersAuth do
 
       tab :stir_shaken do
         f.inputs do
+          f.input :ss_mode_id, as: :select, include_blank: false, collection: CustomersAuth::SS_MODES.invert
+          f.input :ss_invalid_identity_action_id, as: :select, include_blank: false, collection: CustomersAuth::SS_INVALID_IDENTITY_ACTIONS.invert
+          f.input :ss_no_identity_action_id, as: :select, include_blank: false, collection: CustomersAuth::SS_NO_IDENTITY_ACTIONS.invert
           f.input :rewrite_ss_status_id, as: :select, include_blank: true, collection: CustomersAuth::SS_STATUSES.invert
+          f.input :ss_src_rewrite_rule
+          f.input :ss_src_rewrite_result
+          f.input :ss_dst_rewrite_rule
+          f.input :ss_dst_rewrite_result
         end
       end
     end
@@ -403,6 +443,7 @@ ActiveAdmin.register CustomersAuth do
             row :from_domain
             row :to_domain
             row :x_yeti_auth
+            row :interface
           end
         end
       end
@@ -449,7 +490,14 @@ ActiveAdmin.register CustomersAuth do
 
       tab :stir_shaken do
         attributes_table do
+          row :ss_mode, &:ss_mode_name
+          row :ss_invalid_identity_action, &:ss_invalid_identity_action_name
+          row :ss_no_identity_action, &:ss_no_identity_action_name
           row :rewrite_ss_status, &:rewrite_ss_status_name
+          row :ss_src_rewrite_rule
+          row :ss_src_rewrite_result
+          row :ss_dst_rewrite_rule
+          row :ss_dst_rewrite_result
         end
       end
     end

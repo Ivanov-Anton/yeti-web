@@ -66,7 +66,7 @@ gem 'chosen-rails', '1.5.2', require: 'chosen-rails/engine'
 gem 'font-awesome-rails'
 gem 'jquery-rails'
 gem 'jquery-tablesorter'
-gem 'jquery-ui-rails'
+gem 'jquery-ui-rails', github: 'jquery-ui-rails/jquery-ui-rails', tag: 'v7.0.0'
 gem 'mini_racer'
 gem 'rails-html-sanitizer', '~> 1.0'
 gem 'sass-globbing'
@@ -119,8 +119,6 @@ group :development, :test do
   gem 'rubocop-rspec', require: false
 end
 
-gem 'apitome', '~> 0.1.0'
-
 group :test do
   gem 'capybara'
   gem 'capybara_active_admin', github: 'activeadmin-plugins/capybara_active_admin', require: false
@@ -154,3 +152,7 @@ gem 'cronex', '~> 0.12.0'
 gem 'click_house'
 
 gem 'cryptomus', '~> 0.2.0'
+
+gem 'opentelemetry-exporter-otlp'
+gem 'opentelemetry-instrumentation-all'
+gem 'opentelemetry-sdk'

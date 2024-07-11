@@ -4,7 +4,7 @@ class Api::Rest::Admin::Routing::DestinationResource < ::BaseResource
   model_name 'Routing::Destination'
 
   module CONST
-    SYSTEM_NAMESPACE_RELATIONS = %w[Country].freeze
+    SYSTEM_NAMESPACE_RELATIONS = %w[Country Network].freeze
   end.freeze
 
   attributes :enabled, :next_rate, :connect_fee, :initial_interval, :next_interval, :dp_margin_fixed,
@@ -18,6 +18,8 @@ class Api::Rest::Admin::Routing::DestinationResource < ::BaseResource
   has_one :rate_group, class_name: 'RateGroup'
   has_one :routing_tag_mode, class_name: 'RoutingTagMode'
   has_one :country, class_name: 'Country', force_routed: true, foreign_key_on: :related
+  has_one :network, class_name: 'Network', force_routed: true, foreign_key_on: :related
+  has_many :destination_next_rates, class_name: 'DestinationNextRate'
 
   filters :external_id, :prefix, :rate_group_id
 
@@ -83,7 +85,7 @@ class Api::Rest::Admin::Routing::DestinationResource < ::BaseResource
   end
 
   def self.sortable_fields(_context = nil)
-    super + [:'country.name']
+    super + %i[country.name network.name]
   end
 
   def self.resource_for(type)
@@ -97,14 +99,18 @@ class Api::Rest::Admin::Routing::DestinationResource < ::BaseResource
   # related to issue https://github.com/cerebris/jsonapi-resources/issues/1409
   def self.sort_records(records, order_options, context = {})
     local_records = records
+    custom_sort_fields = %w[country.name network.name]
 
     order_options.each_pair do |field, direction|
       case field.to_s
       when 'country.name'
-        local_records = records.left_joins(:country).order("countries.name #{direction}")
+        local_records = local_records.left_joins(:country).order("countries.name #{direction}")
         order_options.delete('country.name')
+      when 'network.name'
+        local_records = local_records.left_joins(:network).order("networks.name #{direction}")
+        order_options.delete('network.name')
       else
-        local_records = apply_sort(local_records, order_options, context)
+        local_records = apply_sort(local_records, order_options.except(*custom_sort_fields), context)
       end
     end
 

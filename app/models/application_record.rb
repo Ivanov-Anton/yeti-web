@@ -29,6 +29,14 @@ class ApplicationRecord < ActiveRecord::Base
     fetch_sp_val('SELECT pg_relation_size(?)', name)
   end
 
+  def self.ransackable_attributes(_auth_object = nil)
+    @ransackable_attributes ||= authorizable_ransackable_attributes
+  end
+
+  def self.ransackable_associations(_auth_object = nil)
+    @ransackable_associations ||= authorizable_ransackable_associations
+  end
+
   def self.execute_sp(sql, *bindings)
     perform_sp(:execute, sql, *bindings)
   end
@@ -109,7 +117,7 @@ class ApplicationRecord < ActiveRecord::Base
   end
 
   DB_VER = LazyObject.new { db_version }
-  ROUTING_SCHEMA = 'switch20'
+  ROUTING_SCHEMA = 'switch21'
 
   PG_MAX_INT = 2_147_483_647
   PG_MIN_INT = -2_147_483_647

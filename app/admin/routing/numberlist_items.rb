@@ -42,7 +42,10 @@ ActiveAdmin.register Routing::NumberlistItem do
                 :tag_action_id, :lua_script_id, tag_action_value: []
 
   filter :id
-  filter :numberlist, input_html: { class: 'chosen' }
+  association_ajax_filter :numberlist_id_eq,
+                          label: 'Numberlist',
+                          scope: -> { Routing::Numberlist.order(:name) },
+                          path: '/numberlists/search'
   filter :key
   filter :lua_script, input_html: { class: 'chosen' }
   filter :action_id_eq, label: 'Action', as: :select, collection: Routing::NumberlistItem::ACTIONS.invert
@@ -115,7 +118,10 @@ ActiveAdmin.register Routing::NumberlistItem do
 
   form do |f|
     f.inputs do
-      f.input :numberlist, input_html: { class: 'chosen' }
+      f.association_ajax_input :numberlist_id,
+                               label: 'Numberlist',
+                               scope: Routing::Numberlist.order(:name),
+                               path: '/numberlists/search'
       f.input :key
       f.input :number_min_length
       f.input :number_max_length

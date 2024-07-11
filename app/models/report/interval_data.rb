@@ -7,18 +7,19 @@
 #  id                           :bigint(8)        not null, primary key
 #  aggregated_value             :decimal(, )
 #  auth_orig_ip                 :string
-#  customer_billed              :boolean
 #  customer_price               :decimal(, )
 #  destination_fee              :decimal(, )
 #  destination_initial_interval :integer(4)
 #  destination_initial_rate     :decimal(, )
 #  destination_next_interval    :integer(4)
 #  destination_next_rate        :decimal(, )
+#  destination_reverse_billing  :boolean
 #  dialpeer_fee                 :decimal(, )
 #  dialpeer_initial_interval    :integer(4)
 #  dialpeer_initial_rate        :decimal(, )
 #  dialpeer_next_interval       :integer(4)
 #  dialpeer_next_rate           :decimal(, )
+#  dialpeer_reverse_billing     :boolean
 #  diversion_in                 :string
 #  diversion_out                :string
 #  dst_prefix_in                :string
@@ -52,10 +53,8 @@
 #  success                      :boolean
 #  time_connect                 :timestamptz
 #  time_end                     :timestamptz
-#  time_limit                   :string
 #  time_start                   :timestamptz
 #  timestamp                    :timestamptz
-#  vendor_billed                :boolean
 #  vendor_price                 :decimal(, )
 #  customer_acc_id              :integer(4)
 #  customer_auth_id             :integer(4)
@@ -79,6 +78,10 @@
 #  vendor_acc_id                :integer(4)
 #  vendor_id                    :integer(4)
 #  vendor_invoice_id            :integer(4)
+#
+# Indexes
+#
+#  cdr_interval_report_data_report_id_idx  (report_id)
 #
 # Foreign Keys
 #

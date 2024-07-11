@@ -46,11 +46,17 @@
 #  lega_disconnect_code            :integer(4)
 #  lega_disconnect_reason          :string
 #  lega_identity                   :jsonb
+#  lega_q850_cause                 :integer(2)
+#  lega_q850_params                :string
+#  lega_q850_text                  :string
 #  lega_user_agent                 :string
 #  legb_disconnect_code            :integer(4)
 #  legb_disconnect_reason          :string
 #  legb_local_tag                  :string
 #  legb_outbound_proxy             :string
+#  legb_q850_cause                 :integer(2)
+#  legb_q850_params                :string
+#  legb_q850_text                  :string
 #  legb_ruri                       :string
 #  legb_user_agent                 :string
 #  local_tag                       :string
@@ -90,7 +96,6 @@
 #  success                         :boolean
 #  time_connect                    :timestamptz
 #  time_end                        :timestamptz
-#  time_limit                      :string
 #  time_start                      :timestamptz      not null
 #  to_domain                       :string
 #  uuid                            :uuid
@@ -115,6 +120,7 @@
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
+#  internal_disconnect_code_id     :integer(2)
 #  lega_ss_status_id               :integer(2)
 #  legb_ss_status_id               :integer(2)
 #  lnp_database_id                 :integer(2)
@@ -122,6 +128,7 @@
 #  orig_call_id                    :string
 #  orig_gw_external_id             :bigint(8)
 #  orig_gw_id                      :integer(4)
+#  package_counter_id              :bigint(8)
 #  pop_id                          :integer(4)
 #  rateplan_id                     :integer(4)
 #  routing_group_id                :integer(4)
@@ -143,12 +150,11 @@
 # Indexes
 #
 #  cdr_customer_acc_external_id_time_start_idx  (customer_acc_external_id,time_start) WHERE is_last_cdr
-#  cdr_customer_acc_id_time_start_idx           (customer_acc_id,time_start) WHERE is_last_cdr
 #  cdr_customer_acc_id_time_start_idx1          (customer_acc_id,time_start)
-#  cdr_customer_invoice_id_idx                  (customer_invoice_id)
+#  cdr_customer_id_time_start_idx               (customer_id,time_start)
 #  cdr_id_idx                                   (id)
 #  cdr_time_start_idx                           (time_start)
-#  cdr_vendor_invoice_id_idx                    (vendor_invoice_id)
+#  cdr_vendor_id_time_start_idx                 (vendor_id,time_start)
 #
 
 class Cdr::Cdr < Cdr::Base
@@ -185,8 +191,8 @@ class Cdr::Cdr < Cdr::Base
   SS_STATUS_C = 3
 
   SS_STATUSES = {
-    SS_STATUS_INVALID => 'Validation failed',
-    SS_STATUS_NONE => 'No identity',
+    SS_STATUS_INVALID => 'Invalid',
+    SS_STATUS_NONE => 'None',
     SS_STATUS_A => 'A',
     SS_STATUS_B => 'B',
     SS_STATUS_C => 'C'
@@ -200,7 +206,7 @@ class Cdr::Cdr < Cdr::Base
     routing_plan vendor
     term_gw orig_gw customer_auth vendor_acc customer_acc
     dst_area customer rateplan pop src_area lnp_database
-    node sign_term_transport_protocol
+    node sign_term_transport_protocol package_counter
   ].freeze
 
   include Partitionable
@@ -236,6 +242,7 @@ class Cdr::Cdr < Cdr::Base
   belongs_to :auth_orig_transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :auth_orig_transport_protocol_id, optional: true
   belongs_to :sign_orig_transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :sign_orig_transport_protocol_id, optional: true
   belongs_to :sign_term_transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :sign_term_transport_protocol_id, optional: true
+  belongs_to :package_counter, class_name: 'Billing::PackageCounter', foreign_key: :package_counter_id, optional: true
 
   scope :success, -> { where success: true }
   scope :failure, -> { where success: false }
@@ -265,11 +272,14 @@ class Cdr::Cdr < Cdr::Base
   scope :not_authorized, -> { where('customer_auth_id is null') }
   scope :bad_routing, -> { where('customer_auth_id is not null AND disconnect_initiator_id=0') }
   scope :with_trace, -> { where('dump_level_id > 0') }
+  scope :package_billing, -> { where('package_counter_id is not null') }
 
   scope :account_id_eq, ->(account_id) { where('vendor_acc_id =? OR customer_acc_id =?', account_id, account_id) }
 
-  scope :where_customer, ->(id) { where(customer_id: id) }
-  scope :where_account, ->(id) { where(customer_acc_id: id) } # OR vendor_acc_id ???
+  scope :where_customer, ->(id) { where(customer_id: id, is_last_cdr: true) }
+  scope :where_customer_account, ->(id) { where(customer_acc_id: id, is_last_cdr: true) }
+  scope :where_vendor, ->(id) { where(vendor_id: id) }
+  scope :where_vendor_account, ->(id) { where(vendor_acc_id: id) }
 
   scope :status_eq, lambda { |success|
     if success.is_a?(String)
@@ -315,8 +325,22 @@ class Cdr::Cdr < Cdr::Base
     lega_ss_status_id.nil? ? nil : SS_STATUSES[lega_ss_status_id]
   end
 
+  def lega_ss_status_class
+    return :red if lega_ss_status_id == -1
+    return :grey if lega_ss_status_id == 0
+
+    :green
+  end
+
   def legb_ss_status
     legb_ss_status_id.nil? ? nil : SS_STATUSES[legb_ss_status_id]
+  end
+
+  def legb_ss_status_class
+    return :red if legb_ss_status_id == -1
+    return :grey if legb_ss_status_id == 0
+
+    :green
   end
 
   def has_dump?
@@ -333,12 +357,17 @@ class Cdr::Cdr < Cdr::Base
     end
   end
 
-  def call_record_filename_lega
-    "/record/#{local_tag}_legA.mp3" if local_tag.present? && node_id.present?
+  def has_recording?
+    audio_recorded? and local_tag.present? and duration > 0
   end
 
-  def call_record_filename_legb
-    "/record/#{local_tag}_legB.mp3" if local_tag.present? && node_id.present?
+  def call_record_filename
+    fmt = YetiConfig.rec_format == 'wav' ? 'wav' : 'mp3'
+    "/record/#{local_tag}.#{fmt}" if has_recording?
+  end
+
+  def call_record_ct
+    YetiConfig.rec_format == 'wav' ? 'audio/wav' : 'audio/mpeg'
   end
 
   def attempts

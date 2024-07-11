@@ -75,7 +75,6 @@ FactoryBot.define do
     single_codec_in_200ok { false }
     ringing_timeout { nil }
     symmetric_rtp_nonstop { false }
-    symmetric_rtp_ignore_rtcp { false }
     resolve_ruri { false }
     force_dtmf_relay { false }
     relay_options { false }
@@ -127,7 +126,6 @@ FactoryBot.define do
       rx_inband_dtmf_filtering_mode { Equipment::GatewayInbandDtmfFilteringMode.take }
       network_protocol_priority { Equipment::GatewayNetworkProtocolPriority.take }
       media_encryption_mode { Equipment::GatewayMediaEncryptionMode.take }
-      sip_schema { System::SipSchema.take }
       termination_dst_numberlist { build :numberlist }
       lua_script
       statistic { build :gateways_stat }

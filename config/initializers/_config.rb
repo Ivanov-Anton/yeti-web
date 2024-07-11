@@ -31,6 +31,8 @@ Config.setup do |setup_config|
       required(:token_lifetime).maybe(:int?)
     end
 
+    optional(:rec_format).value(Dry::Types['string'].enum('wav', 'mp3'))
+
     required(:cdr_export).schema do
       required(:dir_path).filled(:string)
       required(:delete_url).filled(:string)
@@ -49,6 +51,8 @@ Config.setup do |setup_config|
       required(:'logs.api_requests').maybe(:string, format?: /\A\d+ days\z/)
     end
 
+    optional(:partition_detach_before_drop).filled(:bool)
+
     required(:prometheus).schema do
       required(:enabled).value(:bool?)
       required(:host).maybe(:string)
@@ -63,6 +67,10 @@ Config.setup do |setup_config|
       required(:environment).filled(:string)
     end
 
+    optional(:telemetry).schema do
+      optional(:enabled).filled(:bool)
+    end
+
     required(:versioning_disable_for_models).each(:string)
 
     optional(:keep_expired_destinations_days)
@@ -75,6 +83,8 @@ Config.setup do |setup_config|
       optional(:url_callback).maybe(:string)
       optional(:url_return).maybe(:string)
     end
+
+    optional(:customer_api_cdr_hide_fields).array(:string)
   end
 end
 

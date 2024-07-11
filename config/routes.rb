@@ -19,6 +19,8 @@ Rails.application.routes.draw do
   delete 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#destroy'
 
   get 'api/rest/customer/v1/origination-statistics', to: 'api/rest/customer/v1/origination_statistics#show'
+  get 'api/rest/customer/v1/origination-statistics-quality', to: 'api/rest/customer/v1/origination_statistics_quality#show'
+  get 'api/rest/customer/v1/origination-active-calls', to: 'api/rest/customer/v1/origination_active_calls#show'
 
   get 'with_contractor_accounts', to: 'accounts#with_contractor'
   ActiveAdmin.routes(self)
@@ -94,6 +96,7 @@ Rails.application.routes.draw do
 
           namespace :cdr do
             jsonapi_resources :cdrs, only: %i[index show] do
+              member { get :recording }
             end
             jsonapi_resources :auth_logs, only: %i[index show] do
             end
@@ -104,8 +107,22 @@ Rails.application.routes.draw do
           end
 
           namespace :billing do
-            jsonapi_resources :invoice_period
             jsonapi_resources :invoice_template
+            jsonapi_resources :invoices, only: %i[index show create destroy] do
+              jsonapi_relationships
+              member do
+                get :pdf
+                get :odt
+              end
+            end
+            jsonapi_resources :invoice_originated_destinations, only: %i[index show]
+            jsonapi_resources :invoice_originated_networks, only: %i[index show]
+            jsonapi_resources :invoice_terminated_destinations, only: %i[index show]
+            jsonapi_resources :invoice_terminated_networks, only: %i[index show]
+            jsonapi_resources :invoice_service_data, only: %i[index show]
+            jsonapi_resources :service_types
+            jsonapi_resources :services, only: %i[index show create update]
+            jsonapi_resources :transactions, only: %i[index show]
           end
 
           namespace :system do
@@ -114,7 +131,6 @@ Rails.application.routes.draw do
             jsonapi_resources :dtmf_send_modes
             jsonapi_resources :sensor_levels
             jsonapi_resources :sensors
-            jsonapi_resources :sip_schemas
             jsonapi_resources :smtp_connections
             jsonapi_resources :countries
             jsonapi_resources :networks
@@ -161,7 +177,14 @@ Rails.application.routes.draw do
             jsonapi_resources :rateplans, only: %i[index show]
             jsonapi_resources :rates, only: %i[index show]
             jsonapi_resource :check_rate, only: %i[create]
-            jsonapi_resources :cdrs, only: %i[index show]
+            jsonapi_resources :cdrs, only: %i[index show] do
+              jsonapi_relationships
+              member { get :rec }
+            end
+            jsonapi_resources :incoming_cdrs, only: %i[index show] do
+              jsonapi_relationships
+              member { get :rec }
+            end
             jsonapi_resources :networks, only: %i[index show]
             jsonapi_resources :network_types, only: %i[index show]
             jsonapi_resources :network_prefixes, only: %i[index show]
@@ -178,6 +201,8 @@ Rails.application.routes.draw do
               member { get :download }
             end
             jsonapi_resources :countries, only: %i[index show]
+            jsonapi_resources :services, only: %i[index show]
+            jsonapi_resources :transactions, only: %i[index show]
           end
         end
 

@@ -22,6 +22,7 @@
 #  enabled                          :boolean          default(TRUE), not null
 #  external_type                    :string
 #  from_domain                      :string           default([]), is an Array
+#  interface                        :string           default([]), not null, is an Array
 #  ip                               :inet             default(["\"127.0.0.0/8\""]), is an Array
 #  name                             :string           not null
 #  reject_calls                     :boolean          default(FALSE), not null
@@ -37,6 +38,10 @@
 #  src_prefix                       :string           default(["\"\""]), is an Array
 #  src_rewrite_result               :string
 #  src_rewrite_rule                 :string
+#  ss_dst_rewrite_result            :string
+#  ss_dst_rewrite_rule              :string
+#  ss_src_rewrite_result            :string
+#  ss_src_rewrite_rule              :string
 #  tag_action_value                 :integer(2)       default([]), not null, is an Array
 #  to_domain                        :string           default([]), is an Array
 #  uri_domain                       :string           default([]), is an Array
@@ -52,6 +57,7 @@
 #  gateway_id                       :integer(4)       not null
 #  lua_script_id                    :integer(2)
 #  pop_id                           :integer(4)
+#  privacy_mode_id                  :integer(2)       default(1), not null
 #  radius_accounting_profile_id     :integer(2)
 #  radius_auth_profile_id           :integer(2)
 #  rateplan_id                      :integer(4)       not null
@@ -60,6 +66,9 @@
 #  src_name_field_id                :integer(2)       default(1), not null
 #  src_number_field_id              :integer(2)       default(1), not null
 #  src_numberlist_id                :integer(2)
+#  ss_invalid_identity_action_id    :integer(2)       default(0), not null
+#  ss_mode_id                       :integer(2)       default(0), not null
+#  ss_no_identity_action_id         :integer(2)       default(0), not null
 #  tag_action_id                    :integer(2)
 #  transport_protocol_id            :integer(2)
 #
@@ -67,9 +76,11 @@
 #
 #  customers_auth_account_id_idx                      (account_id)
 #  customers_auth_customer_id_idx                     (customer_id)
+#  customers_auth_dst_numberlist_id_idx               (dst_numberlist_id)
 #  customers_auth_external_id_external_type_key_uniq  (external_id,external_type) UNIQUE
 #  customers_auth_external_id_key_uniq                (external_id) UNIQUE WHERE (external_type IS NULL)
 #  customers_auth_name_key                            (name) UNIQUE
+#  customers_auth_src_numberlist_id_idx               (src_numberlist_id)
 #
 # Foreign Keys
 #
@@ -107,18 +118,51 @@ class CustomersAuth < ApplicationRecord
     DUMP_LEVEL_CAPTURE_ALL => 'Capture all traffic'
   }.freeze
 
-  SS_STATUS_INVALID = -1
-  SS_STATUS_NONE = 0
+  SS_MODE_DISABLE = 0
+  SS_MODE_VALIDATE = 1
+  SS_MODE_REWRITE = 2
+  SS_MODES = {
+    SS_MODE_DISABLE => 'Disable STIR/SHAKEN processing',
+    SS_MODE_VALIDATE => 'Validate identity',
+    SS_MODE_REWRITE => 'Force rewrite attestation level'
+  }.freeze
+
+  SS_NO_IDENTITY_ACTION_NOTHING = 0
+  SS_NO_IDENTITY_ACTION_REJECT = 1
+  SS_NO_IDENTITY_ACTION_REWRITE = 2
+  SS_NO_IDENTITY_ACTIONS = {
+    SS_NO_IDENTITY_ACTION_NOTHING => 'Do nothing',
+    SS_NO_IDENTITY_ACTION_REJECT => 'Reject call',
+    SS_NO_IDENTITY_ACTION_REWRITE => 'Rewrite'
+  }.freeze
+
+  SS_INVALID_IDENTITY_ACTION_NOTHING = 0
+  SS_INVALID_IDENTITY_ACTION_REJECT = 1
+  SS_INVALID_IDENTITY_ACTION_REWRITE = 2
+  SS_INVALID_IDENTITY_ACTIONS = {
+    SS_INVALID_IDENTITY_ACTION_NOTHING => 'Do nothing',
+    SS_INVALID_IDENTITY_ACTION_REJECT => 'Reject call',
+    SS_INVALID_IDENTITY_ACTION_REWRITE => 'Rewrite'
+  }.freeze
+
   SS_STATUS_A = 1
   SS_STATUS_B = 2
   SS_STATUS_C = 3
-
   SS_STATUSES = {
-    SS_STATUS_INVALID => 'Validation failed',
-    SS_STATUS_NONE => 'No identity',
     SS_STATUS_A => 'Attestation A',
     SS_STATUS_B => 'Attestation B',
     SS_STATUS_C => 'Attestation C'
+  }.freeze
+
+  PRIVACY_MODE_ALLOW = 1
+  PRIVACY_MODE_REJECT = 2
+  PRIVACY_MODE_REJECT_CRITICAL = 3
+  PRIVACY_MODE_REJECT_ANONYMOUS = 4
+  PRIVACY_MODES = {
+    PRIVACY_MODE_ALLOW => 'Allow any calls',
+    PRIVACY_MODE_REJECT => 'Reject private calls',
+    PRIVACY_MODE_REJECT_CRITICAL => 'Reject critical private calls',
+    PRIVACY_MODE_REJECT_ANONYMOUS => 'Reject anonymous(no CLI/PAI/PPI)'
   }.freeze
 
   module CONST
@@ -128,7 +172,8 @@ class CustomersAuth < ApplicationRecord
                                     uri_domain
                                     from_domain
                                     to_domain
-                                    x_yeti_auth].freeze
+                                    x_yeti_auth
+                                    interface].freeze
 
     freeze
   end
@@ -212,6 +257,8 @@ class CustomersAuth < ApplicationRecord
   validates :dump_level_id, presence: true
   validates :dump_level_id, inclusion: { in: CustomersAuth::DUMP_LEVELS.keys }, allow_nil: true
   validates :rewrite_ss_status_id, inclusion: { in: CustomersAuth::SS_STATUSES.keys }, allow_nil: true
+  validate :validate_rewrite_ss_status
+  validates :privacy_mode_id, inclusion: { in: PRIVACY_MODES.keys }, allow_nil: false
 
   validates_with TagActionValueValidator
 
@@ -239,6 +286,8 @@ class CustomersAuth < ApplicationRecord
   scope :from_domain_array_contains, ->(f_dom) { where.contains from_domain: Array(f_dom) }
   scope :to_domain_array_contains, ->(to_dom) { where.contains to_domain: Array(to_dom) }
   scope :x_yeti_auth_array_contains, ->(auth) { where.contains x_yeti_auth: Array(auth) }
+  scope :search_for, ->(term) { where("class4.customers_auth.name || ' | ' || class4.customers_auth.id::varchar ILIKE ?", "%#{term}%") }
+  scope :ordered_by, ->(term) { order(term) }
 
   include Yeti::ResourceStatus
 
@@ -260,6 +309,22 @@ class CustomersAuth < ApplicationRecord
     rewrite_ss_status_id.nil? ? nil : SS_STATUSES[rewrite_ss_status_id]
   end
 
+  def ss_mode_name
+    ss_mode_id.nil? ? nil : SS_MODES[ss_mode_id]
+  end
+
+  def ss_invalid_identity_action_name
+    ss_invalid_identity_action_id.nil? ? nil : SS_INVALID_IDENTITY_ACTIONS[ss_invalid_identity_action_id]
+  end
+
+  def ss_no_identity_action_name
+    ss_no_identity_action_id.nil? ? nil : SS_NO_IDENTITY_ACTIONS[ss_no_identity_action_id]
+  end
+
+  def privacy_mode_name
+    PRIVACY_MODES[privacy_mode_id]
+  end
+
   # TODO: move to decorator when ActiveAdmin fix problem
   # Problem is:
   # on "update" AA uses decorated object
@@ -272,18 +337,6 @@ class CustomersAuth < ApplicationRecord
       super(value)
     end
   end
-
-  def display_name_for_debug
-    b = "#{customer.display_name} -> #{name} | #{id} IP: #{raw_ip}"
-    b += ", Domain: #{uri_domain}" if uri_domain.present?
-    b += ", POP: #{pop.try(:name)}" unless pop_id.nil?
-    b += ", X-Yeti-Auth: #{x_yeti_auth}" if x_yeti_auth.present?
-    b
-  end
-
-  # def pop_name
-  #   pop.nil? ? "Any" : pop.name
-  # end
 
   # force update IP
   def keys_for_partial_write
@@ -304,6 +357,16 @@ class CustomersAuth < ApplicationRecord
     errors.add(:gateway, 'belongs to different customer') if !gateway.is_shared && gateway.contractor_id != customer_id
   end
 
+  def validate_rewrite_ss_status
+    return unless rewrite_ss_status_id.nil?
+
+    if ss_mode_id == SS_MODE_REWRITE ||
+       ss_no_identity_action_id == SS_NO_IDENTITY_ACTION_REWRITE ||
+       ss_invalid_identity_action_id == SS_INVALID_IDENTITY_ACTION_REWRITE
+      errors.add(:rewrite_ss_status_id, 'Rewrite status should be defined for selected mode')
+    end
+  end
+
   def self.ransackable_scopes(_auth_object = nil)
     %i[
       src_prefix_array_contains
@@ -313,6 +376,8 @@ class CustomersAuth < ApplicationRecord
       to_domain_array_contains
       x_yeti_auth_array_contains
       ip_covers
+      search_for
+      ordered_by
     ]
   end
 

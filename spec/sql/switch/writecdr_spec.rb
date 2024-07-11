@@ -290,10 +290,12 @@ RSpec.describe 'switch.writecdr()' do
       "metadata": metadata,
       "customer_auth_external_type": 'term',
       "lega_ss_status_id": -1,
-      "legb_ss_status_id": 2
+      "legb_ss_status_id": 2,
+      "package_counter_id": package_counter_id
     }.to_json
   end
 
+  let(:package_counter_id) { nil }
   let!(:metadata) { nil }
 
   let(:writecdr_parameters) do
@@ -303,16 +305,16 @@ RSpec.describe 'switch.writecdr()' do
         '3',
         '4',
         't',
-        '1',
-        '127.0.0.3',
-        '1015',
-        '127.0.0.2',
-        '1926',
-        '1',
-        '127.0.0.5',
-        '1036',
-        '127.0.0.4',
-        '5065',
+        '#{lega_transport_protocol_id}',
+        '#{lega_local_ip}',
+        '#{lega_local_port}',
+        '#{lega_remote_ip}',
+        '#{lega_remote_port}',
+        '#{legb_transport_protocol_id}',
+        '#{legb_local_ip}',
+        '#{legb_local_port}',
+        '#{legb_remote_ip}',
+        '#{legb_remote_port}',
         'sip:ruri@example.com:8090;transport=TCP',
         'sip:outbound-proxy@example.com:8090;transport=TCP',
         '#{i_time_data}',
@@ -342,11 +344,23 @@ RSpec.describe 'switch.writecdr()' do
         '{"core":"1.7.60-4","yeti":"1.7.30-1","aleg":"Twinkle/1.10.1","bleg":"Localhost Media Gateway"}',
         'f',
         '#{i_dynamic_fields}',
-        '{"p_charge_info":"sip:p-charge-info@example.com/uri"}',
-        '{"v_info":"sip:p-charge-info@example.com/uri"}',
+        '{"p_charge_info":"sip:p-charge-info@example.com/uri","reason":{ "q850_cause":16,"q850_text":"Normal call clearing", "q850_params":"sparam1; sparam2=test; sparam3=test"}}',
+        '{"v_info":"sip:p-charge-info@example.com/uri","reason":{ "q850_cause":32,"q850_text":"test", "q850_params":"sparam1"}}',
         '[{"header":{"alg":"ES256","ppt":"shaken","typ":"passport","x5u":"http://127.0.0.1/share/test.pem"},"parsed":true,"payload":{"attest":"C","dest":{"tn":"456","uri":"sip:456"},"iat":1622830203,"orig":{"tn":"123","uri":"sip:123"},"origid":"8-000F7304-60BA6C7B000B6828-A43657C0"},"verified":true},{"error_code":4,"error_reason":"Incorrect Identity Header Value","parsed":false},{"error_code":-1,"error_reason":"certificate is not available","header":{"alg":"ES256","ppt":"shaken","typ":"passport","x5u":"http://127.0.0.1/share/test2.pem"},"parsed":true,"payload":{"attest":"C","dest":{"tn":"13"},"iat":1622831252,"orig":{"tn":"42"},"origid":"8-000F7304-60BA7094000207EC-2B5F27C0"},"verified":false}]'
       )
   end
+
+  let(:lega_transport_protocol_id) { 1 }
+  let(:lega_local_ip) { '127.0.0.3' }
+  let(:lega_local_port) { 7878 }
+  let(:lega_remote_ip) { '127.0.0.5' }
+  let(:lega_remote_port) { 9090 }
+
+  let(:legb_transport_protocol_id) { 1 }
+  let(:legb_local_ip) { '127.0.0.3' }
+  let(:legb_local_port) { 7687 }
+  let(:legb_remote_ip) { '127.0.0.99' }
+  let(:legb_remote_port) { 88_888 }
 
   it 'creates new CDR-record' do
     expect { subject }.to change { Cdr::Cdr.count }.by(1)
@@ -372,7 +386,6 @@ RSpec.describe 'switch.writecdr()' do
                      destination_fee: 0.0,
                      dialpeer_next_rate: 1.0,
                      dialpeer_fee: 0.0,
-                     time_limit: '7200',
                      internal_disconnect_code: 200,
                      internal_disconnect_reason: 'Bye',
                      disconnect_initiator_id: 3,
@@ -390,14 +403,14 @@ RSpec.describe 'switch.writecdr()' do
                      time_start: be_within(1.second).of(time_start),
                      time_connect: be_within(1.second).of(time_connect),
                      time_end: be_within(1.second).of(time_end),
-                     sign_orig_ip: '127.0.0.2',
-                     sign_orig_port: 1926,
-                     sign_orig_local_ip: '127.0.0.3',
-                     sign_orig_local_port: 1015,
-                     sign_term_ip: '127.0.0.4',
-                     sign_term_port: 5065,
-                     sign_term_local_ip: '127.0.0.5',
-                     sign_term_local_port: 1036,
+                     sign_orig_ip: lega_remote_ip,
+                     sign_orig_port: lega_remote_port,
+                     sign_orig_local_ip: lega_local_ip,
+                     sign_orig_local_port: lega_local_port,
+                     sign_term_ip: legb_remote_ip,
+                     sign_term_port: legb_remote_port,
+                     sign_term_local_ip: legb_local_ip,
+                     sign_term_local_port: legb_local_port,
                      orig_call_id: 'dhgxlgaifhhmovy@elo',
                      term_call_id: '08889A81-5ABE27EE000480C0-EE666700',
                      vendor_invoice_id: nil,
@@ -451,8 +464,8 @@ RSpec.describe 'switch.writecdr()' do
                      src_area_id: 222,
                      dst_area_id: 333,
                      auth_orig_transport_protocol_id: 1567,
-                     sign_orig_transport_protocol_id: 1,
-                     sign_term_transport_protocol_id: 1,
+                     sign_orig_transport_protocol_id: lega_transport_protocol_id,
+                     sign_term_transport_protocol_id: legb_transport_protocol_id,
                      core_version: '1.7.60-4',
                      yeti_version: '1.7.30-1',
                      lega_user_agent: 'Twinkle/1.10.1',
@@ -487,6 +500,12 @@ RSpec.describe 'switch.writecdr()' do
                      vendor_duration: 571,
                      customer_auth_name: 'Customer Auth for trunk 1',
                      p_charge_info_in: 'sip:p-charge-info@example.com/uri',
+                     lega_q850_cause: 16,
+                     lega_q850_text: 'Normal call clearing',
+                     lega_q850_params: 'sparam1; sparam2=test; sparam3=test',
+                     legb_q850_cause: 32,
+                     legb_q850_text: 'test',
+                     legb_q850_params: 'sparam1',
                      lega_ss_status_id: -1,
                      legb_ss_status_id: 2
                    )
@@ -568,8 +587,8 @@ RSpec.describe 'switch.writecdr()' do
           '{"core":"1.7.60-4","yeti":"1.7.30-1","aleg":"Twinkle/1.10.1","bleg":"Localhost Media Gateway"}',
           'f',
           '#{i_dynamic_fields}',
-          '{"p_charge_info":"sip:p-charge-info@example.com/uri"}',
-          '{"v_info":"sip:p-charge-info@example.com/uri"}',
+          '{"p_charge_info":"sip:p-charge-info@example.com/uri","reason":{ "q850_cause":16,"q850_text":"Normal call clearing", "q850_params":"sparam1; sparam2=test; sparam3=test"}}',
+          '{"v_info":"sip:p-charge-info@example.com/uri","reason":{ "q850_cause":32,"q850_text":"test", "q850_params":"sparam1"}}',
           '[{"header":{"alg":"ES256","ppt":"shaken","typ":"passport","x5u":"http://127.0.0.1/share/test.pem"},"parsed":true,"payload":{"attest":"C","dest":{"tn":"456","uri":"sip:456"},"iat":1622830203,"orig":{"tn":"123","uri":"sip:123"},"origid":"8-000F7304-60BA6C7B000B6828-A43657C0"},"verified":true},{"error_code":4,"error_reason":"Incorrect Identity Header Value","parsed":false},{"error_code":-1,"error_reason":"certificate is not available","header":{"alg":"ES256","ppt":"shaken","typ":"passport","x5u":"http://127.0.0.1/share/test2.pem"},"parsed":true,"payload":{"attest":"C","dest":{"tn":"13"},"iat":1622831252,"orig":{"tn":"42"},"origid":"8-000F7304-60BA7094000207EC-2B5F27C0"},"verified":false}]'
         )
     end
@@ -578,6 +597,21 @@ RSpec.describe 'switch.writecdr()' do
       expect(Cdr::Cdr.last.customer_price).to eq(0)
       expect(Cdr::Cdr.last.customer_price_no_vat).to eq(0)
       expect(Cdr::Cdr.last.vendor_price).to eq(0)
+    end
+  end
+
+  context 'When package billing' do
+    let(:package_counter_id) { 100_500 }
+
+    it 'customer amount' do
+      # 560 sec duration, 10s first interval, 11s next, rates = 0.0001/60*10 , 0.0001/60*11
+      # (50 × 11) + (1 × 10) = 560s,
+      # 0.0001/60*11 * 50 + 0.0001/60*10 = 0,0009333333333
+      expect { subject }.to change { Cdr::Cdr.count }.by(1)
+      expect(Cdr::Cdr.last.package_counter_id).to eq(package_counter_id)
+      expect(Cdr::Cdr.last.customer_duration).to eq(566)
+      expect(Cdr::Cdr.last.customer_price).to eq(0)
+      expect(Cdr::Cdr.last.customer_price_no_vat).to eq(0)
     end
   end
 
@@ -668,6 +702,42 @@ RSpec.describe 'switch.writecdr()' do
 
     it 'writecdr raising exception' do
       expect { subject }.to raise_error(ActiveRecord::StatementInvalid, /PG::InvalidTextRepresentation: ERROR:  invalid input syntax for type json(.*)/)
+    end
+  end
+
+  context 'When lega_remote_port  is zero' do
+    let(:lega_remote_port) { 0 }
+
+    it 'null should be saved to CDR' do
+      expect { subject }.to change { Cdr::Cdr.count }.by(1)
+      expect(Cdr::Cdr.last.sign_orig_port).to eq(nil)
+    end
+  end
+
+  context 'When lega_local_port  is zero' do
+    let(:lega_local_port) { 0 }
+
+    it 'null should be saved to CDR' do
+      expect { subject }.to change { Cdr::Cdr.count }.by(1)
+      expect(Cdr::Cdr.last.sign_orig_local_port).to eq(nil)
+    end
+  end
+
+  context 'When legb_remote_port  is zero' do
+    let(:legb_remote_port) { 0 }
+
+    it 'null should be saved to CDR' do
+      expect { subject }.to change { Cdr::Cdr.count }.by(1)
+      expect(Cdr::Cdr.last.sign_term_port).to eq(nil)
+    end
+  end
+
+  context 'When legb_local_port  is zero' do
+    let(:legb_local_port) { 0 }
+
+    it 'null should be saved to CDR' do
+      expect { subject }.to change { Cdr::Cdr.count }.by(1)
+      expect(Cdr::Cdr.last.sign_term_local_port).to eq(nil)
     end
   end
 end

@@ -42,6 +42,7 @@ ActiveAdmin.register Importing::Gateway do
 
     column :pop, sortable: :pop_name
     column :transport_protocol_name
+    column :sip_schema, &:sip_schema_display_name
     column :host
     column :port
     column :registered_aor_mode, &:registered_aor_mode_display_name
@@ -65,6 +66,8 @@ ActiveAdmin.register Importing::Gateway do
 
     column :dst_rewrite_rule
     column :dst_rewrite_result
+    column :to_rewrite_rule
+    column :to_rewrite_result
     column :lua_script
 
     column :acd_limit

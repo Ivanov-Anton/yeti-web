@@ -1,6 +1,15 @@
 # frozen_string_literal: true
 
 class Api::Rest::Admin::AuthController < Knock::AuthTokenController
+  include Memoizable
+  include WithPayloads
+
+  define_memoizable :debug_mode, apply: -> { System::ApiLogConfig.exists?(controller: self.class.name) }
+
+  def meta
+    nil
+  end
+
   private
 
   def entity_name

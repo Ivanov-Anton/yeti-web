@@ -97,7 +97,6 @@
 #  sst_minimum_timer                  :integer(4)
 #  sst_session_expires                :integer(4)
 #  suppress_early_media               :boolean
-#  symmetric_rtp_ignore_rtcp          :boolean
 #  symmetric_rtp_nonstop              :boolean
 #  term_append_headers_req            :string
 #  term_disconnect_policy_name        :string
@@ -110,6 +109,8 @@
 #  termination_capacity               :integer(2)
 #  termination_dst_numberlist_name    :string
 #  termination_src_numberlist_name    :string
+#  to_rewrite_result                  :string
+#  to_rewrite_rule                    :string
 #  transport_protocol_name            :string
 #  try_avoid_transcoding              :boolean
 #  tx_inband_dtmf_filtering_mode_name :string
@@ -181,6 +182,7 @@ class Importing::Gateway < Importing::Base
     priority
     weight
     pop_id
+    sip_schema_id
     host port
     origination_capacity
     termination_capacity
@@ -190,6 +192,7 @@ class Importing::Gateway < Importing::Base
     src_name_rewrite_rule src_name_rewrite_result
     src_rewrite_rule src_rewrite_result
     dst_rewrite_rule dst_rewrite_result
+    to_rewrite_rule to_rewrite_result
     acd_limit asr_limit short_calls_limit
     allow_termination allow_origination
     proxy_media
@@ -215,7 +218,7 @@ class Importing::Gateway < Importing::Base
     sip_timer_b dns_srv_failover_timer
     sdp_c_location_id codec_group_id
     single_codec_in_200ok force_symmetric_rtp symmetric_rtp_nonstop
-    symmetric_rtp_ignore_rtcp force_dtmf_relay rtp_ping
+    force_dtmf_relay rtp_ping
     rtp_timeout filter_noaudio_streams rtp_relay_timestamp_aligning
     rtp_force_relay_cn
     dtmf_receive_mode_id dtmf_send_mode_id
@@ -240,8 +243,13 @@ class Importing::Gateway < Importing::Base
     registered_aor_mode_id.nil? ? 'unknown' : Gateway::REGISTERED_AOR_MODES[registered_aor_mode_id]
   end
 
+  def sip_schema_display_name
+    sip_schema_id.nil? ? 'unknown' : Gateway::SIP_SCHEMAS[sip_schema_id]
+  end
+
   def self.after_import_hook
     resolve_integer_constant('registered_aor_mode_id', 'registered_aor_mode_name', Gateway::REGISTERED_AOR_MODES)
+    resolve_integer_constant('sip_schema_id', 'sip_schema_name', Gateway::SIP_SCHEMAS)
     super
   end
 end

@@ -5,25 +5,22 @@ class Api::Rest::Admin::AccountResource < BaseResource
   paginator :paged
 
   attributes :name,
-             :balance, :min_balance, :max_balance,
+             :balance, :min_balance, :max_balance, :vat,
              :balance_low_threshold, :balance_high_threshold, :send_balance_notifications_to,
              :destination_rate_limit, :max_call_duration,
              :external_id, :uuid,
              :origination_capacity, :termination_capacity, :total_capacity,
-             :send_invoices_to
+             :send_invoices_to, :invoice_period
 
   has_one :contractor
   has_one :timezone, class_name: 'System::Timezone'
-
-  has_one :customer_invoice_period, class_name: 'Billing::InvoicePeriod'
-  has_one :vendor_invoice_period, class_name: 'Billing::InvoicePeriod'
-  has_one :customer_invoice_template, class_name: 'Billing::InvoiceTemplate'
-  has_one :vendor_invoice_template, class_name: 'Billing::InvoiceTemplate'
+  has_one :invoice_template, class_name: 'Billing::InvoiceTemplate'
 
   filter :name
 
   ransack_filter :name, type: :string
   ransack_filter :balance, type: :number
+  ransack_filter :vat, type: :number
   ransack_filter :min_balance, type: :number
   ransack_filter :max_balance, type: :number
   ransack_filter :balance_low_threshold, type: :number, column: :balance_notification_setting_low_threshold
@@ -48,6 +45,10 @@ class Api::Rest::Admin::AccountResource < BaseResource
     _model.balance_notification_setting.high_threshold
   end
 
+  def invoice_period
+    _model.invoice_period&.name
+  end
+
   def self.updatable_fields(_context)
     %i[
       name
@@ -68,10 +69,8 @@ class Api::Rest::Admin::AccountResource < BaseResource
 
       contractor
       timezone
-      customer_invoice_period
-      vendor_invoice_period
-      customer_invoice_template
-      vendor_invoice_template
+      invoice_period
+      invoice_template
       external_id
     ]
   end

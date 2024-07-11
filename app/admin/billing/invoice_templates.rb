@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 ActiveAdmin.register Billing::InvoiceTemplate, as: 'InvoiceTemplate' do
-  menu parent: 'Billing', label: 'Invoice templates', priority: 40
+  menu parent: %w[Billing Settings], label: 'Invoice templates', priority: 90
   config.batch_actions = false
   actions :all # :index,:create, :new, :destroy, :delete, :edit, :update
   before_action :left_sidebar!
@@ -53,8 +53,9 @@ ActiveAdmin.register Billing::InvoiceTemplate, as: 'InvoiceTemplate' do
       f.input :name
       f.input :template_file, as: :file
     end
-    panel 'test' do
-      'You can use next placeholders:'
+    f.actions
+    panel 'Scalar placeholders' do
+      text_node 'This list of placeholders you can use anywhere in ODT template'.html_safe
       table_for BillingInvoice::GenerateDocument.replaces_list.each do |_x|
         column :placeholder do |c|
           strong do
@@ -66,8 +67,6 @@ ActiveAdmin.register Billing::InvoiceTemplate, as: 'InvoiceTemplate' do
         end
       end
     end
-
-    f.actions
   end
 
   show do |_t|

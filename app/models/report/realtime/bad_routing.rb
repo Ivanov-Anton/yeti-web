@@ -46,11 +46,17 @@
 #  lega_disconnect_code            :integer(4)
 #  lega_disconnect_reason          :string
 #  lega_identity                   :jsonb
+#  lega_q850_cause                 :integer(2)
+#  lega_q850_params                :string
+#  lega_q850_text                  :string
 #  lega_user_agent                 :string
 #  legb_disconnect_code            :integer(4)
 #  legb_disconnect_reason          :string
 #  legb_local_tag                  :string
 #  legb_outbound_proxy             :string
+#  legb_q850_cause                 :integer(2)
+#  legb_q850_params                :string
+#  legb_q850_text                  :string
 #  legb_ruri                       :string
 #  legb_user_agent                 :string
 #  local_tag                       :string
@@ -90,7 +96,6 @@
 #  success                         :boolean
 #  time_connect                    :timestamptz
 #  time_end                        :timestamptz
-#  time_limit                      :string
 #  time_start                      :timestamptz      not null
 #  to_domain                       :string
 #  uuid                            :uuid
@@ -115,6 +120,7 @@
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
+#  internal_disconnect_code_id     :integer(2)
 #  lega_ss_status_id               :integer(2)
 #  legb_ss_status_id               :integer(2)
 #  lnp_database_id                 :integer(2)
@@ -122,6 +128,7 @@
 #  orig_call_id                    :string
 #  orig_gw_external_id             :bigint(8)
 #  orig_gw_id                      :integer(4)
+#  package_counter_id              :bigint(8)
 #  pop_id                          :integer(4)
 #  rateplan_id                     :integer(4)
 #  routing_group_id                :integer(4)
@@ -143,12 +150,11 @@
 # Indexes
 #
 #  cdr_customer_acc_external_id_time_start_idx  (customer_acc_external_id,time_start) WHERE is_last_cdr
-#  cdr_customer_acc_id_time_start_idx           (customer_acc_id,time_start) WHERE is_last_cdr
 #  cdr_customer_acc_id_time_start_idx1          (customer_acc_id,time_start)
-#  cdr_customer_invoice_id_idx                  (customer_invoice_id)
+#  cdr_customer_id_time_start_idx               (customer_id,time_start)
 #  cdr_id_idx                                   (id)
 #  cdr_time_start_idx                           (time_start)
-#  cdr_vendor_invoice_id_idx                    (vendor_invoice_id)
+#  cdr_vendor_id_time_start_idx                 (vendor_id,time_start)
 #
 
 class Report::Realtime::BadRouting < Report::Realtime::Base

@@ -190,7 +190,8 @@ CREATE TYPE rtp_statistics.tx_stream_ty AS (
 	tx_rtcp_jitter_max real,
 	tx_rtcp_jitter_mean real,
 	tx_rtcp_jitter_std real,
-	rx rtp_statistics.rx_stream_ty[]
+	rx rtp_statistics.rx_stream_ty[],
+	rx_srtp_decrypt_errors bigint
 );
 
 
@@ -284,7 +285,19 @@ CREATE TYPE switch.dynamic_cdr_data_ty AS (
 	lega_ss_status_id smallint,
 	legb_ss_status_id smallint,
 	metadata character varying,
-	customer_auth_external_type character varying
+	customer_auth_external_type character varying,
+	package_counter_id bigint
+);
+
+
+--
+-- Name: reason_ty; Type: TYPE; Schema: switch; Owner: -
+--
+
+CREATE TYPE switch.reason_ty AS (
+	q850_cause smallint,
+	q850_text character varying,
+	q850_params character varying
 );
 
 
@@ -293,7 +306,17 @@ CREATE TYPE switch.dynamic_cdr_data_ty AS (
 --
 
 CREATE TYPE switch.lega_headers_ty AS (
-	p_charge_info character varying
+	p_charge_info character varying,
+	reason switch.reason_ty
+);
+
+
+--
+-- Name: legb_headers_ty; Type: TYPE; Schema: switch; Owner: -
+--
+
+CREATE TYPE switch.legb_headers_ty AS (
+	reason switch.reason_ty
 );
 
 
@@ -369,7 +392,6 @@ CREATE TABLE cdr.cdr (
     destination_fee numeric,
     dialpeer_next_rate numeric,
     dialpeer_fee numeric,
-    time_limit character varying,
     internal_disconnect_code integer,
     internal_disconnect_reason character varying,
     disconnect_initiator_id integer,
@@ -487,7 +509,15 @@ CREATE TABLE cdr.cdr (
     legb_ss_status_id smallint,
     dump_level_id smallint,
     metadata jsonb,
-    customer_auth_external_type character varying
+    customer_auth_external_type character varying,
+    lega_q850_text character varying,
+    legb_q850_text character varying,
+    lega_q850_cause smallint,
+    lega_q850_params character varying,
+    legb_q850_cause smallint,
+    legb_q850_params character varying,
+    internal_disconnect_code_id smallint,
+    package_counter_id bigint
 )
 PARTITION BY RANGE (time_start);
 
@@ -503,7 +533,21 @@ DECLARE
     _v billing.interval_billing_data%rowtype;
 BEGIN
     if i_cdr.duration>0 and i_cdr.success then  -- run billing.
-        _v=billing.interval_billing(
+        if i_cdr.package_counter_id is not null then
+          -- running billing with fake rates to calculate duration
+          _v=billing.interval_billing(
+            i_cdr.duration,
+            '1.0'::numeric,
+            '1.0'::numeric,
+            '1.0'::numeric,
+            i_cdr.destination_initial_interval,
+            i_cdr.destination_next_interval,
+            0::integer);
+         i_cdr.customer_price=0;
+         i_cdr.customer_price_no_vat=0;
+         i_cdr.customer_duration=_v.duration;
+        else
+          _v=billing.interval_billing(
             i_cdr.duration,
             i_cdr.destination_fee,
             i_cdr.destination_initial_rate,
@@ -514,6 +558,7 @@ BEGIN
          i_cdr.customer_price=_v.amount;
          i_cdr.customer_price_no_vat=_v.amount_no_vat;
          i_cdr.customer_duration=_v.duration;
+        end if;
 
          _v=billing.interval_billing(
             i_cdr.duration,
@@ -560,197 +605,6 @@ BEGIN
     _v.duration=i_initial_interval+(i_duration>i_initial_interval)::boolean::integer * CEIL((i_duration-i_initial_interval)::numeric/i_next_interval) *i_next_interval;
 
     RETURN _v;
-END;
-$$;
-
-
---
--- Name: invoice_generate(integer); Type: FUNCTION; Schema: billing; Owner: -
---
-
-CREATE FUNCTION billing.invoice_generate(i_id integer) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-v_id integer;
-v_amount numeric;
-v_count bigint;
-v_duration bigint;
-v_min_date timestamp;
-v_max_date timestamp;
-v_sql varchar;
-v_invoice billing.invoices%rowtype;
-BEGIN
-    lock table billing.invoices in exclusive mode; -- see ticket #108
-    select into strict v_invoice * from billing.invoices where id=i_id;
-
-    if v_invoice.start_date is null then
-        select into v_invoice.start_date end_date from billing.invoices where account_id=v_invoice.account_id order by end_date desc limit 1;
-        if not found then
-            RAise exception 'Can''t detect date start';
-        end if;
-    end if;
-
-    if v_invoice.vendor_invoice then
-        PERFORM * FROM cdr.cdr
-            WHERE vendor_acc_id=v_invoice.account_id AND time_start>=v_invoice.start_date AND time_end<v_invoice.end_date AND vendor_invoice_id IS NOT NULL;
-        IF FOUND THEN
-            RAISE EXCEPTION 'billing.invoice_generate: some vendor invoices already found for this interval';
-        END IF;
-
-        execute format('UPDATE cdr.cdr SET vendor_invoice_id=%L
-            WHERE vendor_acc_id =%L AND time_start>=%L AND time_end<%L AND vendor_invoice_id IS NULL',
-            v_invoice.id, v_invoice.account_id, v_invoice.start_date, v_invoice.end_date
-        );
-
-        execute format('insert into billing.invoice_destinations(
-            dst_prefix,country_id,network_id,rate,calls_count,calls_duration,amount,invoice_id,first_call_at,last_call_at
-            ) select  dialpeer_prefix,
-                            dst_country_id,
-                            dst_network_id,
-                            dialpeer_next_rate,
-                            count(nullif(is_last_cdr,false)),
-                            sum(duration),
-                            sum(vendor_price),
-                            %L,
-                            min(time_start),
-                            max(time_start)
-                    from cdr.cdr
-                    where vendor_acc_id =%L AND time_start>=%L AND time_end<%L AND vendor_invoice_id =%L
-                    group by dialpeer_prefix, dst_country_id, dst_network_id, dialpeer_next_rate',
-                    v_invoice.id, v_invoice.account_id, v_invoice.start_date, v_invoice.end_date, v_invoice.id);
-
-        SELECT INTO v_count, v_duration, v_amount, v_min_date, v_max_date
-            coalesce(sum(calls_count),0),
-            coalesce(sum(calls_duration),0),
-            COALESCE(sum(amount),0),
-            min(first_call_at),
-            max(last_call_at)
-        from billing.invoice_destinations
-        where invoice_id =v_invoice.id;
-
-        UPDATE billing.invoices
-        SET amount=v_amount, calls_count=v_count, calls_duration=v_duration, first_call_date=v_min_date,last_call_date=v_max_date, start_date=v_invoice.start_date
-        WHERE id=v_invoice.id;
-    ELSE -- customer invoice generation
-        PERFORM * FROM cdr.cdr
-            WHERE customer_acc_id=v_invoice.account_id AND time_start>=v_invoice.start_date AND time_end<v_invoice.end_date AND customer_invoice_id IS NOT NULL;
-        IF FOUND THEN
-            RAISE EXCEPTION 'billing.invoice_generate: some customer invoices already found for this interval';
-        END IF;
-
-        execute format('UPDATE cdr.cdr SET customer_invoice_id=%L
-            WHERE customer_acc_id =%L AND time_start>=%L AND time_end<%L AND customer_invoice_id IS NULL',
-            v_invoice.id, v_invoice.account_id, v_invoice.start_date, v_invoice.end_date
-        );
-
-        execute format ('insert into billing.invoice_destinations(
-            dst_prefix,country_id,network_id,rate,calls_count,calls_duration,amount,invoice_id,first_call_at,last_call_at
-            ) select  destination_prefix,
-                            dst_country_id,
-                            dst_network_id,
-                            destination_next_rate,
-                            count(nullif(is_last_cdr,false)),
-                            sum(duration),
-                            sum(customer_price),
-                            %L,
-                            min(time_start),
-                            max(time_start)
-                    from cdr.cdr
-                    where customer_acc_id =%L AND time_start>=%L AND time_end<%L AND customer_invoice_id =%L
-                    group by destination_prefix, dst_country_id, dst_network_id, destination_next_rate',
-                    v_invoice.id, v_invoice.account_id, v_invoice.start_date, v_invoice.end_date, v_invoice.id);
-
-        SELECT INTO v_count,v_duration,v_amount,v_min_date,v_max_date
-            coalesce(sum(calls_count),0),
-            coalesce(sum(calls_duration),0),
-            COALESCE(sum(amount),0),
-            min(first_call_at),
-            max(last_call_at)
-        from billing.invoice_destinations
-        where invoice_id =v_invoice.id;
-
-        UPDATE billing.invoices
-        SET amount=v_amount,calls_count=v_count,calls_duration=v_duration, first_call_date=v_min_date,last_call_date=v_max_date, start_date=v_invoice.start_date
-        WHERE id=v_invoice.id;
-        END IF;
-
-RETURN;
-END;
-$$;
-
-
---
--- Name: invoice_generate(integer, integer, boolean, timestamp without time zone, timestamp without time zone); Type: FUNCTION; Schema: billing; Owner: -
---
-
-CREATE FUNCTION billing.invoice_generate(i_contractor_id integer, i_account_id integer, i_vendor_flag boolean, i_startdate timestamp without time zone, i_enddate timestamp without time zone) RETURNS integer
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-v_id integer;
-v_amount numeric;
-v_count bigint;
-v_min_date timestamp;
-v_max_date timestamp;
-BEGIN
-        BEGIN
-                INSERT into billing.invoices(contractor_id,account_id,start_date,end_date,amount,vendor_invoice,calls_count)
-                        VALUES(i_contractor_id,i_account_id,i_startdate,i_enddate,0,i_vendor_flag,0) RETURNING id INTO v_id;
-        EXCEPTION
-                WHEN foreign_key_violation THEN
-                        RAISE EXCEPTION 'billing.invoice_generate: account not found in this moment';
-        END;
-
-        if i_vendor_flag THEN
-                PERFORM * FROM cdr.cdr WHERE vendor_acc_id =i_account_id AND time_start>=i_startdate AND time_end<i_enddate AND vendor_invoice_id IS NOT NULL;
-                IF FOUND THEN
-                        RAISE EXCEPTION 'billing.invoice_generate: some vendor invoices already found for this interval';
-                END IF;
-                UPDATE cdr.cdr SET vendor_invoice_id=v_id WHERE vendor_acc_id =i_account_id AND time_start>=i_startdate AND time_end<i_enddate AND vendor_invoice_id IS NULL;
-                SELECT INTO v_count,v_amount,v_min_date,v_max_date
-                        count(*),
-                        COALESCE(sum(vendor_price),0),
-                        min(time_start),
-                        max(time_start)
-                        from cdr.cdr
-                        WHERE vendor_acc_id =i_account_id AND time_start>=i_startdate AND time_end<i_enddate AND vendor_invoice_id =v_id;
-                        RAISE NOTICE 'wer % - %',v_count,v_amount;
-                UPDATE billing.invoices SET amount=v_amount,calls_count=v_count,first_call_date=v_min_date,last_call_date=v_max_date WHERE id=v_id;
-        ELSE
-                PERFORM * FROM cdr.cdr WHERE customer_acc_id =i_account_id AND time_start>=i_startdate AND time_end<i_enddate AND customer_invoice_id IS NOT NULL;
-                IF FOUND THEN
-                        RAISE EXCEPTION 'billing.invoice_generate: some customer invoices already found for this interval';
-                END IF;
-                UPDATE cdr.cdr SET customer_invoice_id=v_id WHERE customer_acc_id =i_account_id AND time_start>=i_startdate AND time_end<i_enddate AND customer_invoice_id IS NULL;
-
-                /* we need rewrite this ot dynamic SQL to use partiotioning */
-                insert into billing.invoice_destinations(country_id,network_id,rate,calls_count,calls_duration,amount,invoice_id,first_call_at,last_call_at)
-                    select  dst_country_id,
-                            dst_network_id,
-                            destination_next_rate,
-                            count(nullif(is_last_cdr,false)),
-                            sum(duration),
-                            sum(customer_price),
-                            v_id,
-                            min(time_start),
-                            max(time_start)
-                    from cdr.cdr
-                    where customer_acc_id =i_account_id AND time_start>=i_startdate AND time_end<i_enddate AND customer_invoice_id =v_id
-                    group by dst_country_id,dst_network_id,destination_next_rate;
-
-                SELECT INTO v_count,v_amount,v_min_date,v_max_date
-                    coalesce(sum(calls_count),0),
-                    COALESCE(sum(amount),0),
-                    min(first_call_at),
-                    max(last_call_at)
-                from billing.invoice_destinations
-                where invoice_id =v_id;
-
-
-                UPDATE billing.invoices SET amount=v_amount,calls_count=v_count,first_call_date=v_min_date,last_call_date=v_max_date WHERE id=v_id;
-        END IF;
-RETURN v_id;
 END;
 $$;
 
@@ -1178,6 +1032,7 @@ BEGIN
         v_rtp_tx_stream_data.rx_out_of_buffer_errors=v_tx_stream.rx_out_of_buffer_errors;
         v_rtp_tx_stream_data.rx_rtp_parse_errors=v_tx_stream.rx_rtp_parse_errors;
         v_rtp_tx_stream_data.rx_dropped_packets=v_tx_stream.rx_dropped_packets;
+        v_rtp_tx_stream_data.rx_srtp_decrypt_errors = v_tx_stream.rx_srtp_decrypt_errors;
         v_rtp_tx_stream_data.tx_packets=v_tx_stream.tx_packets;
         v_rtp_tx_stream_data.tx_bytes=v_tx_stream.tx_bytes;
         v_rtp_tx_stream_data.tx_ssrc=v_tx_stream.tx_ssrc;
@@ -1247,547 +1102,6 @@ $$;
 
 
 --
--- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, character varying, integer, character varying, integer, smallint, character varying, integer, character varying, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json); Type: FUNCTION; Schema: switch; Owner: -
---
-
-CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip character varying, i_lega_local_port integer, i_lega_remote_ip character varying, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip character varying, i_legb_local_port integer, i_legb_remote_ip character varying, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json) RETURNS integer
-    LANGUAGE plpgsql SECURITY DEFINER COST 10
-    AS $$
-DECLARE
-  v_cdr cdr.cdr%rowtype;
-  v_billing_event billing.cdr_v2;
-
-  v_rtp_stats_data switch.rtp_stats_data_ty;
-  v_time_data switch.time_data_ty;
-  v_version_data switch.versions_ty;
-  v_dynamic switch.dynamic_cdr_data_ty;
-
-  v_nozerolen boolean;
-  v_config sys.config%rowtype;
-
-BEGIN
-  --  raise warning 'type: % id: %', i_failed_resource_type_id, i_failed_resource_id;
-  --  RAISE warning 'DTMF: %', i_dtmf_events;
-
-  v_time_data:=json_populate_record(null::switch.time_data_ty, i_time_data);
-  v_version_data:=json_populate_record(null::switch.versions_ty, i_versions);
-  v_dynamic:=json_populate_record(null::switch.dynamic_cdr_data_ty, i_dynamic);
-
-  v_cdr.core_version=v_version_data.core;
-  v_cdr.yeti_version=v_version_data.yeti;
-  v_cdr.lega_user_agent=v_version_data.aleg;
-  v_cdr.legb_user_agent=v_version_data.bleg;
-
-  v_cdr.pop_id=i_pop_id;
-  v_cdr.node_id=i_node_id;
-
-  v_cdr.src_name_in:=v_dynamic.src_name_in;
-  v_cdr.src_name_out:=v_dynamic.src_name_out;
-
-  v_cdr.diversion_in:=v_dynamic.diversion_in;
-  v_cdr.diversion_out:=v_dynamic.diversion_out;
-
-  v_cdr.customer_id:=v_dynamic.customer_id;
-  v_cdr.customer_external_id:=v_dynamic.customer_external_id;
-
-  v_cdr.customer_acc_id:=v_dynamic.customer_acc_id;
-  v_cdr.customer_account_check_balance=v_dynamic.customer_acc_check_balance;
-  v_cdr.customer_acc_external_id=v_dynamic.customer_acc_external_id;
-  v_cdr.customer_acc_vat:=v_dynamic.customer_acc_vat;
-
-  v_cdr.customer_auth_id:=v_dynamic.customer_auth_id;
-  v_cdr.customer_auth_external_id:=v_dynamic.customer_auth_external_id;
-  v_cdr.customer_auth_name:=v_dynamic.customer_auth_name;
-
-  v_cdr.vendor_id:=v_dynamic.vendor_id;
-  v_cdr.vendor_external_id:=v_dynamic.vendor_external_id;
-  v_cdr.vendor_acc_id:=v_dynamic.vendor_acc_id;
-  v_cdr.vendor_acc_external_id:=v_dynamic.vendor_acc_external_id;
-
-  v_cdr.destination_id:=v_dynamic.destination_id;
-  v_cdr.destination_prefix:=v_dynamic.destination_prefix;
-  v_cdr.dialpeer_id:=v_dynamic.dialpeer_id;
-  v_cdr.dialpeer_prefix:=v_dynamic.dialpeer_prefix;
-
-  v_cdr.orig_gw_id:=v_dynamic.orig_gw_id;
-  v_cdr.orig_gw_external_id:=v_dynamic.orig_gw_external_id;
-  v_cdr.term_gw_id:=v_dynamic.term_gw_id;
-  v_cdr.term_gw_external_id:=v_dynamic.term_gw_external_id;
-
-  v_cdr.routing_group_id:=v_dynamic.routing_group_id;
-  v_cdr.rateplan_id:=v_dynamic.rateplan_id;
-
-  v_cdr.routing_attempt=i_routing_attempt;
-  v_cdr.is_last_cdr=i_is_last_cdr;
-
-  v_cdr.destination_initial_rate:=v_dynamic.destination_initial_rate::numeric;
-  v_cdr.destination_next_rate:=v_dynamic.destination_next_rate::numeric;
-  v_cdr.destination_initial_interval:=v_dynamic.destination_initial_interval;
-  v_cdr.destination_next_interval:=v_dynamic.destination_next_interval;
-  v_cdr.destination_fee:=v_dynamic.destination_fee;
-  v_cdr.destination_rate_policy_id:=v_dynamic.destination_rate_policy_id;
-  v_cdr.destination_reverse_billing=v_dynamic.destination_reverse_billing;
-
-  v_cdr.dialpeer_initial_rate:=v_dynamic.dialpeer_initial_rate::numeric;
-  v_cdr.dialpeer_next_rate:=v_dynamic.dialpeer_next_rate::numeric;
-  v_cdr.dialpeer_initial_interval:=v_dynamic.dialpeer_initial_interval;
-  v_cdr.dialpeer_next_interval:=v_dynamic.dialpeer_next_interval;
-  v_cdr.dialpeer_fee:=v_dynamic.dialpeer_fee;
-  v_cdr.dialpeer_reverse_billing=v_dynamic.dialpeer_reverse_billing;
-
-  /* sockets addresses */
-  v_cdr.sign_orig_transport_protocol_id=i_lega_transport_protocol_id;
-  v_cdr.sign_orig_ip:=i_legA_remote_ip;
-  v_cdr.sign_orig_port=i_legA_remote_port;
-  v_cdr.sign_orig_local_ip:=i_legA_local_ip;
-  v_cdr.sign_orig_local_port=i_legA_local_port;
-
-  v_cdr.sign_term_transport_protocol_id=i_legb_transport_protocol_id;
-  v_cdr.sign_term_ip:=i_legB_remote_ip;
-  v_cdr.sign_term_port:=i_legB_remote_port;
-  v_cdr.sign_term_local_ip:=i_legB_local_ip;
-  v_cdr.sign_term_local_port:=i_legB_local_port;
-
-  v_cdr.local_tag=i_local_tag;
-  v_cdr.legb_local_tag=i_legb_local_tag;
-  v_cdr.legb_ruri=i_legb_ruri;
-  v_cdr.legb_outbound_proxy=i_legb_outbound_proxy;
-
-  v_cdr.is_redirected=i_is_redirected;
-
-  /* Call time data */
-  v_cdr.time_start:=to_timestamp(v_time_data.time_start);
-  v_cdr.time_limit:=v_time_data.time_limit;
-
-  select into strict v_config * from sys.config;
-
-  if v_time_data.time_connect is not null then
-    v_cdr.time_connect:=to_timestamp(v_time_data.time_connect);
-    v_cdr.duration:=switch.duration_round(v_config, v_time_data.time_end-v_time_data.time_connect); -- rounding
-    v_nozerolen:=true;
-    v_cdr.success=true;
-  else
-    v_cdr.time_connect:=NULL;
-    v_cdr.duration:=0;
-    v_nozerolen:=false;
-    v_cdr.success=false;
-  end if;
-  v_cdr.routing_delay=(v_time_data.leg_b_time-v_time_data.time_start)::real;
-  v_cdr.pdd=(coalesce(v_time_data.time_18x,v_time_data.time_connect)-v_time_data.time_start)::real;
-  v_cdr.rtt=(coalesce(v_time_data.time_1xx,v_time_data.time_18x,v_time_data.time_connect)-v_time_data.leg_b_time)::real;
-  v_cdr.early_media_present=i_early_media_present;
-
-  v_cdr.time_end:=to_timestamp(v_time_data.time_end);
-
-  -- DC processing
-  v_cdr.legb_disconnect_code:=i_legb_disconnect_code;
-  v_cdr.legb_disconnect_reason:=i_legb_disconnect_reason;
-  v_cdr.disconnect_initiator_id:=i_disconnect_initiator;
-  v_cdr.internal_disconnect_code:=i_internal_disconnect_code;
-  v_cdr.internal_disconnect_reason:=i_internal_disconnect_reason;
-  v_cdr.lega_disconnect_code:=i_lega_disconnect_code;
-  v_cdr.lega_disconnect_reason:=i_lega_disconnect_reason;
-
-  v_cdr.src_prefix_in:=v_dynamic.src_prefix_in;
-  v_cdr.src_prefix_out:=v_dynamic.src_prefix_out;
-  v_cdr.dst_prefix_in:=v_dynamic.dst_prefix_in;
-  v_cdr.dst_prefix_out:=v_dynamic.dst_prefix_out;
-
-  v_cdr.orig_call_id=i_orig_call_id;
-  v_cdr.term_call_id=i_term_call_id;
-
-  /* removed */
-  --v_cdr.dump_file:=i_msg_logger_path;
-
-  v_cdr.dump_level_id:=i_dump_level_id;
-  v_cdr.audio_recorded:=i_audio_recorded;
-
-  v_cdr.auth_orig_transport_protocol_id=v_dynamic.auth_orig_protocol_id;
-  v_cdr.auth_orig_ip:=v_dynamic.auth_orig_ip;
-  v_cdr.auth_orig_ip:=v_dynamic.auth_orig_ip;
-  v_cdr.auth_orig_port:=v_dynamic.auth_orig_port;
-
-
-  v_rtp_stats_data:=json_populate_record(null::switch.rtp_stats_data_ty, i_rtp_stats_data);
-
-  v_cdr.global_tag=i_global_tag;
-
-  v_cdr.dst_country_id=v_dynamic.dst_country_id;
-  v_cdr.dst_network_id=v_dynamic.dst_network_id;
-  v_cdr.dst_prefix_routing=v_dynamic.dst_prefix_routing;
-  v_cdr.src_prefix_routing=v_dynamic.src_prefix_routing;
-  v_cdr.routing_plan_id=v_dynamic.routing_plan_id;
-  v_cdr.lrn=v_dynamic.lrn;
-  v_cdr.lnp_database_id=v_dynamic.lnp_database_id;
-
-  v_cdr.ruri_domain=v_dynamic.ruri_domain;
-  v_cdr.to_domain=v_dynamic.to_domain;
-  v_cdr.from_domain=v_dynamic.from_domain;
-
-  v_cdr.src_area_id=v_dynamic.src_area_id;
-  v_cdr.dst_area_id=v_dynamic.dst_area_id;
-  v_cdr.routing_tag_ids=v_dynamic.routing_tag_ids;
-
-
-  v_cdr.id:=nextval('cdr.cdr_id_seq'::regclass);
-  v_cdr.uuid:=public.uuid_generate_v1();
-
-  v_cdr.pai_in=v_dynamic.pai_in;
-  v_cdr.ppi_in=v_dynamic.ppi_in;
-  v_cdr.privacy_in=v_dynamic.privacy_in;
-  v_cdr.rpid_in=v_dynamic.rpid_in;
-  v_cdr.rpid_privacy_in=v_dynamic.rpid_privacy_in;
-  v_cdr.pai_out=v_dynamic.pai_out;
-  v_cdr.ppi_out=v_dynamic.ppi_out;
-  v_cdr.privacy_out=v_dynamic.privacy_out;
-  v_cdr.rpid_out=v_dynamic.rpid_out;
-  v_cdr.rpid_privacy_out=v_dynamic.rpid_privacy_out;
-
-  v_cdr.failed_resource_type_id = i_failed_resource_type_id;
-  v_cdr.failed_resource_id = i_failed_resource_id;
-
-  v_cdr:=billing.bill_cdr(v_cdr);
-
-  if not v_config.disable_realtime_statistics then
-    perform stats.update_rt_stats(v_cdr);
-  end if;
-
-  v_cdr.customer_price = switch.customer_price_round(v_config, v_cdr.customer_price);
-  v_cdr.customer_price_no_vat = switch.customer_price_round(v_config, v_cdr.customer_price_no_vat);
-  v_cdr.vendor_price = switch.vendor_price_round(v_config, v_cdr.vendor_price);
-
-  v_billing_event.id=v_cdr.id;
-  v_billing_event.customer_id=v_cdr.customer_id;
-  v_billing_event.vendor_id=v_cdr.vendor_id;
-  v_billing_event.customer_acc_id=v_cdr.customer_acc_id;
-  v_billing_event.vendor_acc_id=v_cdr.vendor_acc_id;
-  v_billing_event.customer_auth_id=v_cdr.customer_auth_id;
-  v_billing_event.destination_id=v_cdr.destination_id;
-  v_billing_event.dialpeer_id=v_cdr.dialpeer_id;
-  v_billing_event.orig_gw_id=v_cdr.orig_gw_id;
-  v_billing_event.term_gw_id=v_cdr.term_gw_id;
-  v_billing_event.routing_group_id=v_cdr.routing_group_id;
-  v_billing_event.rateplan_id=v_cdr.rateplan_id;
-
-  v_billing_event.destination_next_rate=v_cdr.destination_next_rate;
-  v_billing_event.destination_fee=v_cdr.destination_fee;
-  v_billing_event.destination_initial_interval=v_cdr.destination_initial_interval;
-  v_billing_event.destination_next_interval=v_cdr.destination_next_interval;
-  v_billing_event.destination_initial_rate=v_cdr.destination_initial_rate;
-  v_billing_event.destination_reverse_billing=v_cdr.destination_reverse_billing;
-
-  v_billing_event.dialpeer_next_rate=v_cdr.dialpeer_next_rate;
-  v_billing_event.dialpeer_fee=v_cdr.dialpeer_fee;
-  v_billing_event.dialpeer_reverse_billing=v_cdr.dialpeer_reverse_billing;
-
-  v_billing_event.internal_disconnect_code=v_cdr.internal_disconnect_code;
-  v_billing_event.internal_disconnect_reason=v_cdr.internal_disconnect_reason;
-  v_billing_event.disconnect_initiator_id=v_cdr.disconnect_initiator_id;
-  v_billing_event.customer_price=v_cdr.customer_price;
-  v_billing_event.vendor_price=v_cdr.vendor_price;
-  v_billing_event.duration=v_cdr.duration;
-  v_billing_event.success=v_cdr.success;
-  v_billing_event.profit=v_cdr.profit;
-  v_billing_event.time_start=v_cdr.time_start;
-  v_billing_event.time_connect=v_cdr.time_connect;
-  v_billing_event.time_end=v_cdr.time_end;
-  v_billing_event.lega_disconnect_code=v_cdr.lega_disconnect_code;
-  v_billing_event.lega_disconnect_reason=v_cdr.lega_disconnect_reason;
-  v_billing_event.legb_disconnect_code=v_cdr.legb_disconnect_code;
-  v_billing_event.legb_disconnect_reason=v_cdr.legb_disconnect_reason;
-  v_billing_event.src_prefix_in=v_cdr.src_prefix_in;
-  v_billing_event.src_prefix_out=v_cdr.src_prefix_out;
-  v_billing_event.dst_prefix_in=v_cdr.dst_prefix_in;
-  v_billing_event.dst_prefix_out=v_cdr.dst_prefix_out;
-  v_billing_event.orig_call_id=v_cdr.orig_call_id;
-  v_billing_event.term_call_id=v_cdr.term_call_id;
-  v_billing_event.local_tag=v_cdr.local_tag;
-  v_billing_event.from_domain=v_cdr.from_domain;
-
-  -- generate event to billing engine
-  perform event.billing_insert_event('cdr_full',v_billing_event);
-  perform event.streaming_insert_event(v_cdr);
-  INSERT INTO cdr.cdr VALUES( v_cdr.*);
-  RETURN 0;
-END;
-$$;
-
-
---
--- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, character varying, integer, character varying, integer, smallint, character varying, integer, character varying, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json); Type: FUNCTION; Schema: switch; Owner: -
---
-
-CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip character varying, i_lega_local_port integer, i_lega_remote_ip character varying, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip character varying, i_legb_local_port integer, i_legb_remote_ip character varying, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_headers json) RETURNS integer
-    LANGUAGE plpgsql SECURITY DEFINER COST 10
-    AS $$
-DECLARE
-  v_cdr cdr.cdr%rowtype;
-  v_billing_event billing.cdr_v2;
-
-  v_rtp_stats_data switch.rtp_stats_data_ty;
-  v_time_data switch.time_data_ty;
-  v_version_data switch.versions_ty;
-  v_dynamic switch.dynamic_cdr_data_ty;
-
-  v_nozerolen boolean;
-  v_config sys.config%rowtype;
-
-  v_lega_headers switch.lega_headers_ty;
-
-BEGIN
-  --  raise warning 'type: % id: %', i_failed_resource_type_id, i_failed_resource_id;
-  --  RAISE warning 'DTMF: %', i_dtmf_events;
-
-  v_time_data:=json_populate_record(null::switch.time_data_ty, i_time_data);
-  v_version_data:=json_populate_record(null::switch.versions_ty, i_versions);
-  v_dynamic:=json_populate_record(null::switch.dynamic_cdr_data_ty, i_dynamic);
-
-  v_lega_headers:=json_populate_record(null::switch.lega_headers_ty, i_lega_headers);
-  v_cdr.p_charge_info_in = v_lega_headers.p_charge_info;
-
-  v_cdr.core_version=v_version_data.core;
-  v_cdr.yeti_version=v_version_data.yeti;
-  v_cdr.lega_user_agent=v_version_data.aleg;
-  v_cdr.legb_user_agent=v_version_data.bleg;
-
-  v_cdr.pop_id=i_pop_id;
-  v_cdr.node_id=i_node_id;
-
-  v_cdr.src_name_in:=v_dynamic.src_name_in;
-  v_cdr.src_name_out:=v_dynamic.src_name_out;
-
-  v_cdr.diversion_in:=v_dynamic.diversion_in;
-  v_cdr.diversion_out:=v_dynamic.diversion_out;
-
-  v_cdr.customer_id:=v_dynamic.customer_id;
-  v_cdr.customer_external_id:=v_dynamic.customer_external_id;
-
-  v_cdr.customer_acc_id:=v_dynamic.customer_acc_id;
-  v_cdr.customer_account_check_balance=v_dynamic.customer_acc_check_balance;
-  v_cdr.customer_acc_external_id=v_dynamic.customer_acc_external_id;
-  v_cdr.customer_acc_vat:=v_dynamic.customer_acc_vat;
-
-  v_cdr.customer_auth_id:=v_dynamic.customer_auth_id;
-  v_cdr.customer_auth_external_id:=v_dynamic.customer_auth_external_id;
-  v_cdr.customer_auth_name:=v_dynamic.customer_auth_name;
-
-  v_cdr.vendor_id:=v_dynamic.vendor_id;
-  v_cdr.vendor_external_id:=v_dynamic.vendor_external_id;
-  v_cdr.vendor_acc_id:=v_dynamic.vendor_acc_id;
-  v_cdr.vendor_acc_external_id:=v_dynamic.vendor_acc_external_id;
-
-  v_cdr.destination_id:=v_dynamic.destination_id;
-  v_cdr.destination_prefix:=v_dynamic.destination_prefix;
-  v_cdr.dialpeer_id:=v_dynamic.dialpeer_id;
-  v_cdr.dialpeer_prefix:=v_dynamic.dialpeer_prefix;
-
-  v_cdr.orig_gw_id:=v_dynamic.orig_gw_id;
-  v_cdr.orig_gw_external_id:=v_dynamic.orig_gw_external_id;
-  v_cdr.term_gw_id:=v_dynamic.term_gw_id;
-  v_cdr.term_gw_external_id:=v_dynamic.term_gw_external_id;
-
-  v_cdr.routing_group_id:=v_dynamic.routing_group_id;
-  v_cdr.rateplan_id:=v_dynamic.rateplan_id;
-
-  v_cdr.routing_attempt=i_routing_attempt;
-  v_cdr.is_last_cdr=i_is_last_cdr;
-
-  v_cdr.destination_initial_rate:=v_dynamic.destination_initial_rate::numeric;
-  v_cdr.destination_next_rate:=v_dynamic.destination_next_rate::numeric;
-  v_cdr.destination_initial_interval:=v_dynamic.destination_initial_interval;
-  v_cdr.destination_next_interval:=v_dynamic.destination_next_interval;
-  v_cdr.destination_fee:=v_dynamic.destination_fee;
-  v_cdr.destination_rate_policy_id:=v_dynamic.destination_rate_policy_id;
-  v_cdr.destination_reverse_billing=v_dynamic.destination_reverse_billing;
-
-  v_cdr.dialpeer_initial_rate:=v_dynamic.dialpeer_initial_rate::numeric;
-  v_cdr.dialpeer_next_rate:=v_dynamic.dialpeer_next_rate::numeric;
-  v_cdr.dialpeer_initial_interval:=v_dynamic.dialpeer_initial_interval;
-  v_cdr.dialpeer_next_interval:=v_dynamic.dialpeer_next_interval;
-  v_cdr.dialpeer_fee:=v_dynamic.dialpeer_fee;
-  v_cdr.dialpeer_reverse_billing=v_dynamic.dialpeer_reverse_billing;
-
-  /* sockets addresses */
-  v_cdr.sign_orig_transport_protocol_id=i_lega_transport_protocol_id;
-  v_cdr.sign_orig_ip:=i_legA_remote_ip;
-  v_cdr.sign_orig_port=i_legA_remote_port;
-  v_cdr.sign_orig_local_ip:=i_legA_local_ip;
-  v_cdr.sign_orig_local_port=i_legA_local_port;
-
-  v_cdr.sign_term_transport_protocol_id=i_legb_transport_protocol_id;
-  v_cdr.sign_term_ip:=i_legB_remote_ip;
-  v_cdr.sign_term_port:=i_legB_remote_port;
-  v_cdr.sign_term_local_ip:=i_legB_local_ip;
-  v_cdr.sign_term_local_port:=i_legB_local_port;
-
-  v_cdr.local_tag=i_local_tag;
-  v_cdr.legb_local_tag=i_legb_local_tag;
-  v_cdr.legb_ruri=i_legb_ruri;
-  v_cdr.legb_outbound_proxy=i_legb_outbound_proxy;
-
-  v_cdr.is_redirected=i_is_redirected;
-
-  /* Call time data */
-  v_cdr.time_start:=to_timestamp(v_time_data.time_start);
-  v_cdr.time_limit:=v_time_data.time_limit;
-
-  select into strict v_config * from sys.config;
-
-  if v_time_data.time_connect is not null then
-    v_cdr.time_connect:=to_timestamp(v_time_data.time_connect);
-    v_cdr.duration:=switch.duration_round(v_config, v_time_data.time_end-v_time_data.time_connect); -- rounding
-    v_nozerolen:=true;
-    v_cdr.success=true;
-  else
-    v_cdr.time_connect:=NULL;
-    v_cdr.duration:=0;
-    v_nozerolen:=false;
-    v_cdr.success=false;
-  end if;
-  v_cdr.routing_delay=(v_time_data.leg_b_time-v_time_data.time_start)::real;
-  v_cdr.pdd=(coalesce(v_time_data.time_18x,v_time_data.time_connect)-v_time_data.time_start)::real;
-  v_cdr.rtt=(coalesce(v_time_data.time_1xx,v_time_data.time_18x,v_time_data.time_connect)-v_time_data.leg_b_time)::real;
-  v_cdr.early_media_present=i_early_media_present;
-
-  v_cdr.time_end:=to_timestamp(v_time_data.time_end);
-
-  -- DC processing
-  v_cdr.legb_disconnect_code:=i_legb_disconnect_code;
-  v_cdr.legb_disconnect_reason:=i_legb_disconnect_reason;
-  v_cdr.disconnect_initiator_id:=i_disconnect_initiator;
-  v_cdr.internal_disconnect_code:=i_internal_disconnect_code;
-  v_cdr.internal_disconnect_reason:=i_internal_disconnect_reason;
-  v_cdr.lega_disconnect_code:=i_lega_disconnect_code;
-  v_cdr.lega_disconnect_reason:=i_lega_disconnect_reason;
-
-  v_cdr.src_prefix_in:=v_dynamic.src_prefix_in;
-  v_cdr.src_prefix_out:=v_dynamic.src_prefix_out;
-  v_cdr.dst_prefix_in:=v_dynamic.dst_prefix_in;
-  v_cdr.dst_prefix_out:=v_dynamic.dst_prefix_out;
-
-  v_cdr.orig_call_id=i_orig_call_id;
-  v_cdr.term_call_id=i_term_call_id;
-
-  /* removed */
-  --v_cdr.dump_file:=i_msg_logger_path;
-
-  v_cdr.dump_level_id:=i_dump_level_id;
-  v_cdr.audio_recorded:=i_audio_recorded;
-
-  v_cdr.auth_orig_transport_protocol_id=v_dynamic.auth_orig_protocol_id;
-  v_cdr.auth_orig_ip:=v_dynamic.auth_orig_ip;
-  v_cdr.auth_orig_ip:=v_dynamic.auth_orig_ip;
-  v_cdr.auth_orig_port:=v_dynamic.auth_orig_port;
-
-
-  v_rtp_stats_data:=json_populate_record(null::switch.rtp_stats_data_ty, i_rtp_stats_data);
-
-  v_cdr.global_tag=i_global_tag;
-
-  v_cdr.src_country_id=v_dynamic.src_country_id;
-  v_cdr.src_network_id=v_dynamic.src_network_id;
-  v_cdr.dst_country_id=v_dynamic.dst_country_id;
-  v_cdr.dst_network_id=v_dynamic.dst_network_id;
-  v_cdr.dst_prefix_routing=v_dynamic.dst_prefix_routing;
-  v_cdr.src_prefix_routing=v_dynamic.src_prefix_routing;
-  v_cdr.routing_plan_id=v_dynamic.routing_plan_id;
-  v_cdr.lrn=v_dynamic.lrn;
-  v_cdr.lnp_database_id=v_dynamic.lnp_database_id;
-
-  v_cdr.ruri_domain=v_dynamic.ruri_domain;
-  v_cdr.to_domain=v_dynamic.to_domain;
-  v_cdr.from_domain=v_dynamic.from_domain;
-
-  v_cdr.src_area_id=v_dynamic.src_area_id;
-  v_cdr.dst_area_id=v_dynamic.dst_area_id;
-  v_cdr.routing_tag_ids=v_dynamic.routing_tag_ids;
-
-
-  v_cdr.id:=nextval('cdr.cdr_id_seq'::regclass);
-  v_cdr.uuid:=public.uuid_generate_v1();
-
-  v_cdr.pai_in=v_dynamic.pai_in;
-  v_cdr.ppi_in=v_dynamic.ppi_in;
-  v_cdr.privacy_in=v_dynamic.privacy_in;
-  v_cdr.rpid_in=v_dynamic.rpid_in;
-  v_cdr.rpid_privacy_in=v_dynamic.rpid_privacy_in;
-  v_cdr.pai_out=v_dynamic.pai_out;
-  v_cdr.ppi_out=v_dynamic.ppi_out;
-  v_cdr.privacy_out=v_dynamic.privacy_out;
-  v_cdr.rpid_out=v_dynamic.rpid_out;
-  v_cdr.rpid_privacy_out=v_dynamic.rpid_privacy_out;
-
-  v_cdr.failed_resource_type_id = i_failed_resource_type_id;
-  v_cdr.failed_resource_id = i_failed_resource_id;
-
-  v_cdr:=billing.bill_cdr(v_cdr);
-
-  if not v_config.disable_realtime_statistics then
-    perform stats.update_rt_stats(v_cdr);
-  end if;
-
-  v_cdr.customer_price = switch.customer_price_round(v_config, v_cdr.customer_price);
-  v_cdr.customer_price_no_vat = switch.customer_price_round(v_config, v_cdr.customer_price_no_vat);
-  v_cdr.vendor_price = switch.vendor_price_round(v_config, v_cdr.vendor_price);
-
-  v_billing_event.id=v_cdr.id;
-  v_billing_event.customer_id=v_cdr.customer_id;
-  v_billing_event.vendor_id=v_cdr.vendor_id;
-  v_billing_event.customer_acc_id=v_cdr.customer_acc_id;
-  v_billing_event.vendor_acc_id=v_cdr.vendor_acc_id;
-  v_billing_event.customer_auth_id=v_cdr.customer_auth_id;
-  v_billing_event.destination_id=v_cdr.destination_id;
-  v_billing_event.dialpeer_id=v_cdr.dialpeer_id;
-  v_billing_event.orig_gw_id=v_cdr.orig_gw_id;
-  v_billing_event.term_gw_id=v_cdr.term_gw_id;
-  v_billing_event.routing_group_id=v_cdr.routing_group_id;
-  v_billing_event.rateplan_id=v_cdr.rateplan_id;
-
-  v_billing_event.destination_next_rate=v_cdr.destination_next_rate;
-  v_billing_event.destination_fee=v_cdr.destination_fee;
-  v_billing_event.destination_initial_interval=v_cdr.destination_initial_interval;
-  v_billing_event.destination_next_interval=v_cdr.destination_next_interval;
-  v_billing_event.destination_initial_rate=v_cdr.destination_initial_rate;
-  v_billing_event.destination_reverse_billing=v_cdr.destination_reverse_billing;
-
-  v_billing_event.dialpeer_next_rate=v_cdr.dialpeer_next_rate;
-  v_billing_event.dialpeer_fee=v_cdr.dialpeer_fee;
-  v_billing_event.dialpeer_reverse_billing=v_cdr.dialpeer_reverse_billing;
-
-  v_billing_event.internal_disconnect_code=v_cdr.internal_disconnect_code;
-  v_billing_event.internal_disconnect_reason=v_cdr.internal_disconnect_reason;
-  v_billing_event.disconnect_initiator_id=v_cdr.disconnect_initiator_id;
-  v_billing_event.customer_price=v_cdr.customer_price;
-  v_billing_event.vendor_price=v_cdr.vendor_price;
-  v_billing_event.duration=v_cdr.duration;
-  v_billing_event.success=v_cdr.success;
-  v_billing_event.profit=v_cdr.profit;
-  v_billing_event.time_start=v_cdr.time_start;
-  v_billing_event.time_connect=v_cdr.time_connect;
-  v_billing_event.time_end=v_cdr.time_end;
-  v_billing_event.lega_disconnect_code=v_cdr.lega_disconnect_code;
-  v_billing_event.lega_disconnect_reason=v_cdr.lega_disconnect_reason;
-  v_billing_event.legb_disconnect_code=v_cdr.legb_disconnect_code;
-  v_billing_event.legb_disconnect_reason=v_cdr.legb_disconnect_reason;
-  v_billing_event.src_prefix_in=v_cdr.src_prefix_in;
-  v_billing_event.src_prefix_out=v_cdr.src_prefix_out;
-  v_billing_event.dst_prefix_in=v_cdr.dst_prefix_in;
-  v_billing_event.dst_prefix_out=v_cdr.dst_prefix_out;
-  v_billing_event.orig_call_id=v_cdr.orig_call_id;
-  v_billing_event.term_call_id=v_cdr.term_call_id;
-  v_billing_event.local_tag=v_cdr.local_tag;
-  v_billing_event.from_domain=v_cdr.from_domain;
-
-  -- generate event to billing engine
-  perform event.billing_insert_event('cdr_full',v_billing_event);
-  perform event.streaming_insert_event(v_cdr);
-  INSERT INTO cdr.cdr VALUES( v_cdr.*);
-  RETURN 0;
-END;
-$$;
-
-
---
 -- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, character varying, integer, character varying, integer, smallint, character varying, integer, character varying, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
 --
 
@@ -1808,7 +1122,9 @@ DECLARE
   v_rtp_tx_stream_data rtp_statistics.tx_streams%rowtype;
 
   v_lega_headers switch.lega_headers_ty;
-
+  v_legb_headers switch.legb_headers_ty;
+  v_lega_reason switch.reason_ty;
+  v_legb_reason switch.reason_ty;
 BEGIN
   --  raise warning 'type: % id: %', i_failed_resource_type_id, i_failed_resource_id;
   --  RAISE warning 'DTMF: %', i_dtmf_events;
@@ -1818,7 +1134,19 @@ BEGIN
   v_dynamic:=json_populate_record(null::switch.dynamic_cdr_data_ty, i_dynamic);
 
   v_lega_headers:=json_populate_record(null::switch.lega_headers_ty, i_lega_headers);
+  v_legb_headers:=json_populate_record(null::switch.legb_headers_ty, i_legb_headers);
+
   v_cdr.p_charge_info_in = v_lega_headers.p_charge_info;
+
+  v_lega_reason = v_lega_headers.reason;
+  v_cdr.lega_q850_cause = v_lega_reason.q850_cause;
+  v_cdr.lega_q850_text = v_lega_reason.q850_text;
+  v_cdr.lega_q850_params = v_lega_reason.q850_params;
+
+  v_legb_reason = v_legb_headers.reason;
+  v_cdr.legb_q850_cause = v_legb_reason.q850_cause;
+  v_cdr.legb_q850_text = v_legb_reason.q850_text;
+  v_cdr.legb_q850_params = v_legb_reason.q850_params;
 
   v_cdr.lega_identity = i_lega_identity;
   v_cdr.lega_ss_status_id = v_dynamic.lega_ss_status_id;
@@ -1874,6 +1202,7 @@ BEGIN
   v_cdr.routing_attempt=i_routing_attempt;
   v_cdr.is_last_cdr=i_is_last_cdr;
 
+  v_cdr.package_counter_id = v_dynamic.package_counter_id;
   v_cdr.destination_initial_rate:=v_dynamic.destination_initial_rate::numeric;
   v_cdr.destination_next_rate:=v_dynamic.destination_next_rate::numeric;
   v_cdr.destination_initial_interval:=v_dynamic.destination_initial_interval;
@@ -1891,16 +1220,16 @@ BEGIN
 
   /* sockets addresses */
   v_cdr.sign_orig_transport_protocol_id=i_lega_transport_protocol_id;
-  v_cdr.sign_orig_ip:=i_legA_remote_ip;
-  v_cdr.sign_orig_port=i_legA_remote_port;
-  v_cdr.sign_orig_local_ip:=i_legA_local_ip;
-  v_cdr.sign_orig_local_port=i_legA_local_port;
+  v_cdr.sign_orig_ip=i_lega_remote_ip;
+  v_cdr.sign_orig_port=NULLIF(i_lega_remote_port,0);
+  v_cdr.sign_orig_local_ip=i_lega_local_ip;
+  v_cdr.sign_orig_local_port=NULLIF(i_lega_local_port,0);
 
   v_cdr.sign_term_transport_protocol_id=i_legb_transport_protocol_id;
-  v_cdr.sign_term_ip:=i_legB_remote_ip;
-  v_cdr.sign_term_port:=i_legB_remote_port;
-  v_cdr.sign_term_local_ip:=i_legB_local_ip;
-  v_cdr.sign_term_local_port:=i_legB_local_port;
+  v_cdr.sign_term_ip=i_legb_remote_ip;
+  v_cdr.sign_term_port=NULLIF(i_legb_remote_port,0);
+  v_cdr.sign_term_local_ip=i_legb_local_ip;
+  v_cdr.sign_term_local_port=NULLIF(i_legb_local_port,0);
 
   v_cdr.local_tag=i_local_tag;
   v_cdr.legb_local_tag=i_legb_local_tag;
@@ -1911,7 +1240,6 @@ BEGIN
 
   /* Call time data */
   v_cdr.time_start:=to_timestamp(v_time_data.time_start);
-  v_cdr.time_limit:=v_time_data.time_limit;
 
   select into strict v_config * from sys.config;
 
@@ -1941,6 +1269,264 @@ BEGIN
   v_cdr.internal_disconnect_reason:=i_internal_disconnect_reason;
   v_cdr.lega_disconnect_code:=i_lega_disconnect_code;
   v_cdr.lega_disconnect_reason:=i_lega_disconnect_reason;
+
+  v_cdr.src_prefix_in:=v_dynamic.src_prefix_in;
+  v_cdr.src_prefix_out:=v_dynamic.src_prefix_out;
+  v_cdr.dst_prefix_in:=v_dynamic.dst_prefix_in;
+  v_cdr.dst_prefix_out:=v_dynamic.dst_prefix_out;
+
+  v_cdr.orig_call_id=i_orig_call_id;
+  v_cdr.term_call_id=i_term_call_id;
+
+  /* removed */
+  --v_cdr.dump_file:=i_msg_logger_path;
+
+  v_cdr.dump_level_id:=i_dump_level_id;
+  v_cdr.audio_recorded:=i_audio_recorded;
+
+  v_cdr.auth_orig_transport_protocol_id=v_dynamic.auth_orig_protocol_id;
+  v_cdr.auth_orig_ip:=v_dynamic.auth_orig_ip;
+  v_cdr.auth_orig_ip:=v_dynamic.auth_orig_ip;
+  v_cdr.auth_orig_port:=v_dynamic.auth_orig_port;
+
+  perform switch.write_rtp_statistics(
+    i_rtp_statistics,
+    i_pop_id,
+    i_node_id,
+    v_dynamic.orig_gw_id,
+    v_dynamic.orig_gw_external_id,
+    v_dynamic.term_gw_id,
+    v_dynamic.term_gw_external_id,
+    i_local_tag,
+    i_legb_local_tag
+  );
+
+  v_cdr.global_tag=i_global_tag;
+
+  v_cdr.src_country_id=v_dynamic.src_country_id;
+  v_cdr.src_network_id=v_dynamic.src_network_id;
+  v_cdr.dst_country_id=v_dynamic.dst_country_id;
+  v_cdr.dst_network_id=v_dynamic.dst_network_id;
+  v_cdr.dst_prefix_routing=v_dynamic.dst_prefix_routing;
+  v_cdr.src_prefix_routing=v_dynamic.src_prefix_routing;
+  v_cdr.routing_plan_id=v_dynamic.routing_plan_id;
+  v_cdr.lrn=v_dynamic.lrn;
+  v_cdr.lnp_database_id=v_dynamic.lnp_database_id;
+
+  v_cdr.ruri_domain=v_dynamic.ruri_domain;
+  v_cdr.to_domain=v_dynamic.to_domain;
+  v_cdr.from_domain=v_dynamic.from_domain;
+
+  v_cdr.src_area_id=v_dynamic.src_area_id;
+  v_cdr.dst_area_id=v_dynamic.dst_area_id;
+  v_cdr.routing_tag_ids=v_dynamic.routing_tag_ids;
+
+
+  v_cdr.id:=nextval('cdr.cdr_id_seq'::regclass);
+  v_cdr.uuid:=public.uuid_generate_v1();
+
+  v_cdr.pai_in=v_dynamic.pai_in;
+  v_cdr.ppi_in=v_dynamic.ppi_in;
+  v_cdr.privacy_in=v_dynamic.privacy_in;
+  v_cdr.rpid_in=v_dynamic.rpid_in;
+  v_cdr.rpid_privacy_in=v_dynamic.rpid_privacy_in;
+  v_cdr.pai_out=v_dynamic.pai_out;
+  v_cdr.ppi_out=v_dynamic.ppi_out;
+  v_cdr.privacy_out=v_dynamic.privacy_out;
+  v_cdr.rpid_out=v_dynamic.rpid_out;
+  v_cdr.rpid_privacy_out=v_dynamic.rpid_privacy_out;
+
+  v_cdr.failed_resource_type_id = i_failed_resource_type_id;
+  v_cdr.failed_resource_id = i_failed_resource_id;
+
+  v_cdr:=billing.bill_cdr(v_cdr);
+
+  if not v_config.disable_realtime_statistics then
+    perform stats.update_rt_stats(v_cdr);
+  end if;
+
+  v_cdr.customer_price = switch.customer_price_round(v_config, v_cdr.customer_price);
+  v_cdr.customer_price_no_vat = switch.customer_price_round(v_config, v_cdr.customer_price_no_vat);
+  v_cdr.vendor_price = switch.vendor_price_round(v_config, v_cdr.vendor_price);
+
+  -- generate event to billing engine
+  perform event.billing_insert_event('cdr_full',v_cdr);
+  perform event.streaming_insert_event(v_cdr);
+  INSERT INTO cdr.cdr VALUES( v_cdr.*);
+  RETURN 0;
+END;
+$$;
+
+
+--
+-- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, character varying, integer, character varying, integer, smallint, character varying, integer, character varying, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, smallint, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
+--
+
+CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip character varying, i_lega_local_port integer, i_lega_remote_ip character varying, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip character varying, i_legb_local_port integer, i_legb_remote_ip character varying, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_internal_disconnect_code_id smallint, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_headers json, i_legb_headers json, i_lega_identity json) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER COST 10
+    AS $$
+DECLARE
+  v_cdr cdr.cdr%rowtype;
+
+  v_time_data switch.time_data_ty;
+  v_version_data switch.versions_ty;
+  v_dynamic switch.dynamic_cdr_data_ty;
+
+  v_nozerolen boolean;
+  v_config sys.config%rowtype;
+
+  v_rtp_rx_stream_data rtp_statistics.rx_streams%rowtype;
+  v_rtp_tx_stream_data rtp_statistics.tx_streams%rowtype;
+
+  v_lega_headers switch.lega_headers_ty;
+  v_legb_headers switch.legb_headers_ty;
+  v_lega_reason switch.reason_ty;
+  v_legb_reason switch.reason_ty;
+BEGIN
+  --  raise warning 'type: % id: %', i_failed_resource_type_id, i_failed_resource_id;
+  --  RAISE warning 'DTMF: %', i_dtmf_events;
+
+  v_time_data:=json_populate_record(null::switch.time_data_ty, i_time_data);
+  v_version_data:=json_populate_record(null::switch.versions_ty, i_versions);
+  v_dynamic:=json_populate_record(null::switch.dynamic_cdr_data_ty, i_dynamic);
+
+  v_lega_headers:=json_populate_record(null::switch.lega_headers_ty, i_lega_headers);
+  v_legb_headers:=json_populate_record(null::switch.legb_headers_ty, i_legb_headers);
+
+  v_cdr.p_charge_info_in = v_lega_headers.p_charge_info;
+
+  v_lega_reason = v_lega_headers.reason;
+  v_cdr.lega_q850_cause = v_lega_reason.q850_cause;
+  v_cdr.lega_q850_text = v_lega_reason.q850_text;
+  v_cdr.lega_q850_params = v_lega_reason.q850_params;
+
+  v_legb_reason = v_legb_headers.reason;
+  v_cdr.legb_q850_cause = v_legb_reason.q850_cause;
+  v_cdr.legb_q850_text = v_legb_reason.q850_text;
+  v_cdr.legb_q850_params = v_legb_reason.q850_params;
+
+  v_cdr.lega_identity = i_lega_identity;
+  v_cdr.lega_ss_status_id = v_dynamic.lega_ss_status_id;
+  v_cdr.legb_ss_status_id = v_dynamic.legb_ss_status_id;
+
+  v_cdr.metadata = v_dynamic.metadata::jsonb;
+
+  v_cdr.core_version=v_version_data.core;
+  v_cdr.yeti_version=v_version_data.yeti;
+  v_cdr.lega_user_agent=v_version_data.aleg;
+  v_cdr.legb_user_agent=v_version_data.bleg;
+
+  v_cdr.pop_id=i_pop_id;
+  v_cdr.node_id=i_node_id;
+
+  v_cdr.src_name_in:=v_dynamic.src_name_in;
+  v_cdr.src_name_out:=v_dynamic.src_name_out;
+
+  v_cdr.diversion_in:=v_dynamic.diversion_in;
+  v_cdr.diversion_out:=v_dynamic.diversion_out;
+
+  v_cdr.customer_id:=v_dynamic.customer_id;
+  v_cdr.customer_external_id:=v_dynamic.customer_external_id;
+
+  v_cdr.customer_acc_id:=v_dynamic.customer_acc_id;
+  v_cdr.customer_account_check_balance=v_dynamic.customer_acc_check_balance;
+  v_cdr.customer_acc_external_id=v_dynamic.customer_acc_external_id;
+  v_cdr.customer_acc_vat:=v_dynamic.customer_acc_vat;
+
+  v_cdr.customer_auth_id:=v_dynamic.customer_auth_id;
+  v_cdr.customer_auth_external_id:=v_dynamic.customer_auth_external_id;
+  v_cdr.customer_auth_external_type:=v_dynamic.customer_auth_external_type;
+  v_cdr.customer_auth_name:=v_dynamic.customer_auth_name;
+
+  v_cdr.vendor_id:=v_dynamic.vendor_id;
+  v_cdr.vendor_external_id:=v_dynamic.vendor_external_id;
+  v_cdr.vendor_acc_id:=v_dynamic.vendor_acc_id;
+  v_cdr.vendor_acc_external_id:=v_dynamic.vendor_acc_external_id;
+
+  v_cdr.package_counter_id = v_dynamic.package_counter_id;
+  v_cdr.destination_id:=v_dynamic.destination_id;
+  v_cdr.destination_prefix:=v_dynamic.destination_prefix;
+  v_cdr.dialpeer_id:=v_dynamic.dialpeer_id;
+  v_cdr.dialpeer_prefix:=v_dynamic.dialpeer_prefix;
+
+  v_cdr.orig_gw_id:=v_dynamic.orig_gw_id;
+  v_cdr.orig_gw_external_id:=v_dynamic.orig_gw_external_id;
+  v_cdr.term_gw_id:=v_dynamic.term_gw_id;
+  v_cdr.term_gw_external_id:=v_dynamic.term_gw_external_id;
+
+  v_cdr.routing_group_id:=v_dynamic.routing_group_id;
+  v_cdr.rateplan_id:=v_dynamic.rateplan_id;
+
+  v_cdr.routing_attempt=i_routing_attempt;
+  v_cdr.is_last_cdr=i_is_last_cdr;
+
+  v_cdr.destination_initial_rate:=v_dynamic.destination_initial_rate::numeric;
+  v_cdr.destination_next_rate:=v_dynamic.destination_next_rate::numeric;
+  v_cdr.destination_initial_interval:=v_dynamic.destination_initial_interval;
+  v_cdr.destination_next_interval:=v_dynamic.destination_next_interval;
+  v_cdr.destination_fee:=v_dynamic.destination_fee;
+  v_cdr.destination_rate_policy_id:=v_dynamic.destination_rate_policy_id;
+  v_cdr.destination_reverse_billing=v_dynamic.destination_reverse_billing;
+
+  v_cdr.dialpeer_initial_rate:=v_dynamic.dialpeer_initial_rate::numeric;
+  v_cdr.dialpeer_next_rate:=v_dynamic.dialpeer_next_rate::numeric;
+  v_cdr.dialpeer_initial_interval:=v_dynamic.dialpeer_initial_interval;
+  v_cdr.dialpeer_next_interval:=v_dynamic.dialpeer_next_interval;
+  v_cdr.dialpeer_fee:=v_dynamic.dialpeer_fee;
+  v_cdr.dialpeer_reverse_billing=v_dynamic.dialpeer_reverse_billing;
+
+  /* sockets addresses */
+  v_cdr.sign_orig_transport_protocol_id=i_lega_transport_protocol_id;
+  v_cdr.sign_orig_ip=i_lega_remote_ip;
+  v_cdr.sign_orig_port=NULLIF(i_lega_remote_port,0);
+  v_cdr.sign_orig_local_ip=i_lega_local_ip;
+  v_cdr.sign_orig_local_port=NULLIF(i_lega_local_port,0);
+
+  v_cdr.sign_term_transport_protocol_id=i_legb_transport_protocol_id;
+  v_cdr.sign_term_ip=i_legb_remote_ip;
+  v_cdr.sign_term_port=NULLIF(i_legb_remote_port,0);
+  v_cdr.sign_term_local_ip=i_legb_local_ip;
+  v_cdr.sign_term_local_port=NULLIF(i_legb_local_port,0);
+
+  v_cdr.local_tag=i_local_tag;
+  v_cdr.legb_local_tag=i_legb_local_tag;
+  v_cdr.legb_ruri=i_legb_ruri;
+  v_cdr.legb_outbound_proxy=i_legb_outbound_proxy;
+
+  v_cdr.is_redirected=i_is_redirected;
+
+  /* Call time data */
+  v_cdr.time_start:=to_timestamp(v_time_data.time_start);
+
+  select into strict v_config * from sys.config;
+
+  if v_time_data.time_connect is not null then
+    v_cdr.time_connect:=to_timestamp(v_time_data.time_connect);
+    v_cdr.duration:=switch.duration_round(v_config, v_time_data.time_end-v_time_data.time_connect); -- rounding
+    v_nozerolen:=true;
+    v_cdr.success=true;
+  else
+    v_cdr.time_connect:=NULL;
+    v_cdr.duration:=0;
+    v_nozerolen:=false;
+    v_cdr.success=false;
+  end if;
+  v_cdr.routing_delay=(v_time_data.leg_b_time-v_time_data.time_start)::real;
+  v_cdr.pdd=(coalesce(v_time_data.time_18x,v_time_data.time_connect)-v_time_data.time_start)::real;
+  v_cdr.rtt=(coalesce(v_time_data.time_1xx,v_time_data.time_18x,v_time_data.time_connect)-v_time_data.leg_b_time)::real;
+  v_cdr.early_media_present=i_early_media_present;
+
+  v_cdr.time_end:=to_timestamp(v_time_data.time_end);
+
+  -- DC processing
+  v_cdr.legb_disconnect_code=i_legb_disconnect_code;
+  v_cdr.legb_disconnect_reason=i_legb_disconnect_reason;
+  v_cdr.disconnect_initiator_id=i_disconnect_initiator;
+  v_cdr.internal_disconnect_code_id=i_internal_disconnect_code_id;
+  v_cdr.internal_disconnect_code=i_internal_disconnect_code;
+  v_cdr.internal_disconnect_reason=i_internal_disconnect_reason;
+  v_cdr.lega_disconnect_code=i_lega_disconnect_code;
+  v_cdr.lega_disconnect_reason=i_lega_disconnect_reason;
 
   v_cdr.src_prefix_in:=v_dynamic.src_prefix_in;
   v_cdr.src_prefix_out:=v_dynamic.src_prefix_out;
@@ -2124,48 +1710,6 @@ ALTER SEQUENCE auth_log.auth_log_id_seq OWNED BY auth_log.auth_log.id;
 
 
 --
--- Name: invoice_destinations; Type: TABLE; Schema: billing; Owner: -
---
-
-CREATE TABLE billing.invoice_destinations (
-    id bigint NOT NULL,
-    dst_prefix character varying,
-    country_id integer,
-    network_id integer,
-    rate numeric,
-    calls_count bigint,
-    calls_duration bigint,
-    amount numeric,
-    invoice_id integer NOT NULL,
-    first_call_at timestamp with time zone,
-    last_call_at timestamp with time zone,
-    successful_calls_count bigint,
-    first_successful_call_at timestamp with time zone,
-    last_successful_call_at timestamp with time zone,
-    billing_duration bigint
-);
-
-
---
--- Name: invoice_destinations_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
---
-
-CREATE SEQUENCE billing.invoice_destinations_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: invoice_destinations_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
---
-
-ALTER SEQUENCE billing.invoice_destinations_id_seq OWNED BY billing.invoice_destinations.id;
-
-
---
 -- Name: invoice_documents; Type: TABLE; Schema: billing; Owner: -
 --
 
@@ -2174,9 +1718,7 @@ CREATE TABLE billing.invoice_documents (
     invoice_id integer NOT NULL,
     data bytea,
     filename character varying NOT NULL,
-    pdf_data bytea,
-    csv_data bytea,
-    xls_data bytea
+    pdf_data bytea
 );
 
 
@@ -2200,10 +1742,51 @@ ALTER SEQUENCE billing.invoice_documents_id_seq OWNED BY billing.invoice_documen
 
 
 --
--- Name: invoice_networks; Type: TABLE; Schema: billing; Owner: -
+-- Name: invoice_originated_destinations; Type: TABLE; Schema: billing; Owner: -
 --
 
-CREATE TABLE billing.invoice_networks (
+CREATE TABLE billing.invoice_originated_destinations (
+    id bigint NOT NULL,
+    dst_prefix character varying,
+    country_id integer,
+    network_id integer,
+    rate numeric,
+    calls_count bigint,
+    calls_duration bigint,
+    amount numeric,
+    invoice_id integer NOT NULL,
+    first_call_at timestamp with time zone,
+    last_call_at timestamp with time zone,
+    successful_calls_count bigint,
+    billing_duration bigint,
+    spent boolean DEFAULT true NOT NULL
+);
+
+
+--
+-- Name: invoice_originated_destinations_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
+--
+
+CREATE SEQUENCE billing.invoice_originated_destinations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: invoice_originated_destinations_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
+--
+
+ALTER SEQUENCE billing.invoice_originated_destinations_id_seq OWNED BY billing.invoice_originated_destinations.id;
+
+
+--
+-- Name: invoice_originated_networks; Type: TABLE; Schema: billing; Owner: -
+--
+
+CREATE TABLE billing.invoice_originated_networks (
     id bigint NOT NULL,
     country_id integer,
     network_id integer,
@@ -2215,17 +1798,16 @@ CREATE TABLE billing.invoice_networks (
     first_call_at timestamp with time zone,
     last_call_at timestamp with time zone,
     successful_calls_count bigint,
-    first_successful_call_at timestamp with time zone,
-    last_successful_call_at timestamp with time zone,
-    billing_duration bigint
+    billing_duration bigint,
+    spent boolean DEFAULT true NOT NULL
 );
 
 
 --
--- Name: invoice_networks_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
+-- Name: invoice_originated_networks_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
 --
 
-CREATE SEQUENCE billing.invoice_networks_id_seq
+CREATE SEQUENCE billing.invoice_originated_networks_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -2234,30 +1816,124 @@ CREATE SEQUENCE billing.invoice_networks_id_seq
 
 
 --
--- Name: invoice_networks_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
+-- Name: invoice_originated_networks_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
 --
 
-ALTER SEQUENCE billing.invoice_networks_id_seq OWNED BY billing.invoice_networks.id;
+ALTER SEQUENCE billing.invoice_originated_networks_id_seq OWNED BY billing.invoice_originated_networks.id;
 
 
 --
--- Name: invoice_states; Type: TABLE; Schema: billing; Owner: -
+-- Name: invoice_service_data; Type: TABLE; Schema: billing; Owner: -
 --
 
-CREATE TABLE billing.invoice_states (
-    id smallint NOT NULL,
-    name character varying NOT NULL
+CREATE TABLE billing.invoice_service_data (
+    id bigint NOT NULL,
+    invoice_id integer NOT NULL,
+    service_id bigint,
+    amount numeric NOT NULL,
+    spent boolean DEFAULT true NOT NULL,
+    transactions_count integer NOT NULL
 );
 
 
 --
--- Name: invoice_types; Type: TABLE; Schema: billing; Owner: -
+-- Name: invoice_service_data_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
 --
 
-CREATE TABLE billing.invoice_types (
-    id smallint NOT NULL,
-    name character varying NOT NULL
+CREATE SEQUENCE billing.invoice_service_data_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: invoice_service_data_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
+--
+
+ALTER SEQUENCE billing.invoice_service_data_id_seq OWNED BY billing.invoice_service_data.id;
+
+
+--
+-- Name: invoice_terminated_destinations; Type: TABLE; Schema: billing; Owner: -
+--
+
+CREATE TABLE billing.invoice_terminated_destinations (
+    id bigint NOT NULL,
+    dst_prefix character varying,
+    country_id integer,
+    network_id integer,
+    rate numeric,
+    calls_count bigint,
+    calls_duration bigint,
+    amount numeric,
+    invoice_id integer NOT NULL,
+    first_call_at timestamp with time zone,
+    last_call_at timestamp with time zone,
+    successful_calls_count bigint,
+    billing_duration bigint,
+    spent boolean DEFAULT false NOT NULL
 );
+
+
+--
+-- Name: invoice_terminated_destinations_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
+--
+
+CREATE SEQUENCE billing.invoice_terminated_destinations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: invoice_terminated_destinations_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
+--
+
+ALTER SEQUENCE billing.invoice_terminated_destinations_id_seq OWNED BY billing.invoice_terminated_destinations.id;
+
+
+--
+-- Name: invoice_terminated_networks; Type: TABLE; Schema: billing; Owner: -
+--
+
+CREATE TABLE billing.invoice_terminated_networks (
+    id bigint NOT NULL,
+    country_id integer,
+    network_id integer,
+    rate numeric,
+    calls_count bigint,
+    calls_duration bigint,
+    amount numeric,
+    invoice_id integer NOT NULL,
+    first_call_at timestamp with time zone,
+    last_call_at timestamp with time zone,
+    successful_calls_count bigint,
+    billing_duration bigint,
+    spent boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: invoice_terminated_networks_id_seq; Type: SEQUENCE; Schema: billing; Owner: -
+--
+
+CREATE SEQUENCE billing.invoice_terminated_networks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: invoice_terminated_networks_id_seq; Type: SEQUENCE OWNED BY; Schema: billing; Owner: -
+--
+
+ALTER SEQUENCE billing.invoice_terminated_networks_id_seq OWNED BY billing.invoice_terminated_networks.id;
 
 
 --
@@ -2269,22 +1945,34 @@ CREATE TABLE billing.invoices (
     account_id integer NOT NULL,
     start_date timestamp with time zone NOT NULL,
     end_date timestamp with time zone NOT NULL,
-    amount numeric NOT NULL,
-    vendor_invoice boolean DEFAULT false NOT NULL,
-    calls_count bigint NOT NULL,
-    first_call_at timestamp with time zone,
-    last_call_at timestamp with time zone,
+    originated_amount_spent numeric DEFAULT 0 NOT NULL,
+    originated_calls_count bigint DEFAULT 0 NOT NULL,
+    first_originated_call_at timestamp with time zone,
+    last_originated_call_at timestamp with time zone,
     contractor_id integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    calls_duration bigint NOT NULL,
-    state_id smallint DEFAULT 1 NOT NULL,
-    first_successful_call_at timestamp with time zone,
-    last_successful_call_at timestamp with time zone,
-    successful_calls_count bigint,
+    originated_calls_duration bigint DEFAULT 0 NOT NULL,
+    state_id smallint DEFAULT 3 NOT NULL,
+    originated_successful_calls_count bigint DEFAULT 0 NOT NULL,
     type_id smallint NOT NULL,
-    billing_duration bigint NOT NULL,
+    originated_billing_duration bigint DEFAULT 0 NOT NULL,
     reference character varying,
-    uuid uuid DEFAULT public.uuid_generate_v1() NOT NULL
+    uuid uuid DEFAULT public.uuid_generate_v1() NOT NULL,
+    terminated_amount_earned numeric DEFAULT 0 NOT NULL,
+    terminated_calls_count integer DEFAULT 0 NOT NULL,
+    first_terminated_call_at timestamp with time zone,
+    last_terminated_call_at timestamp with time zone,
+    terminated_calls_duration integer DEFAULT 0 NOT NULL,
+    terminated_successful_calls_count integer DEFAULT 0 NOT NULL,
+    terminated_billing_duration integer DEFAULT 0 NOT NULL,
+    terminated_amount_spent numeric DEFAULT 0 NOT NULL,
+    originated_amount_earned numeric DEFAULT 0 NOT NULL,
+    amount_spent numeric DEFAULT 0 NOT NULL,
+    amount_earned numeric DEFAULT 0 NOT NULL,
+    amount_total numeric DEFAULT 0 NOT NULL,
+    services_amount_spent numeric DEFAULT 0.0 NOT NULL,
+    services_amount_earned numeric DEFAULT 0.0 NOT NULL,
+    service_transactions_count integer DEFAULT 0 NOT NULL
 );
 
 
@@ -2434,17 +2122,13 @@ CREATE TABLE reports.cdr_custom_report_data (
     destination_fee numeric,
     dialpeer_next_rate numeric,
     dialpeer_fee numeric,
-    time_limit character varying,
     internal_disconnect_code integer,
     internal_disconnect_reason character varying,
     disconnect_initiator_id integer,
-    customer_price numeric,
-    vendor_price numeric,
     duration integer,
     success boolean,
-    vendor_billed boolean,
-    customer_billed boolean,
-    profit numeric,
+    dialpeer_reverse_billing boolean,
+    destination_reverse_billing boolean,
     dst_prefix_in character varying,
     dst_prefix_out character varying,
     src_prefix_in character varying,
@@ -2460,14 +2144,8 @@ CREATE TABLE reports.cdr_custom_report_data (
     sign_term_port integer,
     sign_term_local_ip character varying,
     sign_term_local_port integer,
-    orig_call_id character varying,
-    term_call_id character varying,
     vendor_invoice_id integer,
     customer_invoice_id integer,
-    local_tag character varying,
-    log_sip boolean,
-    log_rtp boolean,
-    dump_file character varying,
     destination_initial_rate numeric,
     dialpeer_initial_rate numeric,
     destination_initial_interval integer,
@@ -2509,7 +2187,10 @@ CREATE TABLE reports.cdr_custom_report_data (
     lega_user_agent character varying,
     legb_user_agent character varying,
     p_charge_info_in character varying,
-    auth_orig_ip character varying
+    auth_orig_ip character varying,
+    agg_successful_calls_count bigint,
+    agg_short_calls_count bigint,
+    agg_uniq_calls_count bigint
 );
 
 
@@ -2636,7 +2317,6 @@ CREATE TABLE reports.cdr_interval_report_data (
     destination_fee numeric,
     dialpeer_next_rate numeric,
     dialpeer_fee numeric,
-    time_limit character varying,
     internal_disconnect_code integer,
     internal_disconnect_reason character varying,
     disconnect_initiator_id integer,
@@ -2644,8 +2324,8 @@ CREATE TABLE reports.cdr_interval_report_data (
     vendor_price numeric,
     duration integer,
     success boolean,
-    vendor_billed boolean,
-    customer_billed boolean,
+    dialpeer_reverse_billing boolean,
+    destination_reverse_billing boolean,
     profit numeric,
     dst_prefix_in character varying,
     dst_prefix_out character varying,
@@ -2978,67 +2658,6 @@ ALTER SEQUENCE reports.customer_traffic_report_schedulers_id_seq OWNED BY report
 
 
 --
--- Name: report_vendors; Type: TABLE; Schema: reports; Owner: -
---
-
-CREATE TABLE reports.report_vendors (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    start_date timestamp with time zone NOT NULL,
-    end_date timestamp with time zone NOT NULL
-);
-
-
---
--- Name: report_vendors_data; Type: TABLE; Schema: reports; Owner: -
---
-
-CREATE TABLE reports.report_vendors_data (
-    id bigint NOT NULL,
-    report_id integer NOT NULL,
-    calls_count bigint
-);
-
-
---
--- Name: report_vendors_data_id_seq; Type: SEQUENCE; Schema: reports; Owner: -
---
-
-CREATE SEQUENCE reports.report_vendors_data_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: report_vendors_data_id_seq; Type: SEQUENCE OWNED BY; Schema: reports; Owner: -
---
-
-ALTER SEQUENCE reports.report_vendors_data_id_seq OWNED BY reports.report_vendors_data.id;
-
-
---
--- Name: report_vendors_id_seq; Type: SEQUENCE; Schema: reports; Owner: -
---
-
-CREATE SEQUENCE reports.report_vendors_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: report_vendors_id_seq; Type: SEQUENCE OWNED BY; Schema: reports; Owner: -
---
-
-ALTER SEQUENCE reports.report_vendors_id_seq OWNED BY reports.report_vendors.id;
-
-
---
 -- Name: scheduler_periods; Type: TABLE; Schema: reports; Owner: -
 --
 
@@ -3250,7 +2869,8 @@ CREATE TABLE rtp_statistics.tx_streams (
     tx_rtcp_jitter_min real,
     tx_rtcp_jitter_max real,
     tx_rtcp_jitter_mean real,
-    tx_rtcp_jitter_std real
+    tx_rtcp_jitter_std real,
+    rx_srtp_decrypt_errors bigint
 )
 PARTITION BY RANGE (time_start);
 
@@ -3706,13 +3326,6 @@ ALTER TABLE ONLY auth_log.auth_log ALTER COLUMN id SET DEFAULT nextval('auth_log
 
 
 --
--- Name: invoice_destinations id; Type: DEFAULT; Schema: billing; Owner: -
---
-
-ALTER TABLE ONLY billing.invoice_destinations ALTER COLUMN id SET DEFAULT nextval('billing.invoice_destinations_id_seq'::regclass);
-
-
---
 -- Name: invoice_documents id; Type: DEFAULT; Schema: billing; Owner: -
 --
 
@@ -3720,10 +3333,38 @@ ALTER TABLE ONLY billing.invoice_documents ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
--- Name: invoice_networks id; Type: DEFAULT; Schema: billing; Owner: -
+-- Name: invoice_originated_destinations id; Type: DEFAULT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_networks ALTER COLUMN id SET DEFAULT nextval('billing.invoice_networks_id_seq'::regclass);
+ALTER TABLE ONLY billing.invoice_originated_destinations ALTER COLUMN id SET DEFAULT nextval('billing.invoice_originated_destinations_id_seq'::regclass);
+
+
+--
+-- Name: invoice_originated_networks id; Type: DEFAULT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_originated_networks ALTER COLUMN id SET DEFAULT nextval('billing.invoice_originated_networks_id_seq'::regclass);
+
+
+--
+-- Name: invoice_service_data id; Type: DEFAULT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_service_data ALTER COLUMN id SET DEFAULT nextval('billing.invoice_service_data_id_seq'::regclass);
+
+
+--
+-- Name: invoice_terminated_destinations id; Type: DEFAULT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_terminated_destinations ALTER COLUMN id SET DEFAULT nextval('billing.invoice_terminated_destinations_id_seq'::regclass);
+
+
+--
+-- Name: invoice_terminated_networks id; Type: DEFAULT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_terminated_networks ALTER COLUMN id SET DEFAULT nextval('billing.invoice_terminated_networks_id_seq'::regclass);
 
 
 --
@@ -3815,20 +3456,6 @@ ALTER TABLE ONLY reports.customer_traffic_report_data_full ALTER COLUMN id SET D
 --
 
 ALTER TABLE ONLY reports.customer_traffic_report_schedulers ALTER COLUMN id SET DEFAULT nextval('reports.customer_traffic_report_schedulers_id_seq'::regclass);
-
-
---
--- Name: report_vendors id; Type: DEFAULT; Schema: reports; Owner: -
---
-
-ALTER TABLE ONLY reports.report_vendors ALTER COLUMN id SET DEFAULT nextval('reports.report_vendors_id_seq'::regclass);
-
-
---
--- Name: report_vendors_data id; Type: DEFAULT; Schema: reports; Owner: -
---
-
-ALTER TABLE ONLY reports.report_vendors_data ALTER COLUMN id SET DEFAULT nextval('reports.report_vendors_data_id_seq'::regclass);
 
 
 --
@@ -3959,10 +3586,10 @@ ALTER TABLE ONLY auth_log.auth_log
 
 
 --
--- Name: invoice_destinations invoice_destinations_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_originated_destinations invoice_destinations_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_destinations
+ALTER TABLE ONLY billing.invoice_originated_destinations
     ADD CONSTRAINT invoice_destinations_pkey PRIMARY KEY (id);
 
 
@@ -3975,43 +3602,35 @@ ALTER TABLE ONLY billing.invoice_documents
 
 
 --
--- Name: invoice_networks invoice_networks_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_originated_networks invoice_networks_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_networks
+ALTER TABLE ONLY billing.invoice_originated_networks
     ADD CONSTRAINT invoice_networks_pkey PRIMARY KEY (id);
 
 
 --
--- Name: invoice_states invoice_states_name_key; Type: CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_service_data invoice_service_data_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_states
-    ADD CONSTRAINT invoice_states_name_key UNIQUE (name);
-
-
---
--- Name: invoice_states invoice_states_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
---
-
-ALTER TABLE ONLY billing.invoice_states
-    ADD CONSTRAINT invoice_states_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY billing.invoice_service_data
+    ADD CONSTRAINT invoice_service_data_pkey PRIMARY KEY (id);
 
 
 --
--- Name: invoice_types invoice_types_name_key; Type: CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_terminated_destinations invoice_terminated_destinations_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_types
-    ADD CONSTRAINT invoice_types_name_key UNIQUE (name);
+ALTER TABLE ONLY billing.invoice_terminated_destinations
+    ADD CONSTRAINT invoice_terminated_destinations_pkey PRIMARY KEY (id);
 
 
 --
--- Name: invoice_types invoice_types_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_terminated_networks invoice_terminated_networks_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_types
-    ADD CONSTRAINT invoice_types_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY billing.invoice_terminated_networks
+    ADD CONSTRAINT invoice_terminated_networks_pkey PRIMARY KEY (id);
 
 
 --
@@ -4036,6 +3655,30 @@ ALTER TABLE ONLY cdr.ar_internal_metadata
 
 ALTER TABLE ONLY cdr.cdr
     ADD CONSTRAINT cdr_pkey PRIMARY KEY (id, time_start);
+
+
+--
+-- Name: countries countries_pkey; Type: CONSTRAINT; Schema: external_data; Owner: -
+--
+
+ALTER TABLE ONLY external_data.countries
+    ADD CONSTRAINT countries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: network_prefixes network_prefixes_pkey; Type: CONSTRAINT; Schema: external_data; Owner: -
+--
+
+ALTER TABLE ONLY external_data.network_prefixes
+    ADD CONSTRAINT network_prefixes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: networks networks_pkey; Type: CONSTRAINT; Schema: external_data; Owner: -
+--
+
+ALTER TABLE ONLY external_data.networks
+    ADD CONSTRAINT networks_pkey PRIMARY KEY (id);
 
 
 --
@@ -4148,22 +3791,6 @@ ALTER TABLE ONLY reports.customer_traffic_report
 
 ALTER TABLE ONLY reports.customer_traffic_report_schedulers
     ADD CONSTRAINT customer_traffic_report_schedulers_pkey PRIMARY KEY (id);
-
-
---
--- Name: report_vendors_data report_vendors_data_pkey; Type: CONSTRAINT; Schema: reports; Owner: -
---
-
-ALTER TABLE ONLY reports.report_vendors_data
-    ADD CONSTRAINT report_vendors_data_pkey PRIMARY KEY (id);
-
-
---
--- Name: report_vendors report_vendors_pkey; Type: CONSTRAINT; Schema: reports; Owner: -
---
-
-ALTER TABLE ONLY reports.report_vendors
-    ADD CONSTRAINT report_vendors_pkey PRIMARY KEY (id);
 
 
 --
@@ -4380,13 +4007,6 @@ CREATE INDEX "index_billing.invoices_on_reference" ON billing.invoices USING btr
 
 
 --
--- Name: invoice_destinations_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
---
-
-CREATE INDEX invoice_destinations_invoice_id_idx ON billing.invoice_destinations USING btree (invoice_id);
-
-
---
 -- Name: invoice_documents_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
 --
 
@@ -4394,10 +4014,38 @@ CREATE UNIQUE INDEX invoice_documents_invoice_id_idx ON billing.invoice_document
 
 
 --
--- Name: invoice_networks_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
+-- Name: invoice_originated_destinations_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
 --
 
-CREATE INDEX invoice_networks_invoice_id_idx ON billing.invoice_networks USING btree (invoice_id);
+CREATE INDEX invoice_originated_destinations_invoice_id_idx ON billing.invoice_originated_destinations USING btree (invoice_id);
+
+
+--
+-- Name: invoice_originated_networks_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
+--
+
+CREATE INDEX invoice_originated_networks_invoice_id_idx ON billing.invoice_originated_networks USING btree (invoice_id);
+
+
+--
+-- Name: invoice_service_data_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
+--
+
+CREATE INDEX invoice_service_data_invoice_id_idx ON billing.invoice_service_data USING btree (invoice_id);
+
+
+--
+-- Name: invoice_terminated_destinations_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
+--
+
+CREATE INDEX invoice_terminated_destinations_invoice_id_idx ON billing.invoice_terminated_destinations USING btree (invoice_id);
+
+
+--
+-- Name: invoice_terminated_networks_invoice_id_idx; Type: INDEX; Schema: billing; Owner: -
+--
+
+CREATE INDEX invoice_terminated_networks_invoice_id_idx ON billing.invoice_terminated_networks USING btree (invoice_id);
 
 
 --
@@ -4408,13 +4056,6 @@ CREATE INDEX cdr_customer_acc_external_id_time_start_idx ON ONLY cdr.cdr USING b
 
 
 --
--- Name: cdr_customer_acc_id_time_start_idx; Type: INDEX; Schema: cdr; Owner: -
---
-
-CREATE INDEX cdr_customer_acc_id_time_start_idx ON ONLY cdr.cdr USING btree (customer_acc_id, time_start) WHERE is_last_cdr;
-
-
---
 -- Name: cdr_customer_acc_id_time_start_idx1; Type: INDEX; Schema: cdr; Owner: -
 --
 
@@ -4422,10 +4063,10 @@ CREATE INDEX cdr_customer_acc_id_time_start_idx1 ON ONLY cdr.cdr USING btree (cu
 
 
 --
--- Name: cdr_customer_invoice_id_idx; Type: INDEX; Schema: cdr; Owner: -
+-- Name: cdr_customer_id_time_start_idx; Type: INDEX; Schema: cdr; Owner: -
 --
 
-CREATE INDEX cdr_customer_invoice_id_idx ON ONLY cdr.cdr USING btree (customer_invoice_id);
+CREATE INDEX cdr_customer_id_time_start_idx ON ONLY cdr.cdr USING btree (customer_id, time_start);
 
 
 --
@@ -4443,10 +4084,10 @@ CREATE INDEX cdr_time_start_idx ON ONLY cdr.cdr USING btree (time_start);
 
 
 --
--- Name: cdr_vendor_invoice_id_idx; Type: INDEX; Schema: cdr; Owner: -
+-- Name: cdr_vendor_id_time_start_idx; Type: INDEX; Schema: cdr; Owner: -
 --
 
-CREATE INDEX cdr_vendor_invoice_id_idx ON ONLY cdr.cdr USING btree (vendor_invoice_id);
+CREATE INDEX cdr_vendor_id_time_start_idx ON ONLY cdr.cdr USING btree (vendor_id, time_start);
 
 
 --
@@ -4457,10 +4098,31 @@ CREATE UNIQUE INDEX "unique_public.schema_migrations" ON public.schema_migration
 
 
 --
--- Name: cdr_custom_report_id_idx; Type: INDEX; Schema: reports; Owner: -
+-- Name: cdr_custom_report_data_report_id_idx; Type: INDEX; Schema: reports; Owner: -
 --
 
-CREATE UNIQUE INDEX cdr_custom_report_id_idx ON reports.cdr_custom_report USING btree (id) WHERE (id IS NOT NULL);
+CREATE INDEX cdr_custom_report_data_report_id_idx ON reports.cdr_custom_report_data USING btree (report_id);
+
+
+--
+-- Name: cdr_interval_report_data_report_id_idx; Type: INDEX; Schema: reports; Owner: -
+--
+
+CREATE INDEX cdr_interval_report_data_report_id_idx ON reports.cdr_interval_report_data USING btree (report_id);
+
+
+--
+-- Name: customer_traffic_report_data_by_destination_report_id_idx; Type: INDEX; Schema: reports; Owner: -
+--
+
+CREATE INDEX customer_traffic_report_data_by_destination_report_id_idx ON reports.customer_traffic_report_data_by_destination USING btree (report_id);
+
+
+--
+-- Name: customer_traffic_report_data_full_report_id_idx; Type: INDEX; Schema: reports; Owner: -
+--
+
+CREATE INDEX customer_traffic_report_data_full_report_id_idx ON reports.customer_traffic_report_data_full USING btree (report_id);
 
 
 --
@@ -4520,14 +4182,6 @@ CREATE UNIQUE INDEX traffic_vendor_accounts_account_id_timestamp_idx ON stats.tr
 
 
 --
--- Name: invoice_destinations invoice_destinations_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
---
-
-ALTER TABLE ONLY billing.invoice_destinations
-    ADD CONSTRAINT invoice_destinations_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
-
-
---
 -- Name: invoice_documents invoice_documents_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
 --
 
@@ -4536,27 +4190,43 @@ ALTER TABLE ONLY billing.invoice_documents
 
 
 --
--- Name: invoice_networks invoice_networks_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_originated_destinations invoice_originated_destinations_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoice_networks
-    ADD CONSTRAINT invoice_networks_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
-
-
---
--- Name: invoices invoices_state_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
---
-
-ALTER TABLE ONLY billing.invoices
-    ADD CONSTRAINT invoices_state_id_fkey FOREIGN KEY (state_id) REFERENCES billing.invoice_states(id);
+ALTER TABLE ONLY billing.invoice_originated_destinations
+    ADD CONSTRAINT invoice_originated_destinations_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
 
 
 --
--- Name: invoices invoices_type_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
+-- Name: invoice_originated_networks invoice_originated_networks_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
 --
 
-ALTER TABLE ONLY billing.invoices
-    ADD CONSTRAINT invoices_type_id_fkey FOREIGN KEY (type_id) REFERENCES billing.invoice_types(id);
+ALTER TABLE ONLY billing.invoice_originated_networks
+    ADD CONSTRAINT invoice_originated_networks_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
+
+
+--
+-- Name: invoice_service_data invoice_service_data_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_service_data
+    ADD CONSTRAINT invoice_service_data_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
+
+
+--
+-- Name: invoice_terminated_destinations invoice_terminated_destinations_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_terminated_destinations
+    ADD CONSTRAINT invoice_terminated_destinations_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
+
+
+--
+-- Name: invoice_terminated_networks invoice_terminated_networks_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
+--
+
+ALTER TABLE ONLY billing.invoice_terminated_networks
+    ADD CONSTRAINT invoice_terminated_networks_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES billing.invoices(id);
 
 
 --
@@ -4613,14 +4283,6 @@ ALTER TABLE ONLY reports.customer_traffic_report_data_by_vendor
 
 ALTER TABLE ONLY reports.customer_traffic_report_schedulers
     ADD CONSTRAINT customer_traffic_report_schedulers_period_id_fkey FOREIGN KEY (period_id) REFERENCES reports.scheduler_periods(id);
-
-
---
--- Name: report_vendors_data report_vendors_data_report_id_fkey; Type: FK CONSTRAINT; Schema: reports; Owner: -
---
-
-ALTER TABLE ONLY reports.report_vendors_data
-    ADD CONSTRAINT report_vendors_data_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports.report_vendors(id);
 
 
 --
@@ -4722,6 +4384,23 @@ INSERT INTO "public"."schema_migrations" (version) VALUES
 ('20230518150839'),
 ('20230524185032'),
 ('20230602123903'),
-('20230708183812');
+('20230708183812'),
+('20230828175949'),
+('20230913210707'),
+('20230916152534'),
+('20230929081324'),
+('20231007121159'),
+('20231007123320'),
+('20231027110359'),
+('20231101165858'),
+('20231106100135'),
+('20231106125344'),
+('20231212213111'),
+('20231231115209'),
+('20240122201619'),
+('20240405165010'),
+('20240411092931'),
+('20240609092136'),
+('20240617084103');
 
 

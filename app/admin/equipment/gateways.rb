@@ -45,7 +45,7 @@ ActiveAdmin.register Gateway do
                  :force_cancel_routeset,
                  [:orig_disconnect_policy_name, proc { |row| row.orig_disconnect_policy.try(:name) }],
                  [:transport_protocol_name, proc { |row| row.transport_protocol.try(:name) }],
-                 [:sip_schema_name, proc { |row| row.sip_schema.try(:name) }],
+                 :sip_schema_name,
                  :host,
                  :port,
                  :registered_aor_mode_name,
@@ -59,6 +59,7 @@ ActiveAdmin.register Gateway do
                  :src_name_rewrite_rule, :src_name_rewrite_result,
                  :src_rewrite_rule, :src_rewrite_result,
                  :dst_rewrite_rule, :dst_rewrite_result,
+                 :to_rewrite_rule, :to_rewrite_result,
                  [:lua_script_name, proc { |row| row.lua_script.try(:name) }],
                  :auth_enabled, :auth_user, :auth_password, :auth_from_user, :auth_from_domain,
                  :incoming_auth_username, :incoming_auth_password,
@@ -79,7 +80,8 @@ ActiveAdmin.register Gateway do
                  :sip_timer_b, :dns_srv_failover_timer,
                  [:sdp_c_location_name, proc { |row| row.sdp_c_location.try(:name) }],
                  [:codec_group_name, proc { |row| row.codec_group.try(:name) }],
-                 :proxy_media, :single_codec_in_200ok, :force_symmetric_rtp, :symmetric_rtp_nonstop, :symmetric_rtp_ignore_rtcp, :force_dtmf_relay, :rtp_ping,
+                 :proxy_media, :single_codec_in_200ok, :force_symmetric_rtp, :symmetric_rtp_nonstop,
+                 :force_dtmf_relay, :rtp_ping,
                  :rtp_timeout,
                  :filter_noaudio_streams,
                  :rtp_relay_timestamp_aligning,
@@ -92,6 +94,7 @@ ActiveAdmin.register Gateway do
                  :suppress_early_media,
                  :send_lnp_information,
                  :force_one_way_early_media, :max_30x_redirects,
+                 :privacy_mode_name,
                  :stir_shaken_mode_name,
                  [:stir_shaken_crt_name, proc { |row| row.stir_shaken_crt.try(:name) }]
 
@@ -110,7 +113,7 @@ ActiveAdmin.register Gateway do
            :radius_accounting_profile,
            :transport_protocol, :term_proxy_transport_protocol, :orig_proxy_transport_protocol,
            :rel100_mode, :rx_inband_dtmf_filtering_mode, :tx_inband_dtmf_filtering_mode,
-           :network_protocol_priority, :media_encryption_mode, :sip_schema,
+           :network_protocol_priority, :media_encryption_mode,
            :termination_src_numberlist, :termination_dst_numberlist, :lua_script, :stir_shaken_crt
 
   controller do
@@ -247,12 +250,12 @@ ActiveAdmin.register Gateway do
     # column :diversion_domain
     # column :diversion_rewrite_rule
     # column :diversion_rewrite_result
-    column :src_name_rewrite_rule
-    column :src_name_rewrite_result
-    column :src_rewrite_rule
-    column :src_rewrite_result
-    column :dst_rewrite_rule
-    column :dst_rewrite_result
+    # column :src_name_rewrite_rule
+    # column :src_name_rewrite_result
+    # column :src_rewrite_rule
+    # column :src_rewrite_result
+    # column :dst_rewrite_rule
+    # column :dst_rewrite_result
     column :lua_script
 
     # MEDIA
@@ -262,7 +265,6 @@ ActiveAdmin.register Gateway do
     column :single_codec_in_200ok
     column :force_symmetric_rtp
     column :symmetric_rtp_nonstop
-    column :symmetric_rtp_ignore_rtcp
     column :rtp_ping
     column :rtp_timeout
     column :filter_noaudio_streams
@@ -313,6 +315,18 @@ ActiveAdmin.register Gateway do
   filter :incoming_auth_password
   filter :codec_group, input_html: { class: 'chosen' }, collection: proc { CodecGroup.pluck(:name, :id) }
   filter :diversion_send_mode
+  filter :sip_schema_id, as: :select, collection: proc { Gateway::SIP_SCHEMAS.invert }
+  filter :privacy_mode_id, as: :select, collection: proc { Gateway::PRIVACY_MODES.invert }
+
+  association_ajax_filter :termination_src_numberlist_id_eq,
+                          label: 'Termination SRC Numberlist',
+                          scope: -> { Routing::Numberlist.order(:name) },
+                          path: '/numberlists/search'
+
+  association_ajax_filter :termination_dst_numberlist_id_eq,
+                          label: 'Termination DST Numberlist',
+                          scope: -> { Routing::Numberlist.order(:name) },
+                          path: '/numberlists/search'
 
   form do |f|
     f.semantic_errors *f.object.errors.attribute_names
@@ -397,7 +411,7 @@ ActiveAdmin.register Gateway do
           column do
             f.inputs 'Termination' do
               f.input :transport_protocol, as: :select, include_blank: false
-              f.input :sip_schema, as: :select, include_blank: false
+              f.input :sip_schema_id, as: :select, include_blank: false, collection: Gateway::SIP_SCHEMAS.invert
               f.input :host
               f.input :port
               f.input :registered_aor_mode_id, as: :select, include_blank: false,
@@ -438,8 +452,16 @@ ActiveAdmin.register Gateway do
       end
       tab 'Translations' do
         f.inputs 'Translations' do
-          f.input :termination_src_numberlist, input_html: { class: 'chosen' }, include_blank: 'None'
-          f.input :termination_dst_numberlist, input_html: { class: 'chosen' }, include_blank: 'None'
+          f.input :privacy_mode_id, as: :select, include_blank: false, collection: Gateway::PRIVACY_MODES.invert
+          f.association_ajax_input :termination_src_numberlist_id,
+                                  label: 'Termination SRC Numberlist',
+                                  scope: Routing::Numberlist.order(:name),
+                                  path: '/numberlists/search'
+
+          f.association_ajax_input :termination_dst_numberlist_id,
+                                  label: 'Termination DST Numberlist',
+                                  scope: Routing::Numberlist.order(:name),
+                                  path: '/numberlists/search'
           f.input :diversion_send_mode, include_blank: false
           f.input :diversion_domain
           f.input :diversion_rewrite_rule
@@ -455,6 +477,8 @@ ActiveAdmin.register Gateway do
           f.input :src_rewrite_result
           f.input :dst_rewrite_rule
           f.input :dst_rewrite_result
+          f.input :to_rewrite_rule
+          f.input :to_rewrite_result
           f.input :lua_script, input_html: { class: 'chosen' }, include_blank: 'None'
         end
       end
@@ -467,7 +491,6 @@ ActiveAdmin.register Gateway do
           f.input :single_codec_in_200ok
           f.input :force_symmetric_rtp
           f.input :symmetric_rtp_nonstop
-          f.input :symmetric_rtp_ignore_rtcp
           f.input :rtp_ping
           f.input :rtp_timeout
           f.input :filter_noaudio_streams
@@ -517,6 +540,7 @@ ActiveAdmin.register Gateway do
           row :contractor do
             auto_link(s.contractor, s.contractor.decorated_display_name)
           end
+          row :is_shared
           row :gateway_group
           row :priority
           row :weight
@@ -582,7 +606,7 @@ ActiveAdmin.register Gateway do
         panel 'Termination' do
           attributes_table_for s do
             row :transport_protocol
-            row :sip_schema
+            row :sip_schema_id, &:sip_schema_name
             row :host
             row :port
 
@@ -623,6 +647,7 @@ ActiveAdmin.register Gateway do
       end
       tab 'Translations' do
         attributes_table_for s do
+          row :privacy_mode_id, &:privacy_mode_name
           row :termination_src_numberlist
           row :termination_dst_numberlist
           row :diversion_send_mode
@@ -639,6 +664,8 @@ ActiveAdmin.register Gateway do
           row :src_rewrite_result
           row :dst_rewrite_rule
           row :dst_rewrite_result
+          row :to_rewrite_rule
+          row :to_rewrite_result
           row :lua_script
         end
       end
@@ -652,7 +679,6 @@ ActiveAdmin.register Gateway do
           row :single_codec_in_200ok
           row :force_symmetric_rtp
           row :symmetric_rtp_nonstop
-          row :symmetric_rtp_ignore_rtcp
           row :rtp_ping
           row :rtp_timeout
           row :filter_noaudio_streams

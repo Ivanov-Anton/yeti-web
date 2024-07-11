@@ -103,7 +103,7 @@ RSpec.describe '#routing logic' do
   let(:x_orig_protocol_id) { 2 }
   let(:pai) { 'pai' }
   let(:ppi) { 'ppi' }
-  let(:privacy) { 'privacy' }
+  let(:privacy) { 'none' }
   let(:rpid) { 'rpid' }
   let(:rpid_privacy) { 'rpid-privacy' }
 
@@ -390,72 +390,6 @@ RSpec.describe '#routing logic' do
       end
     end
 
-    context 'Authorized but customer has no enough balance' do
-      before do
-        FactoryBot.create(:system_load_balancer,
-                          signalling_ip: '1.1.1.1')
-
-        @ca = FactoryBot.create(:customers_auth,
-                                ip: '3.3.3.3')
-      end
-
-      let(:remote_ip) { '1.1.1.1' }
-      let(:x_orig_ip) { '3.3.3.3' }
-
-      it 'reject ' do
-        expect(subject.size).to eq(1)
-        expect(subject.first[:aleg_auth_required]).to be_nil
-        expect(subject.first[:disconnect_code_id]).to eq(8000) # No enough customer balance
-
-        expect(subject.first[:customer_auth_id]).to eq(@ca.id)
-        expect(subject.first[:customer_auth_external_id]).to eq(@ca.external_id)
-        expect(subject.first[:customer_id]).to eq(@ca.customer_id)
-        expect(subject.first[:customer_external_id]).to eq(@ca.customer.external_id)
-        expect(subject.first[:customer_acc_id]).to eq(@ca.account_id)
-        expect(subject.first[:customer_acc_external_id]).to eq(@ca.account.external_id)
-        expect(subject.first[:rateplan_id]).to eq(@ca.rateplan_id)
-        expect(subject.first[:routing_plan_id]).to eq(@ca.routing_plan_id)
-      end
-    end
-
-    context 'Authorized, Balance checking disabled' do
-      before do
-        FactoryBot.create(:system_load_balancer,
-                          signalling_ip: '1.1.1.1')
-
-        FactoryBot.create(:customers_auth,
-                          ip: '3.3.3.3',
-                          check_account_balance: false,
-                          customer: customer,
-                          gateway: customer_gateway,
-                          dump_level_id: dump_level)
-      end
-
-      let(:remote_ip) { '1.1.1.1' }
-      let(:x_orig_ip) { '3.3.3.3' }
-      let!(:customer) do
-        create(:contractor, customer: true)
-      end
-      let!(:customer_gateway) {
-        create(:gateway,
-               contractor: customer,
-               orig_disconnect_policy_id: dp.id)
-      }
-      let(:dp) {
-        create(:disconnect_policy)
-      }
-      let(:dump_level) { CustomersAuth::DUMP_LEVEL_CAPTURE_SIP }
-
-      it 'reject ' do
-        expect(subject.size).to eq(1)
-        expect(subject.first[:customer_auth_id]).to be
-        expect(subject.first[:customer_id]).to be
-        expect(subject.first[:disconnect_code_id]).to eq(111) # Can't find destination prefix
-        expect(subject.first[:aleg_policy_id]).to eq(dp.id)
-        expect(subject.first[:dump_level_id]).to eq(dump_level)
-      end
-    end
-
     context 'Authorized, Balance checking disabled, LNP' do
       before do
         FactoryBot.create(:system_load_balancer,
@@ -542,7 +476,7 @@ RSpec.describe '#routing logic' do
 
         FactoryBot.create(:customers_auth,
                           ip: '3.3.3.3',
-                          check_account_balance: false,
+                          check_account_balance: customer_auth_check_account_balance,
                           customer: customer,
                           account: customer_account,
                           gateway: customer_gateway,
@@ -557,9 +491,11 @@ RSpec.describe '#routing logic' do
                           dst_numberlist_id: customer_auth_dst_numberlist_id,
                           dump_level_id: customer_auth_dump_level,
                           src_numberlist_use_diversion: customer_auth_src_numberlist_use_diversion,
-                          rewrite_ss_status_id: customer_auth_rewrite_ss_status_id)
+                          rewrite_ss_status_id: customer_auth_rewrite_ss_status_id,
+                          privacy_mode_id: customer_auth_privacy_mode_id)
       end
 
+      let!(:customer_auth_check_account_balance) { true }
       let!(:send_billing_information) { false }
       let(:customer_auth_diversion_policy_id) { 1 } # do not accept diversion header
       let(:customer_auth_diversion_rewrite_rule) { nil } # removing +380
@@ -570,6 +506,7 @@ RSpec.describe '#routing logic' do
       let(:customer_auth_dump_level) { CustomersAuth::DUMP_LEVEL_CAPTURE_SIP }
       let(:customer_auth_src_numberlist_use_diversion) { false }
       let(:customer_auth_rewrite_ss_status_id) { nil }
+      let(:customer_auth_privacy_mode_id) { CustomersAuth::PRIVACY_MODE_REJECT_ANONYMOUS }
 
       let(:remote_ip) { '1.1.1.1' }
       let(:x_orig_ip) { '3.3.3.3' }
@@ -579,20 +516,31 @@ RSpec.describe '#routing logic' do
         create(:gateway,
                contractor_id: vendor.id,
                enabled: true,
+               sip_schema_id: vendor_gw_sip_schema_id,
                host: vendor_gw_host,
+               port: vendor_gw_port,
                allow_termination: true,
                term_append_headers_req: vendor_gw_term_append_headers_req,
                diversion_send_mode_id: vendor_gw_diversion_send_mode_id,
                diversion_domain: vendor_gw_diversion_domain,
                diversion_rewrite_rule: vendor_gw_diversion_rewrite_rule,
                diversion_rewrite_result: vendor_gw_diversion_rewrite_result,
+               dst_rewrite_rule: vendor_gw_dst_rewrite_rule,
+               dst_rewrite_result: vendor_gw_dst_rewrite_result,
+               to_rewrite_rule: vendor_gw_to_rewrite_rule,
+               to_rewrite_result: vendor_gw_to_rewrite_result,
                pai_send_mode_id: vendor_gw_pai_send_mode_id,
                pai_domain: vendor_gw_pai_domain,
                registered_aor_mode_id: vendor_gw_registered_aor_mode_id,
                stir_shaken_mode_id: vendor_gw_stir_shaken_mode_id,
-               stir_shaken_crt_id: vendor_gw_stir_shaken_crt_id)
+               stir_shaken_crt_id: vendor_gw_stir_shaken_crt_id,
+               send_lnp_information: vendor_gw_send_lnp_information,
+               privacy_mode_id: vendor_gw_privacy_mode_id)
       }
+      let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP }
+      let(:vendor_gw_sip_schema_id) { Gateway::SIP_SCHEMA_SIP }
       let(:vendor_gw_host) { '1.1.2.3' }
+      let(:vendor_gw_port) { nil }
       let(:vendor_gw_term_append_headers_req) { '' }
       let(:vendor_gw_diversion_send_mode_id) { 1 } # do not send
       let(:vendor_gw_diversion_domain) { nil }
@@ -607,16 +555,36 @@ RSpec.describe '#routing logic' do
       let(:vendor_gw_stir_shaken_mode_id) { Gateway::STIR_SHAKEN_MODE_DISABLE }
       let(:vendor_gw_stir_shaken_crt_id) { nil }
 
+      let(:vendor_gw_dst_rewrite_rule) { nil }
+      let(:vendor_gw_dst_rewrite_result) { nil }
+      let(:vendor_gw_to_rewrite_rule) { nil }
+      let(:vendor_gw_to_rewrite_result) { nil }
+
+      let(:vendor_gw_send_lnp_information) { false }
+
       let!(:customer) { create(:contractor, customer: true, enabled: true) }
-      let!(:customer_account) { create(:account, contractor: customer, min_balance: -100_500) }
+      let!(:customer_account) {
+        create(:account,
+               contractor: customer,
+               destination_rate_limit: customer_account_destination_rate_limit,
+               min_balance: customer_account_min_balance,
+               balance: customer_account_balance)
+      }
+
+      let!(:customer_account_min_balance) { -100_500 }
+      let!(:customer_account_balance) { 0 }
+      let!(:customer_account_destination_rate_limit) { nil }
+
       let!(:customer_gateway) {
         create(:gateway,
                contractor: customer,
-               enabled: true,
+               enabled: customer_gw_enabled,
                allow_origination: true,
                orig_append_headers_reply: orig_append_headers_reply,
                orig_disconnect_policy_id: orig_disconnect_policy.id)
       }
+
+      let(:customer_gw_enabled) { true }
 
       let(:orig_disconnect_policy) {
         create(:disconnect_policy)
@@ -626,7 +594,19 @@ RSpec.describe '#routing logic' do
 
       let!(:rate_group) { create(:rate_group) }
       let!(:rateplan) { create(:rateplan, rate_groups: [rate_group]) }
-      let!(:destination) { create(:destination, prefix: '', enabled: true, rate_group_id: rate_group.id) }
+      let!(:destination) {
+        create(:destination,
+                                  prefix: '',
+                                  enabled: true,
+                                  initial_interval: destination_initial_interval,
+                                  next_interval: destination_next_interval,
+                                  initial_rate: destination_rate,
+                                  next_rate: destination_rate,
+                                  rate_group_id: rate_group.id)
+      }
+      let!(:destination_rate) { 0.11 }
+      let!(:destination_initial_interval) { 1 }
+      let!(:destination_next_interval) { 1 }
 
       let!(:routing_group) { create(:routing_group) }
       let!(:routing_plan) {
@@ -669,6 +649,154 @@ RSpec.describe '#routing logic' do
           expect(subject.first[:customer_id]).to be
           expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
           expect(subject.first[:disconnect_code_id]).to eq(8012) # CPS Limit
+        end
+      end
+
+      context 'Authorized, orig gw disabled' do
+        let!(:customer_gw_enabled) { false }
+
+        it 'reject ' do
+          expect(subject.size).to eq(1) # reject before routing. there will be only one profile
+          expect(subject.first[:aleg_auth_required]).to be_nil
+          expect(subject.first[:customer_acc_id]).to eq(customer_account.id)
+          expect(subject.first[:customer_acc_external_id]).to eq(customer_account.external_id)
+          expect(subject.first[:orig_gw_id]).to eq(customer_gateway.id)
+          expect(subject.first[:disconnect_code_id]).to eq(8005) # Orig gw disabled
+        end
+      end
+
+      context 'Authorized, privacy policy reject' do
+        let!(:customer_auth_privacy_mode_id) { CustomersAuth::PRIVACY_MODE_REJECT }
+        let!(:privacy) { 'id' }
+
+        it 'reject ' do
+          expect(subject.size).to eq(1) # reject before routing. there will be only one profile
+          expect(subject.first[:aleg_auth_required]).to be_nil
+          expect(subject.first[:customer_acc_id]).to eq(customer_account.id)
+          expect(subject.first[:customer_acc_external_id]).to eq(customer_account.external_id)
+          expect(subject.first[:orig_gw_id]).to eq(customer_gateway.id)
+          expect(subject.first[:disconnect_code_id]).to eq(8013)
+        end
+      end
+
+      context 'Authorized, privacy policy reject critical' do
+        let!(:customer_auth_privacy_mode_id) { CustomersAuth::PRIVACY_MODE_REJECT_CRITICAL }
+        let!(:privacy) { 'id;critical' }
+
+        it 'reject ' do
+          expect(subject.size).to eq(1) # reject before routing. there will be only one profile
+          expect(subject.first[:aleg_auth_required]).to be_nil
+          expect(subject.first[:customer_acc_id]).to eq(customer_account.id)
+          expect(subject.first[:customer_acc_external_id]).to eq(customer_account.external_id)
+          expect(subject.first[:orig_gw_id]).to eq(customer_gateway.id)
+          expect(subject.first[:disconnect_code_id]).to eq(8014)
+        end
+      end
+
+      context 'Authorized, privacy policy reject anonymous' do
+        let!(:customer_auth_privacy_mode_id) { CustomersAuth::PRIVACY_MODE_REJECT_ANONYMOUS }
+        let!(:from_name) { 'anonymous' }
+        let!(:pai) { nil }
+        let!(:ppi) { nil }
+        # let!(:privacy) { 'id;critical' }
+
+        it 'reject ' do
+          expect(subject.size).to eq(1) # reject before routing. there will be only one profile
+          expect(subject.first[:aleg_auth_required]).to be_nil
+          expect(subject.first[:customer_acc_id]).to eq(customer_account.id)
+          expect(subject.first[:customer_acc_external_id]).to eq(customer_account.external_id)
+          expect(subject.first[:orig_gw_id]).to eq(customer_gateway.id)
+          expect(subject.first[:disconnect_code_id]).to eq(8015)
+        end
+      end
+
+      context 'Authorized, privacy policy Allow all' do
+        let!(:customer_auth_privacy_mode_id) { CustomersAuth::PRIVACY_MODE_ALLOW }
+        let!(:from_name) { 'anonymous' }
+        let!(:privacy) { 'id;critical' }
+
+        it 'not reject ' do
+          expect(subject.size).to eq(2)
+          expect(subject.first[:aleg_auth_required]).to be_nil
+        end
+      end
+
+      context 'Authorized, Customer has no enough balance' do
+        let!(:customer_auth_check_account_balance) { true }
+        let!(:customer_account_min_balance) { 0 }
+        let!(:customer_account_balance) { -10_000_000 }
+
+        it 'reject ' do
+          expect(subject.size).to eq(1) # reject before routing. there will be only one profile
+          expect(subject.first[:aleg_auth_required]).to be_nil
+          expect(subject.first[:disconnect_code_id]).to eq(8000) # No enough customer balance
+        end
+      end
+
+      context 'Authorized, Customer has no enough balance for first billing interval' do
+        let!(:customer_auth_check_account_balance) { true }
+        let!(:customer_account_min_balance) { 0 }
+        let!(:customer_account_balance) { 0.00001 }
+        let!(:destination_rate) { 1.0 }
+
+        it 'reject ' do
+          expect(subject.size).to eq(2) # reject after routing
+          expect(subject.first[:disconnect_code_id]).to eq(DisconnectCode::DC_NO_ENOUGH_CUSTOMER_BALANCE)
+          expect(subject.second[:disconnect_code_id]).to eq(DisconnectCode::DC_NO_ROUTES)
+        end
+      end
+
+      context 'Authorized, Customer has enough balance. Checking time limit' do
+        let!(:customer_auth_check_account_balance) { true }
+        let!(:customer_account_min_balance) { 0 }
+        let!(:customer_account_balance) { 60 }
+
+        let!(:destination_rate) { 3.0 }
+        let!(:destination_initial_interval) { 1.0 }
+        let!(:destination_next_interval) { 1.0 }
+
+        it 'routing OK ' do
+          expect(subject.size).to eq(2)
+          expect(subject.first[:disconnect_code_id]).to eq(nil)
+          expect(subject.first[:destination_initial_rate]).to eq(destination_rate)
+          expect(subject.first[:time_limit]).to eq(1200)
+          expect(subject.second[:disconnect_code_id]).to eq(DisconnectCode::DC_NO_ROUTES)
+        end
+      end
+
+      context 'Authorized, Customer has no enough balance, Balance checking disabled' do
+        let!(:customer_auth_check_account_balance) { false }
+        let!(:customer_account_min_balance) { 0 }
+        let!(:customer_account_balance) { -1_000_000 }
+
+        it 'routing OK ' do
+          expect(subject.size).to eq(2)
+          expect(subject.first[:customer_auth_id]).to be
+          expect(subject.first[:customer_id]).to be
+          expect(subject.first[:disconnect_code_id]).to eq(nil)
+        end
+      end
+
+      context 'Authorized, no destination by max_destination_rate limit' do
+        let!(:destination_rate) { 0.11 }
+        let!(:customer_account_destination_rate_limit) { 0.11 }
+
+        it 'Routing OK ' do
+          expect(subject.size).to eq(2)
+          expect(subject.first[:customer_auth_id]).to be
+          expect(subject.first[:customer_id]).to be
+          expect(subject.first[:disconnect_code_id]).to eq(nil)
+        end
+
+        context 'account dst rate limit too low' do
+          let!(:customer_account_destination_rate_limit) { 0.1 }
+
+          it 'No destination found' do
+            expect(subject.size).to eq(1)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(DisconnectCode::DC_NO_DESTINATION_WITH_APPROPRIATE_RATE)
+          end
         end
       end
 
@@ -1129,7 +1257,7 @@ RSpec.describe '#routing logic' do
           expect(subject.first[:disconnect_code_id]).to eq(nil) # no  Error
           expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
           expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
-          expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          expect(subject.second[:disconnect_code_id]).to eq(DisconnectCode::DC_NO_ROUTES) # last profile with route not found error
         end
       end
 
@@ -1420,7 +1548,7 @@ RSpec.describe '#routing logic' do
 
         context 'without append headers, SIP ' do
           let(:vendor_gw_term_append_headers_req) { '' }
-          let(:vendor_gw_pai_send_mode_id) { 2 } # sip URI
+          let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_BUILD_SIP } # sip URI
           let(:vendor_gw_pai_domain) { 'sip.pai.com' }
 
           let!(:expected_headers) {
@@ -1435,7 +1563,7 @@ RSpec.describe '#routing logic' do
             ]
           }
 
-          it 'response with Diversion headers ' do
+          it 'response with PAI headers ' do
             expect(subject.size).to eq(2)
             expect(subject.first[:customer_auth_id]).to be
             expect(subject.first[:customer_id]).to be
@@ -1450,7 +1578,7 @@ RSpec.describe '#routing logic' do
 
         context 'without append headers, TEL' do
           let(:vendor_gw_term_append_headers_req) { '' }
-          let(:vendor_gw_pai_send_mode_id) { 1 } # tel: URI
+          let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_BUILD_TEL } # tel: URI
 
           let!(:expected_headers) {
             [
@@ -1477,9 +1605,469 @@ RSpec.describe '#routing logic' do
           end
         end
 
+        context 'without append headers, SIP with user=phone ' do
+          let(:vendor_gw_term_append_headers_req) { '' }
+          let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_BUILD_SIP_WITH_USER_PHONE } # sip URI
+          let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+
+          let!(:expected_headers) {
+            [
+              "P-Asserted-Identity: <sip:123456789@#{vendor_gw_pai_domain};user=phone>"
+            ]
+          }
+
+          let!(:expected_pai_out) {
+            [
+              "<sip:123456789@#{vendor_gw_pai_domain};user=phone>"
+            ]
+          }
+
+          it 'response with PAI headers ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+            expect(subject.first[:append_headers_req]).to eq(expected_headers.join('\r\n'))
+            expect(subject.first[:pai_out]).to eq(expected_pai_out.join(','))
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+
+        context 'without append headers, RELAY NULL' do
+          let(:vendor_gw_term_append_headers_req) { '' }
+          let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+          let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+          let(:pai) { nil }
+          let(:ppi) { nil }
+
+          let!(:expected_headers) { '' }
+          let!(:expected_pai_out) { nil }
+          let!(:expected_ppi_out) { nil }
+
+          it 'response with PAI headers ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+            expect(subject.first[:append_headers_req]).to eq(expected_headers)
+            expect(subject.first[:pai_out]).to eq(expected_pai_out)
+            expect(subject.first[:ppi_out]).to eq(expected_ppi_out)
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+
+          context 'with privacy id and disabled privacy policy' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_DISABLE }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('from display name') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('123456789') # Original destination
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers)
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(pai)
+              expect(subject.first[:ppi_out]).to eq(ppi)
+              expect(subject.first[:privacy_out]).to eq(nil)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and SKIP GW' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+
+            it 'response with skipped route' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:ruri]).to eq(nil)
+              expect(subject.first[:from]).to eq(nil)
+              expect(subject.first[:dst_prefix_routing]).to eq(nil)
+              expect(subject.first[:append_headers_req]).to eq(nil)
+              expect(subject.first[:pai_in]).to eq(nil)
+              expect(subject.first[:ppi_in]).to eq(nil)
+              expect(subject.first[:privacy_in]).to eq(nil)
+              expect(subject.first[:pai_out]).to eq(nil)
+              expect(subject.first[:ppi_out]).to eq(nil)
+              expect(subject.first[:privacy_out]).to eq(nil)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and SKIP GW critical' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP_CRITICAL }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:ruri]).to be
+              expect(subject.first[:from]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers)
+              expect(subject.first[:pai_out]).to eq(expected_pai_out)
+              expect(subject.first[:ppi_out]).to eq(expected_ppi_out)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id; critical and SKIP GW critical' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP_CRITICAL }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id;critical' }
+
+            it 'response with skipped route' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:ruri]).to eq(nil)
+              expect(subject.first[:from]).to eq(nil)
+              expect(subject.first[:dst_prefix_routing]).to eq(nil)
+              expect(subject.first[:append_headers_req]).to eq(nil)
+              expect(subject.first[:pai_in]).to eq(nil)
+              expect(subject.first[:ppi_in]).to eq(nil)
+              expect(subject.first[:privacy_in]).to eq(nil)
+              expect(subject.first[:pai_out]).to eq(nil)
+              expect(subject.first[:ppi_out]).to eq(nil)
+              expect(subject.first[:privacy_out]).to eq(nil)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and apply privacy' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_APPLY }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+
+            it 'response without PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('Anonymous') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('anonymous') # Original destination
+              expect(subject.first[:from]).to eq('Anonymous <sip:anonymous@anonymous.invalid>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq("Privacy: #{privacy}")
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(nil)
+              expect(subject.first[:ppi_out]).to eq(nil)
+              expect(subject.first[:privacy_out]).to eq(privacy)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and trusted gw' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_TRUSTED }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+
+            let!(:expected_headers) {
+              [
+                "Privacy: #{privacy}"
+              ].join('\r\n')
+            }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('from display name') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('123456789') # Original destination
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers)
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(pai)
+              expect(subject.first[:ppi_out]).to eq(ppi)
+              expect(subject.first[:privacy_out]).to eq(privacy)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy NULL and trusted gw' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_TRUSTED }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { nil }
+
+            let!(:expected_headers) { '' }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('from display name') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('123456789') # Original destination
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers)
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(pai)
+              expect(subject.first[:ppi_out]).to eq(ppi)
+              expect(subject.first[:privacy_out]).to eq(privacy)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+        end
+
+        context 'without append headers, RELAY' do
+          let(:vendor_gw_term_append_headers_req) { '' }
+          let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+          let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+          let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+          let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+          let!(:expected_headers) {
+            [
+              'P-Asserted-Identity: <sip:pai-user@pai.domain.example.com>',
+              'P-Asserted-Identity: <sip:pai-user2@pai.domain.example.com>',
+              'P-Preferred-Identity: <sip:ppi-user@ppi.domain.example.com>'
+            ]
+          }
+
+          let!(:expected_pai_out) {
+            [
+              '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>'
+            ]
+          }
+
+          let!(:expected_ppi_out) {
+            [
+              '<sip:ppi-user@ppi.domain.example.com>'
+            ]
+          }
+
+          it 'response with PAI headers ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+            expect(subject.first[:append_headers_req]).to eq(expected_headers.join('\r\n'))
+            expect(subject.first[:pai_out]).to eq(expected_pai_out.join(','))
+            expect(subject.first[:ppi_out]).to eq(expected_ppi_out.join(','))
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+
+          context 'with privacy id and disabled privacy policy' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_DISABLE }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+            let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+            let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+            let!(:expected_headers) {
+              [
+                'P-Asserted-Identity: <sip:pai-user@pai.domain.example.com>',
+                'P-Asserted-Identity: <sip:pai-user2@pai.domain.example.com>',
+                'P-Preferred-Identity: <sip:ppi-user@ppi.domain.example.com>'
+              ]
+            }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('from display name') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('123456789') # Original destination
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers.join('\r\n'))
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(pai)
+              expect(subject.first[:ppi_out]).to eq(ppi)
+              expect(subject.first[:privacy_out]).to eq(nil)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and SKIP GW' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+            let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+            let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+            it 'response with skipped route' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:ruri]).to eq(nil)
+              expect(subject.first[:from]).to eq(nil)
+              expect(subject.first[:dst_prefix_routing]).to eq(nil)
+              expect(subject.first[:append_headers_req]).to eq(nil)
+              expect(subject.first[:pai_in]).to eq(nil)
+              expect(subject.first[:ppi_in]).to eq(nil)
+              expect(subject.first[:privacy_in]).to eq(nil)
+              expect(subject.first[:pai_out]).to eq(nil)
+              expect(subject.first[:ppi_out]).to eq(nil)
+              expect(subject.first[:privacy_out]).to eq(nil)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and SKIP GW critical' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP_CRITICAL }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+            let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+            let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:ruri]).to be
+              expect(subject.first[:from]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:dst_prefix_out]).to eq('uri-name') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers.join('\r\n'))
+              expect(subject.first[:pai_out]).to eq(expected_pai_out.join(','))
+              expect(subject.first[:ppi_out]).to eq(expected_ppi_out.join(','))
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id; critical and SKIP GW critical' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_SKIP_CRITICAL }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id;critical' }
+            let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+            let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+            it 'response with skipped route' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:ruri]).to eq(nil)
+              expect(subject.first[:from]).to eq(nil)
+              expect(subject.first[:dst_prefix_routing]).to eq(nil)
+              expect(subject.first[:append_headers_req]).to eq(nil)
+              expect(subject.first[:pai_in]).to eq(nil)
+              expect(subject.first[:ppi_in]).to eq(nil)
+              expect(subject.first[:privacy_in]).to eq(nil)
+              expect(subject.first[:pai_out]).to eq(nil)
+              expect(subject.first[:ppi_out]).to eq(nil)
+              expect(subject.first[:privacy_out]).to eq(nil)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and apply privacy' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_APPLY }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+            let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+            let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+            it 'response without PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('Anonymous') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('anonymous') # Original destination
+              expect(subject.first[:from]).to eq('Anonymous <sip:anonymous@anonymous.invalid>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq("Privacy: #{privacy}")
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(nil)
+              expect(subject.first[:ppi_out]).to eq(nil)
+              expect(subject.first[:privacy_out]).to eq(privacy)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+
+          context 'with privacy id and trusted gw' do
+            let(:vendor_gw_term_append_headers_req) { '' }
+            let(:vendor_gw_privacy_mode_id) { Gateway::PRIVACY_MODE_TRUSTED }
+            let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_RELAY }
+            let(:vendor_gw_pai_domain) { 'sip.pai.com' }
+            let(:privacy) { 'id' }
+            let(:pai) { '<sip:pai-user@pai.domain.example.com>,<sip:pai-user2@pai.domain.example.com>' }
+            let(:ppi) { '<sip:ppi-user@ppi.domain.example.com>' }
+
+            let!(:expected_headers) {
+              [
+                "Privacy: #{privacy}",
+                'P-Asserted-Identity: <sip:pai-user@pai.domain.example.com>',
+                'P-Asserted-Identity: <sip:pai-user2@pai.domain.example.com>',
+                'P-Preferred-Identity: <sip:ppi-user@ppi.domain.example.com>'
+              ]
+            }
+
+            it 'response with PAI headers ' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:src_name_out]).to eq('from display name') # Original destination
+              expect(subject.first[:src_prefix_out]).to eq('123456789') # Original destination
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>') # Original destination
+              expect(subject.first[:dst_prefix_routing]).to eq('uri-name') # Original destination
+              expect(subject.first[:append_headers_req]).to eq(expected_headers.join('\r\n'))
+              expect(subject.first[:pai_in]).to eq(pai)
+              expect(subject.first[:ppi_in]).to eq(ppi)
+              expect(subject.first[:privacy_in]).to eq(privacy)
+              expect(subject.first[:pai_out]).to eq(pai)
+              expect(subject.first[:ppi_out]).to eq(ppi)
+              expect(subject.first[:privacy_out]).to eq(privacy)
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+        end
+
         context 'with append headers' do
           let(:vendor_gw_term_append_headers_req) { 'Header5: value5\r\nHeader6: value7' }
-          let(:vendor_gw_pai_send_mode_id) { 2 } # sip: URI
+          let(:vendor_gw_pai_send_mode_id) { Gateway::PAI_SEND_MODE_BUILD_SIP } # sip: URI
           let(:vendor_gw_pai_domain) { 'sip.pai.com' }
 
           let!(:expected_headers) {
@@ -1510,12 +2098,106 @@ RSpec.describe '#routing logic' do
         end
       end
 
+      context 'Authorized, SIP schemas' do
+        let(:from_name) { '123456789' }
+
+        context 'SIP ' do
+          let(:vendor_gw_sip_schema_id) { Gateway::SIP_SCHEMA_SIP }
+
+          it 'response with SIP URI' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>')
+            expect(subject.first[:to]).to eq('<sip:uri-name@1.1.2.3>')
+            expect(subject.first[:ruri]).to eq('sip:uri-name@1.1.2.3')
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+
+          context 'with defined port' do
+            let(:vendor_gw_port) { 50_060 }
+
+            it 'with port in ruri' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi>')
+              expect(subject.first[:to]).to eq('<sip:uri-name@1.1.2.3:50060>')
+              expect(subject.first[:ruri]).to eq('sip:uri-name@1.1.2.3:50060')
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+        end
+
+        context 'SIPS' do
+          let(:vendor_gw_sip_schema_id) { Gateway::SIP_SCHEMA_SIPS }
+
+          it 'response with SIPS URI' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:from]).to eq('from display name <sips:123456789@$Oi>')
+            expect(subject.first[:to]).to eq('<sips:uri-name@1.1.2.3>')
+            expect(subject.first[:ruri]).to eq('sips:uri-name@1.1.2.3')
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+
+          context 'with defined port' do
+            let(:vendor_gw_port) { 50_070 }
+
+            it 'with port in ruri' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:from]).to eq('from display name <sips:123456789@$Oi>')
+              expect(subject.first[:to]).to eq('<sips:uri-name@1.1.2.3:50070>')
+              expect(subject.first[:ruri]).to eq('sips:uri-name@1.1.2.3:50070')
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+        end
+
+        context 'SIP with user=phone' do
+          let(:vendor_gw_sip_schema_id) { Gateway::SIP_SCHEMA_SIP_WITH_USER_PHONE }
+
+          it 'response with SIP user=phone' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi;user=phone>')
+            expect(subject.first[:to]).to eq('<sip:uri-name@1.1.2.3;user=phone>')
+            expect(subject.first[:ruri]).to eq('sip:uri-name@1.1.2.3;user=phone')
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+
+          context 'with defined port' do
+            let(:vendor_gw_port) { 50_061 }
+
+            it 'with port in ruri' do
+              expect(subject.size).to eq(2)
+              expect(subject.first[:customer_auth_id]).to be
+              expect(subject.first[:customer_id]).to be
+              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+              expect(subject.first[:from]).to eq('from display name <sip:123456789@$Oi;user=phone>')
+              expect(subject.first[:to]).to eq('<sip:uri-name@1.1.2.3:50061;user=phone>')
+              expect(subject.first[:ruri]).to eq('sip:uri-name@1.1.2.3:50061;user=phone')
+              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+            end
+          end
+        end
+      end
+
       context 'Authorized, registered Aor modes' do
         let(:uri_name) { '+1234567890' }
-        let(:vendor_gw_host) { 'pai.test.domain.com' }
 
         context 'registered aor mode - disable' do
           let(:vendor_gw_registered_aor_mode_id) { Gateway::REGISTERED_AOR_MODE_NO_USE }
+          let(:vendor_gw_host) { 'pai.test.domain.com' }
 
           it 'response with Diversion headers ' do
             expect(subject.size).to eq(2)
@@ -1533,15 +2215,36 @@ RSpec.describe '#routing logic' do
 
         context 'registered aor mode - As is' do
           let(:vendor_gw_registered_aor_mode_id) { Gateway::REGISTERED_AOR_MODE_AS_IS }
+          let(:vendor_gw_host) { 'pai.test.domain.com' }
+          let(:expected_ruri_host) { 'unknown.invalid' }
 
-          it 'response with Diversion headers ' do
+          it 'response' do
             expect(subject.size).to eq(2)
             expect(subject.first[:customer_auth_id]).to be
             expect(subject.first[:customer_id]).to be
             expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
             expect(subject.first[:dst_prefix_out]).to eq('+1234567890') # Original destination
             expect(subject.first[:dst_prefix_routing]).to eq('+1234567890') # Original destination
-            expect(subject.first[:ruri]).to eq("sip:+1234567890@#{vendor_gateway.host}")
+            expect(subject.first[:ruri]).to eq("sip:+1234567890@#{expected_ruri_host}")
+            expect(subject.first[:registered_aor_id]).to eq(vendor_gateway.id)
+            expect(subject.first[:registered_aor_mode_id]).to eq(Gateway::REGISTERED_AOR_MODE_AS_IS)
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+
+        context 'registered aor mode - As is, null host' do
+          let(:vendor_gw_registered_aor_mode_id) { Gateway::REGISTERED_AOR_MODE_AS_IS }
+          let(:vendor_gw_host) { nil }
+          let(:expected_ruri_host) { 'unknown.invalid' }
+
+          it 'response' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq('+1234567890') # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq('+1234567890') # Original destination
+            expect(subject.first[:ruri]).to eq("sip:+1234567890@#{expected_ruri_host}")
             expect(subject.first[:registered_aor_id]).to eq(vendor_gateway.id)
             expect(subject.first[:registered_aor_mode_id]).to eq(Gateway::REGISTERED_AOR_MODE_AS_IS)
             expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
@@ -1550,17 +2253,114 @@ RSpec.describe '#routing logic' do
 
         context 'registered aor mode - replace userpart' do
           let(:vendor_gw_registered_aor_mode_id) { Gateway::REGISTERED_AOR_MODE_REPLACE_USERPART }
+          let(:expected_ruri_host) { 'unknown.invalid' }
 
-          it 'response with Diversion headers ' do
+          it 'response' do
             expect(subject.size).to eq(2)
             expect(subject.first[:customer_auth_id]).to be
             expect(subject.first[:customer_id]).to be
             expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
             expect(subject.first[:dst_prefix_out]).to eq('+1234567890') # Original destination
             expect(subject.first[:dst_prefix_routing]).to eq('+1234567890') # Original destination
-            expect(subject.first[:ruri]).to eq("sip:+1234567890@#{vendor_gateway.host}")
+            expect(subject.first[:ruri]).to eq("sip:+1234567890@#{expected_ruri_host}")
             expect(subject.first[:registered_aor_id]).to eq(vendor_gateway.id)
             expect(subject.first[:registered_aor_mode_id]).to eq(Gateway::REGISTERED_AOR_MODE_REPLACE_USERPART)
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+
+        context 'registered aor mode - replace userpart, null host' do
+          let(:vendor_gw_registered_aor_mode_id) { Gateway::REGISTERED_AOR_MODE_REPLACE_USERPART }
+          let(:vendor_gw_host) { nil }
+          let(:expected_ruri_host) { 'unknown.invalid' }
+
+          it 'response' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq('+1234567890') # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq('+1234567890') # Original destination
+            expect(subject.first[:ruri]).to eq("sip:+1234567890@#{expected_ruri_host}")
+            expect(subject.first[:registered_aor_id]).to eq(vendor_gateway.id)
+            expect(subject.first[:registered_aor_mode_id]).to eq(Gateway::REGISTERED_AOR_MODE_REPLACE_USERPART)
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+      end
+
+      context 'Authorized, DST Number (RURI/To) rewrite rule' do
+        let(:uri_name) { '+1234567890' }
+        let(:vendor_gw_host) { 'dst.domain.com' }
+
+        context 'Rewrite disabled' do
+          let(:vendor_gw_dst_rewrite_rule) { nil }
+          let(:vendor_gw_dst_rewrite_result) { '1211\1' }
+          let(:vendor_gw_to_rewrite_rule) { nil }
+          let(:vendor_gw_to_rewrite_result) { '2322\1' }
+
+          it 'response with original number ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq(uri_name) # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq(uri_name) # Original destination
+            expect(subject.first[:ruri]).to eq("sip:#{uri_name}@#{vendor_gateway.host}")
+            expect(subject.first[:to]).to eq("<sip:#{uri_name}@#{vendor_gateway.host}>")
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+
+        context 'TO Rewrite enabled' do
+          let(:vendor_gw_to_rewrite_rule) { '^(.*)$' }
+          let(:vendor_gw_to_rewrite_result) { '1111#\1' }
+
+          it 'response with Diversion headers ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_out]).to eq(uri_name) # Original destination
+            expect(subject.first[:dst_prefix_routing]).to eq(uri_name) # Original destination
+            expect(subject.first[:ruri]).to eq("sip:#{uri_name}@#{vendor_gateway.host}") # original dst in RURI
+            expect(subject.first[:to]).to eq("<sip:1111##{uri_name}@#{vendor_gateway.host}>") # rewtited dst in TO
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+
+        context 'DST Rewrite enabled' do
+          let(:vendor_gw_dst_rewrite_rule) { '^(.*)$' }
+          let(:vendor_gw_dst_rewrite_result) { '8888#\1' }
+
+          it 'response with original number ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_routing]).to eq(uri_name) # Original destination
+            expect(subject.first[:dst_prefix_out]).to eq("8888##{uri_name}") # Original destination
+            expect(subject.first[:ruri]).to eq("sip:8888##{uri_name}@#{vendor_gateway.host}")
+            expect(subject.first[:to]).to eq("<sip:8888##{uri_name}@#{vendor_gateway.host}>")
+            expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
+          end
+        end
+
+        context 'DST and TO Rewrite enabled' do
+          let(:vendor_gw_dst_rewrite_rule) { '^(.*)$' }
+          let(:vendor_gw_dst_rewrite_result) { '8888#\1' }
+          let(:vendor_gw_to_rewrite_rule) { '^(.*)$' }
+          let(:vendor_gw_to_rewrite_result) { '9999#\1' }
+
+          it 'response with original number ' do
+            expect(subject.size).to eq(2)
+            expect(subject.first[:customer_auth_id]).to be
+            expect(subject.first[:customer_id]).to be
+            expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
+            expect(subject.first[:dst_prefix_routing]).to eq(uri_name) # Original destination
+            expect(subject.first[:dst_prefix_out]).to eq("8888##{uri_name}") # Original destination
+            expect(subject.first[:ruri]).to eq("sip:8888##{uri_name}@#{vendor_gateway.host}")
+            expect(subject.first[:to]).to eq("<sip:9999#8888##{uri_name}@#{vendor_gateway.host}>")
             expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
           end
         end
@@ -1586,7 +2386,7 @@ RSpec.describe '#routing logic' do
         end
 
         context 'STIR/SHAKEN mode - insert' do
-          let(:vendor_gw_stir_shaken_mode_id) { Gateway::STIR_SHAKEN_MODE_INSERT }
+          let(:vendor_gw_stir_shaken_mode_id) { Gateway::STIR_SHAKEN_MODE_RELAY_INSERT }
           let(:crt) { create(:stir_shaken_signing_certificate) }
           let(:vendor_gw_stir_shaken_crt_id) { crt.id }
 
@@ -1601,22 +2401,6 @@ RSpec.describe '#routing logic' do
               expect(subject.first[:ss_dtn]).to eq(subject.first[:dst_prefix_routing])
               expect(subject.first[:ss_attest_id]).to eq(customer_auth_rewrite_ss_status_id)
               expect(subject.first[:legb_ss_status_id]).to eq(customer_auth_rewrite_ss_status_id)
-              expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
-            end
-          end
-
-          context 'Invalid identity on LegA' do
-            let(:customer_auth_rewrite_ss_status_id) { CustomersAuth::SS_STATUS_INVALID }
-            it 'response without ss' do
-              expect(subject.size).to eq(2)
-              expect(subject.first[:customer_auth_id]).to be
-              expect(subject.first[:customer_id]).to be
-              expect(subject.first[:disconnect_code_id]).to eq(nil) # no routing Error
-              expect(subject.first[:ss_crt_id]).to eq(nil)
-              expect(subject.first[:ss_otn]).to eq(nil)
-              expect(subject.first[:ss_dtn]).to eq(nil)
-              expect(subject.first[:ss_attest_id]).to eq(CustomersAuth::SS_STATUS_INVALID)
-              expect(subject.first[:legb_ss_status_id]).to eq(nil)
               expect(subject.second[:disconnect_code_id]).to eq(113) # last profile with route not found error
             end
           end
@@ -1664,7 +2448,7 @@ RSpec.describe '#routing logic' do
         let(:validate_src_number_network) { true }
 
         context 'Number is valid' do
-          let(:from_name) { '3809611111111' }
+          let(:from_name) { '380961111111' }
 
           it 'response with ok ' do
             expect(subject.size).to eq(2)
@@ -1695,13 +2479,31 @@ RSpec.describe '#routing logic' do
             expect(subject.first[:disconnect_code_id]).to eq(8010) # last profile with invalid SRC number network error
           end
         end
+        context 'Number has existed network prefix, but wrong length' do
+          let(:from_name) { '3809711' }
+
+          it 'response with reject ' do
+            expect(subject.size).to eq(1)
+            expect(subject.first[:disconnect_code_id]).to eq(8010) # last profile with invalid SRC number network error
+          end
+        end
+
+        context 'Number has existed network prefix, but network is not defined' do
+          # 380 prefix exists, but without network(it is aggregated prefix), calls should be rejected
+          let(:from_name) { '380123456789' }
+
+          it 'response with reject ' do
+            expect(subject.size).to eq(1)
+            expect(subject.first[:disconnect_code_id]).to eq(8010) # last profile with invalid SRC number network error
+          end
+        end
       end
 
       context 'DST Number format validation enabled' do
         let(:validate_dst_number_format) { true }
 
         context 'Number is valid' do
-          let(:uri_name) { '3809611111111' }
+          let(:uri_name) { '380961111111111111111111' }
 
           it 'response with ok ' do
             expect(subject.size).to eq(2)
@@ -1722,7 +2524,7 @@ RSpec.describe '#routing logic' do
         let(:validate_dst_number_network) { true }
 
         context 'Number is valid' do
-          let(:uri_name) { '3809611111111' }
+          let(:uri_name) { '380961234567' }
 
           it 'response with ok ' do
             expect(subject.size).to eq(2)
@@ -1731,6 +2533,25 @@ RSpec.describe '#routing logic' do
         end
         context 'Number is not valid' do
           let(:uri_name) { '000003809611111111' }
+
+          it 'response with reject ' do
+            expect(subject.size).to eq(1)
+            expect(subject.first[:disconnect_code_id]).to eq(8007) # last profile with invalid DST number network error
+          end
+        end
+
+        context 'Number has known prefix, but wrong length' do
+          let(:uri_name) { '3809612' }
+
+          it 'response with ok ' do
+            expect(subject.size).to eq(1)
+            expect(subject.first[:disconnect_code_id]).to eq(8007) # last profile with route not found error
+          end
+        end
+
+        context 'Number has known network prefix, but network is not defined' do
+          # 380 prefix exists, but without network(it is aggregated prefix), calls should be rejected
+          let(:uri_name) { '380123456789' }
 
           it 'response with reject ' do
             expect(subject.size).to eq(1)

@@ -14,10 +14,6 @@
 #  created_at  :timestamptz
 #  customer_id :integer(4)
 #
-# Indexes
-#
-#  cdr_custom_report_id_idx  (id) UNIQUE WHERE (id IS NOT NULL)
-#
 
 class Report::CustomCdr < Cdr::Base
   self.table_name = 'reports.cdr_custom_report'
@@ -32,8 +28,6 @@ class Report::CustomCdr < Cdr::Base
     routing_group_id
     orig_gw_id
     term_gw_id
-    destination_id
-    dialpeer_id
     customer_auth_id
     vendor_acc_id
     customer_acc_id
@@ -43,18 +37,8 @@ class Report::CustomCdr < Cdr::Base
     destination_rate_policy_id
     node_id
     pop_id
-    destination_next_rate
-    destination_fee
-    dialpeer_next_rate
-    dialpeer_fee
-    time_limit
-    customer_price
-    vendor_price
     duration
     success
-    vendor_billed
-    customer_billed
-    profit
     dst_prefix_in
     dst_prefix_out
     src_prefix_in
@@ -71,18 +55,23 @@ class Report::CustomCdr < Cdr::Base
     sign_term_port
     sign_term_local_ip
     sign_term_local_port
-    orig_call_id
-    term_call_id
-    local_tag
-    log_sip
-    log_rtp
-    dump_file
+
+    destination_id
+    destination_fee
     destination_initial_rate
-    dialpeer_initial_rate
+    destination_next_rate
     destination_initial_interval
     destination_next_interval
+    destination_reverse_billing
+
+    dialpeer_id
+    dialpeer_fee
+    dialpeer_initial_rate
+    dialpeer_next_rate
     dialpeer_initial_interval
     dialpeer_next_interval
+    dialpeer_reverse_billing
+
     routing_attempt
     is_last_cdr
     lega_disconnect_code
@@ -122,9 +111,15 @@ class Report::CustomCdr < Cdr::Base
     id.to_s
   end
 
+  scope :group_by_any, ->(*values) { where.contains(group_by: values) }
+
   private
 
   def auto_column_constants
     CDR_COLUMNS_CONSTANTS
+  end
+
+  def self.ransackable_scopes(_auth_object = nil)
+    %i[group_by_any]
   end
 end

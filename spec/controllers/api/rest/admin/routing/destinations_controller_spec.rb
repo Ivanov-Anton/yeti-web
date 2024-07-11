@@ -20,14 +20,14 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
     end
 
     describe 'sort' do
-      context 'by country & prefix' do
+      context 'by country, network & prefix' do
         let(:destinations) { nil }
         let!(:net_type) { FactoryBot.create(:network_type) }
-        let!(:network) { FactoryBot.create(:network) }
 
         let!(:first_destination_afghanistan) do
           afghanistan = System::Country.find_by!(name: 'Afghanistan')
-          network_prefix = FactoryBot.create(:network_prefix, country: afghanistan)
+          network = FactoryBot.create(:network, name: 'AfghanistanNet', network_type: net_type)
+          network_prefix = FactoryBot.create(:network_prefix, country: afghanistan, network:)
           record = FactoryBot.create(:destination, rate_group: rate_group, prefix: '111')
           record.update!(network_prefix_id: network_prefix.id)
           record
@@ -35,7 +35,8 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
 
         let!(:second_destination_ukraine) do
           ukraine = System::Country.find_by!(name: 'Ukraine')
-          network_prefix = FactoryBot.create(:network_prefix, country: ukraine)
+          network = FactoryBot.create(:network, name: 'UkraineNetABC', network_type: net_type)
+          network_prefix = FactoryBot.create(:network_prefix, country: ukraine, network:)
           record = FactoryBot.create(:destination, rate_group: rate_group, prefix: '999')
           record.update!(network_prefix_id: network_prefix.id)
           record
@@ -84,6 +85,18 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
             end
           end
 
+          context 'when sort by prefix in ASC order and then by country name' do
+            let(:index_params) { { sort: 'prefix,country.name' } }
+
+            it 'returns ordered records' do
+              subject
+
+              expect(response_body[:errors]).to be_nil
+              expect(response_body[:data].pluck(:id)).to eq [first_destination_afghanistan.id.to_s, third_destination_ukraine.id.to_s, second_destination_ukraine.id.to_s]
+              expect(response_body[:data].pluck(:attributes).pluck(:prefix)).to eq %w[111 555 999]
+            end
+          end
+
           context 'when sort by country name in ASC order and then by prefix in DESC order' do
             let(:index_params) { { sort: 'country.name,-prefix' } }
 
@@ -93,6 +106,83 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
               expect(response_body[:errors]).to be_nil
               expect(response_body[:data].pluck(:id)).to eq [first_destination_afghanistan.id.to_s, second_destination_ukraine.id.to_s, third_destination_ukraine.id.to_s]
               expect(response_body[:data].pluck(:attributes).pluck(:prefix)).to eq %w[111 999 555]
+            end
+          end
+
+          context 'when sort by prefix in DESC order and then by country name' do
+            let(:index_params) { { sort: '-prefix,country.name' } }
+
+            it 'returns ordered records' do
+              subject
+
+              expect(response_body[:errors]).to be_nil
+              expect(response_body[:data].pluck(:id)).to eq [second_destination_ukraine.id.to_s, third_destination_ukraine.id.to_s, first_destination_afghanistan.id.to_s]
+              expect(response_body[:data].pluck(:attributes).pluck(:prefix)).to eq %w[999 555 111]
+            end
+          end
+        end
+
+        context 'by country, network and prefix' do
+          let!(:network_ua_cba) { FactoryBot.create(:network, name: 'UkraineNetCBA', network_type: net_type) }
+
+          let!(:third_destination_ukraine) do
+            ukraine = System::Country.find_by!(name: 'Ukraine')
+            network_prefix = FactoryBot.create(:network_prefix, country: ukraine, network: network_ua_cba)
+            record = FactoryBot.create(:destination, rate_group: rate_group, prefix: '777')
+            record.update!(network_prefix_id: network_prefix.id)
+            record
+          end
+
+          let!(:fourth_destination_ukraine) do
+            ukraine = System::Country.find_by!(name: 'Ukraine')
+            network_prefix = FactoryBot.create(:network_prefix, country: ukraine, network: network_ua_cba)
+            record = FactoryBot.create(:destination, rate_group: rate_group, prefix: '444')
+            record.update!(network_prefix_id: network_prefix.id)
+            record
+          end
+
+          let!(:fifth_destination_ukraine) do
+            ukraine = System::Country.find_by!(name: 'Ukraine')
+            network_abc_ua = FactoryBot.create(:network, name: 'ABCUkraineNet', network_type: net_type)
+            network_prefix = FactoryBot.create(:network_prefix, country: ukraine, network: network_abc_ua)
+            record = FactoryBot.create(:destination, rate_group: rate_group, prefix: '333')
+            record.update!(network_prefix_id: network_prefix.id)
+            record
+          end
+
+          context 'when sort by country name and then by prefix in ASC order' do
+            let(:index_params) { { sort: 'country.name,network.name,prefix' } }
+
+            it 'returns ordered records' do
+              subject
+
+              expect(response_body[:errors]).to be_nil
+              expect(response_body[:data].pluck(:id)).to eq([
+                                                              first_destination_afghanistan.id.to_s,
+                                                              fifth_destination_ukraine.id.to_s,
+                                                              second_destination_ukraine.id.to_s,
+                                                              fourth_destination_ukraine.id.to_s,
+                                                              third_destination_ukraine.id.to_s
+                                                            ])
+              expect(response_body[:data].pluck(:attributes).pluck(:prefix)).to eq(%w[111 333 999 444 777])
+            end
+          end
+
+          context 'when sort by country name and then by prefix in DESC order' do
+            let(:index_params) { { sort: 'country.name,network.name,-prefix' } }
+
+            it 'returns ordered records' do
+              subject
+
+              expect(response_body[:errors]).to be_nil
+              expect(response_body[:data].pluck(:id)).to eq([
+                                                              first_destination_afghanistan.id.to_s,
+                                                              fifth_destination_ukraine.id.to_s,
+                                                              second_destination_ukraine.id.to_s,
+                                                              third_destination_ukraine.id.to_s,
+                                                              fourth_destination_ukraine.id.to_s
+                                                            ])
+              expect(response_body[:data].pluck(:attributes).pluck(:prefix)).to eq(%w[111 333 999 777 444])
             end
           end
         end
@@ -105,6 +195,7 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
       get :index, params: json_api_request_query
     end
     before { create_list :destination, 2 }
+    let(:json_api_request_query) { nil }
 
     it_behaves_like :jsonapi_filter_by_external_id do
       let(:subject_record) { create(:destination) }
@@ -152,6 +243,7 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
       get :index, params: json_api_request_query
     end
     let(:factory) { :destination }
+    let(:json_api_request_query) { nil }
 
     it_behaves_like :jsonapi_filters_by_boolean_field, :enabled
     it_behaves_like :jsonapi_filters_by_string_field, :prefix
@@ -203,7 +295,7 @@ RSpec.describe Api::Rest::Admin::Routing::DestinationsController, type: :control
       before { get :show, params: { id: destination.to_param, include: 'country' } }
 
       include_examples :responds_with_status, 200
-      include_examples :returns_json_api_record, type: 'destinations', relationships: [:country] do
+      include_examples :returns_json_api_record, type: 'destinations', relationships: %i[country network] do
         let(:json_api_record_id) { destination.id.to_s }
         let(:json_api_record_attributes) do
           hash_including(

@@ -40,6 +40,26 @@ user:
     change: true
     remove: true
     perform: true
+  Billing/ServiceType:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  Billing/Service:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  Billing/Transaction:
+    read: true
+    change: true
+    remove: true
+    perform: true
+  Billing/PackageCounter:
+    read: true
+    change: true
+    remove: true
+    perform: true
   Billing/Contact:
     read: true
     change: true
