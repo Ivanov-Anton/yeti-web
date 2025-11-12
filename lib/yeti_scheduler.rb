@@ -77,10 +77,10 @@ class YetiScheduler < Scheduler::Base
     # close database connections if they were open.
     # main thread does not use database.
     # each time thread should acquire and release database connection.
-    ApplicationRecord.clear_active_connections!
-    ApplicationRecord.flush_idle_connections!
-    Cdr::Base.clear_active_connections!
-    Cdr::Base.flush_idle_connections!
+    ApplicationRecord.connection_handler.clear_active_connections!(:all)
+    ApplicationRecord.connection_handler.flush_idle_connections!(:all)
+    Cdr::Base.connection_handler.clear_active_connections!(:all)
+    Cdr::Base.connection_handler.flush_idle_connections!(:all)
 
     if PrometheusConfig.enabled?
       YetiInfoProcessor.start(labels: { app_type: 'scheduler' })
@@ -94,7 +94,6 @@ class YetiScheduler < Scheduler::Base
   cron Jobs::CdrPartitioning
   cron Jobs::CdrBatchCleaner
   cron Jobs::PartitionRemoving
-  cron Jobs::EventProcessor
   cron Jobs::CallsMonitoring
   cron Jobs::StatsClean
   cron Jobs::StatsAggregation
@@ -109,5 +108,7 @@ class YetiScheduler < Scheduler::Base
   cron Jobs::DeleteBalanceNotifications
   cron Jobs::DeleteAppliedRateManagementPricelists
   cron Jobs::ServiceRenew
+  cron Jobs::CdrCompaction
+  cron Jobs::Scheduler
   every Jobs::PrometheusCustomerAuthStats
 end

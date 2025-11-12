@@ -26,6 +26,7 @@ ActiveAdmin.register Routing::NumberlistItem do
                  [:tag_action_name, proc { |row| row.tag_action.try(:name) }],
                  [:tag_action_value_names, proc { |row| row.model.tag_action_values.map(&:name).join(', ') }],
                  [:lua_script_name, proc { |row| row.lua_script.try(:name) }],
+                 :rewrite_ss_status_name,
                  :created_at,
                  :updated_at
 
@@ -35,10 +36,11 @@ ActiveAdmin.register Routing::NumberlistItem do
   includes :numberlist, :lua_script, :tag_action
 
   permit_params :numberlist_id,
-                :key, :number_min_length, :number_max_length,
+                :key, :batch_key, :number_min_length, :number_max_length,
                 :action_id,
                 :src_rewrite_rule, :src_rewrite_result, :defer_src_rewrite,
                 :dst_rewrite_rule, :dst_rewrite_result, :defer_dst_rewrite,
+                :rewrite_ss_status_id,
                 :tag_action_id, :lua_script_id, tag_action_value: []
 
   filter :id
@@ -54,6 +56,10 @@ ActiveAdmin.register Routing::NumberlistItem do
   filter :updated_at, as: :date_time_range
   filter :defer_src_rewrite
   filter :defer_dst_rewrite
+  filter :rewrite_ss_status_id_eq,
+         label: 'Rewrite SS status',
+         as: :select,
+         collection: Equipment::StirShaken::Attestation::ATTESTATIONS.invert
 
   controller do
     def update
@@ -82,6 +88,7 @@ ActiveAdmin.register Routing::NumberlistItem do
     column :defer_dst_rewrite
     column :tag_action
     column :display_tag_action_value
+    column :rewrite_ss_status, &:rewrite_ss_status_name
     column :lua_script
     column :created_at
     column :updated_at
@@ -105,6 +112,7 @@ ActiveAdmin.register Routing::NumberlistItem do
           row :defer_dst_rewrite
           row :tag_action
           row :display_tag_action_value
+          row :rewrite_ss_status, &:rewrite_ss_status_name
           row :lua_script
           row :created_at
           row :updated_at
@@ -122,7 +130,13 @@ ActiveAdmin.register Routing::NumberlistItem do
                                label: 'Numberlist',
                                scope: Routing::Numberlist.order(:name),
                                path: '/numberlists/search'
-      f.input :key
+
+      if f.object.new_record? # allow multiple keys delimited by comma in NEW form.
+        f.input :batch_key, label: 'Key'
+      else
+        f.input :key
+      end
+
       f.input :number_min_length
       f.input :number_max_length
       f.input :action_id, as: :select, include_blank: 'Default action', collection: Routing::NumberlistItem::ACTIONS.invert
@@ -140,6 +154,7 @@ ActiveAdmin.register Routing::NumberlistItem do
                                  multiple: true,
                                  include_hidden: false,
                                  input_html: { class: 'chosen' }
+      f.input :rewrite_ss_status_id, as: :select, collection: Equipment::StirShaken::Attestation::ATTESTATIONS.invert
       f.input :lua_script, as: :select, input_html: { class: 'chosen' }, include_blank: 'None'
     end
     f.actions

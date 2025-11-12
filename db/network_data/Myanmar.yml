@@ -1,0 +1,927 @@
+country_id: &mm 146
+networks:
+# Fixed Networks
+  - id: &mm_bago_region 6656
+    name: MM Bago Region
+    uuid: 621544fe-b53a-4b1d-a63c-6acd0962ee1d
+    type_id: 2
+  - id: &mm_pyay_region 7590
+    name: MM Pyay Region
+    uuid: ddcdc979-927a-43d5-bd79-02745a3c998e
+    type_id: 2
+  - id: &mm_thanlyin_region 7975
+    name: MM Thanlyin Region
+    uuid: fde005de-b8db-42df-ae32-9517be7e770a
+    type_id: 2
+  - id: &mm_dawei_region 8819
+    name: MM Dawei Region
+    uuid: 077fb6ca-c2b0-4319-8e77-a8c7ae64de74
+    type_id: 2
+  - id: &mm_mandalay_region 9287
+    name: MM Mandalay Region
+    uuid: 6c90aef8-d789-4e07-a504-721e4f5f3b1e
+    type_id: 2
+  - id: &mm_mawlamyine_region 9686
+    name: MM Mawlamyine Region
+    uuid: d5ef0363-1d67-4446-9cc8-5e3c96bfac6d
+    type_id: 2
+  - id: &mm_yenangyoung_region 10550
+    name: MM Yenangyoung Region
+    uuid: 5157467a-204e-44e3-85a0-664b95e76191
+    type_id: 2
+  - id: &mm_chauk_region 11808
+    name: MM Chauk Region
+    uuid: c8ce42fd-b572-45cf-bdf4-a895c488006a
+    type_id: 2
+  - id: &mm_pakokku_region 11990
+    name: MM Pakokku Region
+    uuid: b09c9e09-40f7-465f-b592-491700f6c2b5
+    type_id: 2
+  - id: &mm_magway_region 12473
+    name: MM Magway Region
+    uuid: c712e149-4bb1-4abd-883f-b19fc03e32c8
+    type_id: 2
+  - id: &mm_meikhtila_region 12738
+    name: MM Meikhtila Region
+    uuid: ae421dde-1dc9-43f1-992b-e33af4aab6ab
+    type_id: 2
+  - id: &mm_myingyan_region 13692
+    name: MM Myingyan Region
+    uuid: 9d5dea40-b1a7-4280-a42f-27c0a7215964
+    type_id: 2
+  - id: &mm_aunglan_region 14308
+    name: MM Aunglan Region
+    uuid: b8ba47d6-00ca-41c5-9fa3-ceaf1feb0902
+    type_id: 2
+  - id: &mm_naypyitaw_region 14523
+    name: MM Naypyitaw Region
+    uuid: a9968043-cdab-402f-8848-0e2eceed1160
+    type_id: 2
+  - id: &mm_monywa_region 16243
+    name: MM Monywa Region
+    uuid: d82225f8-5de4-4dec-85d3-850377387992
+    type_id: 2
+  - id: &mm_sagaing_region 16525
+    name: MM Sagaing Region
+    uuid: 40a0b695-67af-4b2e-a69b-eb4860e03841
+    type_id: 2
+  - id: &mm_myitkyina_region 17646
+    name: MM Myitkyina Region
+    uuid: 0551647c-8b26-4330-bccb-8eb668d09912
+    type_id: 2
+  - id: &mm_shwebo_region 18024
+    name: MM Shwebo Region
+    uuid: e2c5f288-9163-4e50-bb53-b855891b2847
+    type_id: 2
+  - id: &mm_special_services 21451
+    name: MM Special Services
+    uuid: 00a10811-72dd-4ef7-bcef-0c360c9aafb2
+    type_id: 13
+  - id: &mm_yangon_region 24791
+    name: MM Yangon Region
+    uuid: c81728d9-65d0-4d52-9d33-2dcd5add5cf6
+    type_id: 2
+  - id: &mm_mpt_satellite 24798
+    name: MM Mpt Satellite
+    uuid: 200ebdc2-d0ae-4fd1-bd0f-4a1b8e9c5a75
+    type_id: 15
+  - id: &mm_mpt_mobile 24799
+    name: MM Mpt Mobile
+    uuid: d48e6ce0-43eb-4e33-8db4-e8f248fceb75
+    type_id: 3
+  - id: &mm_sittway_region 36601
+    name: MM Sittway Region
+    uuid: 8f429814-ea38-4a80-a650-dd90dc19df83
+    type_id: 2
+  - id: &mm_hinthada_region 36865
+    name: MM Hinthada Region
+    uuid: 041e4bf4-5c7f-4d3e-ad49-95c1f1b8b635
+    type_id: 2
+  - id: &mm_pathein_region 37253
+    name: MM Pathein Region
+    uuid: 78eba1a4-db2f-4e8d-9665-0c7af8c02c80
+    type_id: 2
+  - id: &mm_freephone_services 38507
+    name: MM Freephone Services
+    uuid: e67815c7-0e46-4ce5-8cfa-314dc23d8219
+    type_id: 13
+  - id: &mm_taunggyi_region 38628
+    name: MM Taunggyi Region
+    uuid: 052a9c34-ff26-4326-a0ce-5f699954fbe8
+    type_id: 2
+  - id: &mm_lashio_region 39700
+    name: MM Lashio Region
+    uuid: 95d40f77-eb50-46d4-82e1-ebdd83477519
+    type_id: 2
+  - id: &mm_loikaw_region 39768
+    name: MM Loikaw Region
+    uuid: afb95a60-9596-462e-9d2c-22e989467aa7
+    type_id: 2
+  - id: &mm_pyin_oo_lwin_region 41032
+    name: MM Pyin Oo Lwin Region
+    uuid: 15a0d586-8776-48c4-ac9d-03c1fad817c2
+    type_id: 2
+  - id: &mm_mobile 41580
+    name: MM Mobile
+    uuid: 26435dba-9810-4e96-b1fb-039ef27a50c4
+    type_id: 3
+  - id: &mm_mytel_mobile 41633
+    name: MM Mytel Mobile
+    uuid: 83ee9012-de54-469a-8348-f7f583a1e884
+    type_id: 3
+  - id: &mm_atom_mobile 42044
+    name: MM Atom Mobile
+    uuid: 8abbe13d-b390-4b0e-ad3e-b8fb301e6060
+    type_id: 3
+  - id: &mm_ooredoo_mobile 42049
+    name: MM Ooredoo Mobile
+    uuid: 49330c46-b625-435a-a7df-71228d91dfdd
+    type_id: 3
+  - id: &mm_thayet_region 43322
+    name: MM Thayet Region
+    uuid: 752c96f8-c406-4773-951e-43a785571fcc
+    type_id: 2
+  - id: &mm_haka_region 43327
+    name: MM Haka Region
+    uuid: e3367499-46b7-4ca5-8879-3e33d50cade0
+    type_id: 2
+  - id: &mm_kalay_region 43338
+    name: MM Kalay Region
+    uuid: 980e30b5-00a2-4be2-933c-b4dbd151c4fb
+    type_id: 2
+  - id: &mm_kengtung_region 43357
+    name: MM Kengtung Region
+    uuid: 140936f4-7ae3-46e9-8b80-1eaf752b7e6c
+    type_id: 2
+# Supplementary services Networks
+  - id: &mm_mogok_region 43359
+    name: MM Mogok Region
+    uuid: 0b2357ae-b69f-4f42-99ae-0f3672f99487
+    type_id: 2
+  - id: &mm_fixed 43438
+    name: MM Fixed
+    uuid: 9a94a454-53b3-4194-ac3f-49d65ca19a57
+    type_id: 2
+  - id: &mm_military_forces 43523
+    name: MM Military Forces
+    uuid: 16552bfa-6499-49a2-9946-33b2a4c55d7b
+    type_id: 13
+# Mobile Networks
+  - id: &mm_maubin_region 43531
+    name: MM Maubin Region
+    uuid: e9d95f6d-4aa6-4717-87e7-6d5a24286484
+    type_id: 2
+  - id: &mm_nyaungdon_region 43534
+    name: MM Nyaungdon Region
+    uuid: c9f92576-00d2-4a80-9892-a773044116fc
+    type_id: 2
+  - id: &mm_toungoo_region 43540
+    name: MM Toungoo Region
+    uuid: 053e979b-47eb-4417-8b43-11ef781d4d32
+    type_id: 2
+  - id: &mm_oakkan_region 43541
+    name: MM Oakkan Region
+    uuid: 580f80a1-8d9c-4ff9-b58b-494949a2efae
+    type_id: 2
+  - id: &mm_hpaan_region 43542
+    name: MM Hpaan Region
+    uuid: 488d510d-f31a-4f4f-9ac3-237585f3c17f
+    type_id: 2
+# Satellite Networks
+  - id: &mm_minbu_region 43551
+    name: MM Minbu Region
+    uuid: d5a974f1-a2d3-4a3e-9030-5aa4d1743679
+    type_id: 2
+network_prefixes:
+# Fixed Prefixes
+  - id: 242055
+    prefix: '95'
+    number_min_length: 3
+    number_max_length: 100
+    uuid: e479bc27-132e-48ab-8f97-2b29dd2e86fa
+    country_id: *mm
+    network_id: *mm_fixed
+  - id: 258565
+    prefix: '951'
+    number_min_length: 9
+    number_max_length: 10
+    uuid: 63734f57-f83a-413a-8d84-001bdf575488
+    country_id: *mm
+    network_id: *mm_yangon_region
+  - id: 506989
+    prefix: '951'
+    number_min_length: 5
+    number_max_length: 7
+    uuid: 6dcb8d2f-eeaf-4ef8-a91f-25bfb500e183
+    country_id: *mm
+    network_id: *mm_special_services
+  - id: 258572
+    prefix: '951333'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: af7608cf-934d-410a-a0aa-222afe97b312
+    country_id: *mm
+    network_id: *mm_mpt_satellite
+  - id: 261195
+    prefix: '952'
+    number_min_length: 8
+    number_max_length: 10
+    uuid: 66cc27de-d18c-46dd-a608-3c1e9f38803b
+    country_id: *mm
+    network_id: *mm_mandalay_region
+  - id: 513445
+    prefix: '953'
+    number_min_length: 9
+    number_max_length: 10
+    uuid: c54edea3-0b48-4ca7-859d-3cb9fe848d30
+    country_id: *mm
+    network_id: *mm_military_forces
+  - id: 515645
+    prefix: '9542'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 846f8f34-3eb3-4398-8c04-97b1da68b462
+    country_id: *mm
+    network_id: *mm_pathein_region
+  - id: 515663
+    prefix: '9543'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: ae483d3a-8bce-48c3-86f8-7255a35e6e18
+    country_id: *mm
+    network_id: *mm_sittway_region
+  - id: 516008
+    prefix: '9544'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 7b0bc79e-b51f-4c13-b89f-1fdd97ce21d1
+    country_id: *mm
+    network_id: *mm_hinthada_region
+  - id: 515894
+    prefix: '9545'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: add07f6e-e9cf-4a13-bb65-f5278923e38e
+    country_id: *mm
+    network_id: *mm_maubin_region
+  - id: 516228
+    prefix: '9546'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: df8ff6c1-5688-40ae-a105-a3d91edd4f2f
+    country_id: *mm
+    network_id: *mm_nyaungdon_region
+  - id: 516806
+    prefix: '9552'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 25c1bed0-9497-4a41-91b7-56d55aaa2f5b
+    country_id: *mm
+    network_id: *mm_bago_region
+  - id: 516827
+    prefix: '9553'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 4863fabd-8c23-4571-816a-18d130abfcb5
+    country_id: *mm
+    network_id: *mm_pyay_region
+  - id: 517005
+    prefix: '9554'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: de5747dc-08ba-4545-86a6-23ddc0afda3e
+    country_id: *mm
+    network_id: *mm_toungoo_region
+  - id: 517178
+    prefix: '9555'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 0ba9445a-e4ad-411a-9809-c0d952c50bf5
+    country_id: *mm
+    network_id: *mm_oakkan_region
+  - id: 517094
+    prefix: '9556'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 184c9bbd-ca60-4be7-96e8-f0c0fa9c9c7b
+    country_id: *mm
+    network_id: *mm_thanlyin_region
+  - id: 517327
+    prefix: '9557'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 256e2503-8f94-411e-8d45-fd0c7dad4bf4
+    country_id: *mm
+    network_id: *mm_mawlamyine_region
+  - id: 517338
+    prefix: '9558'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: f203576b-d935-48d2-8fab-e689a8f8c0dd
+    country_id: *mm
+    network_id: *mm_hpaan_region
+  - id: 517173
+    prefix: '9559'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: e17945e5-d9cd-4332-b754-8573aed87247
+    country_id: *mm
+    network_id: *mm_dawei_region
+  - id: 517376
+    prefix: '9560'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: f86eeca9-2c13-44fd-99e4-74944bfc550f
+    country_id: *mm
+    network_id: *mm_yenangyoung_region
+  - id: 517644
+    prefix: '9561'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: ad78b79b-fb8a-4d1b-b5df-b35762d9a965
+    country_id: *mm
+    network_id: *mm_chauk_region
+  - id: 518040
+    prefix: '9562'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: f17db45a-7a8e-4206-8987-53089d88cbbc
+    country_id: *mm
+    network_id: *mm_pakokku_region
+  - id: 518091
+    prefix: '9563'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 27cdae07-97da-4ac5-928f-b494d0c8c8a5
+    country_id: *mm
+    network_id: *mm_magway_region
+  - id: 518104
+    prefix: '9564'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 23a2d8f1-fab6-4e34-83c9-e14895cb4a48
+    country_id: *mm
+    network_id: *mm_meikhtila_region
+  - id: 518457
+    prefix: '9565'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 0f1272f6-46cb-4170-8f4c-a6a942b4ccec
+    country_id: *mm
+    network_id: *mm_minbu_region
+  - id: 503261
+    prefix: '9566'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 1d50e619-87c0-4253-aaa2-1bfdb3c52081
+    country_id: *mm
+    network_id: *mm_myingyan_region
+  - id: 503393
+    prefix: '9567'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: a7136a0e-6061-4910-976e-dfa412ae3cec
+    country_id: *mm
+    network_id: *mm_naypyitaw_region
+  - id: 503711
+    prefix: '9568'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: bd4589e4-237f-468a-a9ce-09ab10ff9b9a
+    country_id: *mm
+    network_id: *mm_thayet_region
+  - id: 503600
+    prefix: '9569'
+    number_min_length: 9
+    number_max_length: 10
+    uuid: b6c4c440-940b-4b52-8cdc-30b17839ab7e
+    country_id: *mm
+    network_id: *mm_aunglan_region
+  - id: 503894
+    prefix: '9570'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: b2d8444b-440e-42d4-b068-133bafc4734b
+    country_id: *mm
+    network_id: *mm_haka_region
+  - id: 503923
+    prefix: '9571'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 75d69b57-e4f2-44d6-b5dd-ae83bb186d9f
+    country_id: *mm
+    network_id: *mm_monywa_region
+  - id: 504075
+    prefix: '9572'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 24a63a4a-e917-47b2-8071-e2cec6b174e4
+    country_id: *mm
+    network_id: *mm_sagaing_region
+  - id: 504109
+    prefix: '9573'
+    number_min_length: 9
+    number_max_length: 10
+    uuid: f23af647-0149-451e-8463-7db52cb7f4b5
+    country_id: *mm
+    network_id: *mm_kalay_region
+  - id: 504430
+    prefix: '9574'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 405e6909-351d-4357-843a-b5cc854fa5ba
+    country_id: *mm
+    network_id: *mm_myitkyina_region
+  - id: 504463
+    prefix: '9575'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: aa44efd6-56d5-4b00-b900-0cc25f162c97
+    country_id: *mm
+    network_id: *mm_shwebo_region
+  - id: 403483
+    prefix: '95800'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f00f05a6-ce1c-4001-8696-99f357a67419
+    country_id: *mm
+    network_id: *mm_freephone_services
+  - id: 505013
+    prefix: '9581'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: e02dd106-6b4d-4b46-9ee5-87e47fe5591d
+    country_id: *mm
+    network_id: *mm_taunggyi_region
+  - id: 505251
+    prefix: '9582'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: f28bf56c-7c5b-47cb-bd00-9b98ae7fbdb0
+    country_id: *mm
+    network_id: *mm_lashio_region
+# Supplementary services Prefixes
+  - id: 505294
+    prefix: '9583'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: d2771d1e-c028-4e31-a2e9-35bf6c5d2f93
+    country_id: *mm
+    network_id: *mm_loikaw_region
+  - id: 505413
+    prefix: '9584'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 16a533e1-20c7-4a08-befd-85667b27aeb9
+    country_id: *mm
+    network_id: *mm_kengtung_region
+  - id: 505423
+    prefix: '9585'
+    number_min_length: 9
+    number_max_length: 11
+    uuid: 5770e497-bd1a-471a-8bc5-a41bbc75734f
+    country_id: *mm
+    network_id: *mm_pyin_oo_lwin_region
+# Mobile Prefixes
+  - id: 505652
+    prefix: '9586'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 66af1daf-5b0f-4f49-8571-de4e1fcf06ed
+    country_id: *mm
+    network_id: *mm_mogok_region
+  - id: 444754
+    prefix: '959'
+    number_min_length: 10
+    number_max_length: 12
+    uuid: bec8fc4b-e4e4-4187-8398-34aa5acb0cce
+    country_id: *mm
+    network_id: *mm_mobile
+  - id: 506099
+    prefix: '95920'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 0bd77e11-c8ce-4868-901e-913f11895ddc
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506100
+    prefix: '95921'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 59bdc5f9-332f-41d1-bd02-ccb8a95c0b97
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506101
+    prefix: '95922'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 3f8eed72-546a-4f22-aeb9-7f1149f4aa8f
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506102
+    prefix: '95923'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: d5eec925-35b5-43ac-81eb-473dd4c33f12
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506103
+    prefix: '95924'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 287e9548-71ce-439b-9d5f-3852bf3bdbbe
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 444862
+    prefix: '95925'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e801b227-40df-4cd6-b18d-aa4c30112111
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 444866
+    prefix: '95926'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 609a9bb0-8197-43a3-ab57-fc66675b9a59
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506104
+    prefix: '95930'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 12f98362-c2e1-44d7-b3af-f21ba2c50b4c
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506105
+    prefix: '95931'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: eee4ff87-68ce-4721-a656-551cdbee5da9
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506106
+    prefix: '95932'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 8463f669-f549-44dc-8d95-e718707609da
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506107
+    prefix: '95933'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: ddb76e78-443f-45c5-8ae6-17d54bae81f8
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506108
+    prefix: '9593400'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 467044b3-fc39-4265-b3ef-09203bb04c89
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506109
+    prefix: '9593401'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8e8495df-57e7-469f-bb87-3196c2091779
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506110
+    prefix: '9593402'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e48a39c5-0611-4987-a740-7d2ecc6e8f4d
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506111
+    prefix: '9593460'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4ddca13d-a1c8-48f8-9ea9-96ea43c6f3c5
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506112
+    prefix: '9593461'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: fb3ef9e0-b517-4438-bc69-c04ca4718dac
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506113
+    prefix: '9593490'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4313ba7a-69f7-4eb3-bbc0-e0c7b4d22b04
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506114
+    prefix: '95936'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: b5ac544c-d2fa-433d-8687-29c4ecf7702a
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506115
+    prefix: '95940'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 3882654e-411f-409a-9e43-d8d4891c094e
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506116
+    prefix: '95941'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: e295dc6c-e89d-487e-a6dc-26fe1797a968
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506117
+    prefix: '95942'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e7b28252-5e30-4aa4-b67b-1effaf41a83f
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506118
+    prefix: '95943'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 3f68fd7b-aec4-423c-8f76-3aed25a0829c
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506119
+    prefix: '95944'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 39d691a3-5b65-4765-88b4-137be6b39b96
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506120
+    prefix: '95945'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: cd9ae447-fa1e-4053-a285-6a628d830db9
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506121
+    prefix: '95947'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: d6b723dc-905d-4c94-be97-3707d613851a
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506122
+    prefix: '95949'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 0d386dd2-ef10-4903-b892-2455f4744f6f
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506123
+    prefix: '95950'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 0e4ee409-73a4-4e45-8886-9b72ba528604
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506124
+    prefix: '95951'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 339b74dc-dd85-43ac-9b1a-cee40df5afbe
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506125
+    prefix: '95952'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 9d4125e4-2114-4917-80db-0c984e496e74
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506126
+    prefix: '95953'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 49956370-26f1-4a28-8814-0a114a256468
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506127
+    prefix: '95954'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: f116e4ac-0800-4f4d-a65b-1c62def53a8a
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506128
+    prefix: '95955'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 9d5dba92-83a4-47b0-a112-bbf6c8971866
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 506129
+    prefix: '95956'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: db6428d0-6fd5-4f18-9fd1-400d73007433
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 445375
+    prefix: '959650'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 61a847d7-2997-4dd6-8c7a-2c89288f74b5
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 445387
+    prefix: '959651'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 3ecdd71b-8069-4647-8ad6-27a27b40474a
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 445399
+    prefix: '959652'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2f3c636a-3f8f-410e-a620-0cdeb288f46b
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 445402
+    prefix: '959653'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f489f3ab-f007-46a4-92b5-99aabecbc4fd
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 445411
+    prefix: '95966'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b426818e-6969-4f48-9441-a7ee832aab2f
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 445414
+    prefix: '95967'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2fe7e241-906c-41f8-8d0b-4debcab51138
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 445450
+    prefix: '95968'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: dfd6be8a-6f1b-42ec-a360-1d1c10a1d9ed
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 453332
+    prefix: '95969'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 83c8bebd-ae0d-43a6-b56a-1902f8663157
+    country_id: *mm
+    network_id: *mm_mytel_mobile
+  - id: 506130
+    prefix: '95973'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 43a89144-f5e4-4f11-8131-5661511c090f
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 453387
+    prefix: '959740'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8d0ae818-eda7-40d6-b06c-a02c1ff89ee4
+    country_id: *mm
+    network_id: *mm_atom_mobile
+  - id: 453397
+    prefix: '95975'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: a48eed61-41c5-432c-89ad-c6ec16c091f6
+    country_id: *mm
+    network_id: *mm_atom_mobile
+  - id: 453409
+    prefix: '95976'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 84f7b26c-0667-473b-ab49-43a502fbb859
+    country_id: *mm
+    network_id: *mm_atom_mobile
+  - id: 453421
+    prefix: '95977'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 395b88dd-fb7f-40ff-b9bb-5c2f91c87bed
+    country_id: *mm
+    network_id: *mm_atom_mobile
+  - id: 453442
+    prefix: '95978'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 269c2ba6-08f5-4264-b3a1-14cd347e002e
+    country_id: *mm
+    network_id: *mm_atom_mobile
+  - id: 453453
+    prefix: '95979'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 87adbf15-17df-428d-9f3c-d9a4e46c32ce
+    country_id: *mm
+    network_id: *mm_atom_mobile
+  - id: 505991
+    prefix: '95983'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 65623d03-32e7-4cc1-ad5e-4adcba2d154a
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 505992
+    prefix: '95984'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: ca120422-5d0f-4204-8a8b-52f2697783a6
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 505993
+    prefix: '95985'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 89d8f30f-5e9e-403f-93ec-99a5564c2369
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 505994
+    prefix: '95986'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: 8f68c8ab-f93d-4b02-939b-3c33b24cb90c
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 505995
+    prefix: '95987'
+    number_min_length: 10
+    number_max_length: 10
+    uuid: bfa2c28a-54d9-4683-8623-3cd0a60d0f40
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 453571
+    prefix: '95988'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6c50b439-3451-4344-8694-8004c19bb8f6
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 453626
+    prefix: '95989'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: cfd36bdd-06e9-400c-b986-c91dab5365b2
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 505996
+    prefix: '95991'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 3d9706d6-6893-4e32-b165-b2216e1d1761
+    country_id: *mm
+    network_id: *mm_mpt_mobile
+  - id: 453796
+    prefix: '95994'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 873cdc99-88cf-4c57-a9b9-69afa6fcae49
+    country_id: *mm
+    network_id: *mm_ooredoo_mobile
+  - id: 453870
+    prefix: '95995'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 618b2bf6-efaf-4002-8e11-fd93031a6ced
+    country_id: *mm
+    network_id: *mm_ooredoo_mobile
+  - id: 453910
+    prefix: '95996'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 3527f506-2e14-4be2-9223-f7149fd2896b
+    country_id: *mm
+    network_id: *mm_ooredoo_mobile
+  - id: 453966
+    prefix: '95997'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e6376b0e-253e-4d58-9328-4dd1cd963672
+    country_id: *mm
+    network_id: *mm_ooredoo_mobile
+# Satellite Prefixes
+  - id: 454032
+    prefix: '95998'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 65ad12b7-9226-41a8-8c8d-300a8963096e
+    country_id: *mm
+    network_id: *mm_ooredoo_mobile

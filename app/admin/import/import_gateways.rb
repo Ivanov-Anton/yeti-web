@@ -32,6 +32,7 @@ ActiveAdmin.register Importing::Gateway do
 
     column :name
     column :enabled
+    column :scheduler
     column :gateway_group, sortable: :gateway_group_name
     column :contractor, sortable: :contractor_name
 
@@ -81,6 +82,7 @@ ActiveAdmin.register Importing::Gateway do
 
     column :incoming_auth_username
     column :incoming_auth_password
+    column :incoming_auth_allow_jwt
 
     column :auth_enabled
     column :auth_user
@@ -94,8 +96,6 @@ ActiveAdmin.register Importing::Gateway do
     column :term_force_outbound_proxy
     column :term_next_hop
     column :orig_next_hop
-    column :term_append_headers_req
-    column :orig_append_headers_req
     column :sdp_alines_filter_type, sortable: :sdp_alines_filter_type_name
     column :sdp_alines_filter_list
     column :orig_disconnect_policy, sortable: :orig_disconnect_policy_name

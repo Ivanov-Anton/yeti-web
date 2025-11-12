@@ -5,11 +5,11 @@
 # Table name: class4.gateways
 #
 #  id                               :integer(4)       not null, primary key
-#  acd_limit                        :float            default(0.0), not null
+#  acd_limit                        :float(24)        default(0.0), not null
 #  allow_1xx_without_to_tag         :boolean          default(FALSE), not null
 #  allow_origination                :boolean          default(TRUE), not null
 #  allow_termination                :boolean          default(TRUE), not null
-#  asr_limit                        :float            default(0.0), not null
+#  asr_limit                        :float(24)        default(0.0), not null
 #  auth_enabled                     :boolean          default(FALSE), not null
 #  auth_from_domain                 :string
 #  auth_from_user                   :string
@@ -32,6 +32,7 @@
 #  force_one_way_early_media        :boolean          default(FALSE), not null
 #  force_symmetric_rtp              :boolean          default(TRUE), not null
 #  host                             :string
+#  incoming_auth_allow_jwt          :boolean          default(FALSE), not null
 #  incoming_auth_password           :string
 #  incoming_auth_username           :string
 #  is_shared                        :boolean          default(FALSE), not null
@@ -39,8 +40,8 @@
 #  max_30x_redirects                :integer(2)       default(0), not null
 #  max_transfers                    :integer(2)       default(0), not null
 #  name                             :string           not null
-#  orig_append_headers_reply        :string           is an Array
-#  orig_append_headers_req          :string
+#  orig_append_headers_reply        :string           default([]), not null, is an Array
+#  orig_append_headers_req          :string           default([]), not null, is an Array
 #  orig_force_outbound_proxy        :boolean          default(FALSE), not null
 #  orig_next_hop                    :string
 #  orig_outbound_proxy              :string
@@ -67,7 +68,7 @@
 #  rtp_timeout                      :integer(4)       default(30), not null
 #  sdp_alines_filter_list           :string
 #  send_lnp_information             :boolean          default(FALSE), not null
-#  short_calls_limit                :float            default(1.0), not null
+#  short_calls_limit                :float(24)        default(1.0), not null
 #  single_codec_in_200ok            :boolean          default(FALSE), not null
 #  sip_interface_name               :string
 #  sip_timer_b                      :integer(4)       default(8000), not null
@@ -82,24 +83,33 @@
 #  sst_session_expires              :integer(4)       default(50)
 #  suppress_early_media             :boolean          default(FALSE), not null
 #  symmetric_rtp_nonstop            :boolean          default(FALSE), not null
-#  term_append_headers_req          :string
+#  term_append_headers_req          :string           default([]), not null, is an Array
 #  term_force_outbound_proxy        :boolean          default(FALSE), not null
 #  term_next_hop                    :string
 #  term_next_hop_for_replies        :boolean          default(FALSE), not null
 #  term_outbound_proxy              :string
 #  term_use_outbound_proxy          :boolean          default(FALSE), not null
 #  termination_capacity             :integer(2)
+#  termination_cps_limit            :integer(2)
+#  termination_cps_wsize            :integer(2)       default(1), not null
+#  termination_subscriber_capacity  :integer(2)
+#  termination_subscriber_cps_limit :integer(2)
+#  termination_subscriber_cps_wsize :integer(2)       default(1), not null
 #  to_rewrite_result                :string
 #  to_rewrite_rule                  :string
+#  transfer_append_headers_req      :string           default([]), not null, is an Array
+#  transfer_tel_uri_host            :string
 #  transit_headers_from_origination :string
 #  transit_headers_from_termination :string
 #  try_avoid_transcoding            :boolean          default(FALSE), not null
+#  uuid                             :uuid             not null
 #  weight                           :integer(2)       default(100), not null
 #  codec_group_id                   :integer(4)       default(1), not null
 #  contractor_id                    :integer(4)       not null
 #  diversion_send_mode_id           :integer(2)       default(1), not null
 #  dtmf_receive_mode_id             :integer(2)       default(1), not null
 #  dtmf_send_mode_id                :integer(2)       default(1), not null
+#  dump_level_id                    :integer(2)       default(0), not null
 #  external_id                      :bigint(8)
 #  gateway_group_id                 :integer(4)
 #  lua_script_id                    :integer(2)
@@ -114,6 +124,7 @@
 #  registered_aor_mode_id           :integer(2)       default(0), not null
 #  rel100_mode_id                   :integer(2)       default(4), not null
 #  rx_inband_dtmf_filtering_mode_id :integer(2)       default(1), not null
+#  scheduler_id                     :integer(2)
 #  sdp_alines_filter_type_id        :integer(4)       default(0), not null
 #  sdp_c_location_id                :integer(4)       default(2), not null
 #  sensor_id                        :integer(2)
@@ -124,18 +135,21 @@
 #  stir_shaken_mode_id              :integer(2)       default(0), not null
 #  term_disconnect_policy_id        :integer(4)
 #  term_proxy_transport_protocol_id :integer(2)       default(1), not null
-#  termination_dst_numberlist_id    :integer(2)
-#  termination_src_numberlist_id    :integer(2)
+#  termination_dst_numberlist_id    :integer(4)
+#  termination_src_numberlist_id    :integer(4)
+#  throttling_profile_id            :integer(2)
 #  transparent_dialog_id            :boolean          default(FALSE), not null
 #  transport_protocol_id            :integer(2)       default(1), not null
 #  tx_inband_dtmf_filtering_mode_id :integer(2)       default(1), not null
 #
 # Indexes
 #
-#  gateways_contractor_id_idx      (contractor_id)
-#  gateways_dst_numberlist_id_idx  (termination_dst_numberlist_id)
-#  gateways_name_unique            (name) UNIQUE
-#  gateways_src_numberlist_id_idx  (termination_src_numberlist_id)
+#  gateways_contractor_id_idx          (contractor_id)
+#  gateways_dst_numberlist_id_idx      (termination_dst_numberlist_id)
+#  gateways_name_unique                (name) UNIQUE
+#  gateways_scheduler_id_idx           (scheduler_id)
+#  gateways_src_numberlist_id_idx      (termination_src_numberlist_id)
+#  gateways_throttling_profile_id_idx  (throttling_profile_id)
 #
 # Foreign Keys
 #
@@ -154,6 +168,7 @@
 #  gateways_radius_accounting_profile_id_fkey      (radius_accounting_profile_id => radius_accounting_profiles.id)
 #  gateways_rel100_mode_id_fkey                    (rel100_mode_id => gateway_rel100_modes.id)
 #  gateways_rx_inband_dtmf_filtering_mode_id_fkey  (rx_inband_dtmf_filtering_mode_id => gateway_inband_dtmf_filtering_modes.id)
+#  gateways_scheduler_id_fkey                      (scheduler_id => schedulers.id)
 #  gateways_sdp_alines_filter_type_id_fkey         (sdp_alines_filter_type_id => filter_types.id)
 #  gateways_sdp_c_location_id_fkey                 (sdp_c_location_id => sdp_c_location.id)
 #  gateways_sensor_id_fkey                         (sensor_id => sensors.id)
@@ -162,6 +177,9 @@
 #  gateways_stir_shaken_crt_id_fkey                (stir_shaken_crt_id => stir_shaken_signing_certificates.id)
 #  gateways_term_disconnect_policy_id_fkey         (term_disconnect_policy_id => disconnect_policy.id)
 #  gateways_term_proxy_transport_protocol_id_fkey  (term_proxy_transport_protocol_id => transport_protocols.id)
+#  gateways_termination_dst_numberlist_id_fkey     (termination_dst_numberlist_id => numberlists.id)
+#  gateways_termination_src_numberlist_id_fkey     (termination_src_numberlist_id => numberlists.id)
+#  gateways_throttling_profile_id_fkey             (throttling_profile_id => gateway_throttling_profiles.id)
 #  gateways_transport_protocol_id_fkey             (transport_protocol_id => transport_protocols.id)
 #  gateways_tx_inband_dtmf_filtering_mode_id_fkey  (tx_inband_dtmf_filtering_mode_id => gateway_inband_dtmf_filtering_modes.id)
 #
@@ -179,21 +197,27 @@ class Gateway < ApplicationRecord
   PAI_SEND_MODE_BUILD_SIP = 2
   PAI_SEND_MODE_BUILD_SIP_WITH_USER_PHONE = 3
   PAI_SEND_MODE_RELAY = 4
+  PAI_SEND_MODE_RELAY_AS_TEL = 5
+  PAI_SEND_MODE_RELAY_AS_SIP = 6
+  PAI_SEND_MODE_RELAY_AS_SIP_FORCE_DOMAIN = 7
   PAI_SEND_MODES = {
     PAI_SEND_MODE_NO_SEND => 'Do not send',
     PAI_SEND_MODE_BUILD_TEL => 'Build TEL URI from Source Number',
     PAI_SEND_MODE_BUILD_SIP => 'Build SIP URI from Source Number',
     PAI_SEND_MODE_BUILD_SIP_WITH_USER_PHONE => 'Build SIP URI from Source Number with user=phone',
-    PAI_SEND_MODE_RELAY => 'Relay PAI and PPI'
+    PAI_SEND_MODE_RELAY => 'Relay PAI/PPI as is',
+    PAI_SEND_MODE_RELAY_AS_TEL => 'Relay PAI/PPI as TEL uri',
+    PAI_SEND_MODE_RELAY_AS_SIP => 'Relay PAI/PPI as SIP uri',
+    PAI_SEND_MODE_RELAY_AS_SIP_FORCE_DOMAIN => 'Relay PAI/PPI as SIP uri. Replace domain'
   }.freeze
 
   REGISTERED_AOR_MODE_NO_USE = 0
   REGISTERED_AOR_MODE_AS_IS = 1
   REGISTERED_AOR_MODE_REPLACE_USERPART = 2
   REGISTERED_AOR_MODES = {
-    PAI_SEND_MODE_NO_SEND => 'Do not use',
-    PAI_SEND_MODE_BUILD_TEL => 'Use AOR as is',
-    PAI_SEND_MODE_BUILD_SIP => 'Use AOR, replace userpart with dst number'
+    REGISTERED_AOR_MODE_NO_USE => 'Do not use',
+    REGISTERED_AOR_MODE_AS_IS => 'Use AOR as is',
+    REGISTERED_AOR_MODE_REPLACE_USERPART => 'Use AOR, replace userpart with dst number'
   }.freeze
 
   STIR_SHAKEN_MODE_DISABLE = 0
@@ -227,6 +251,17 @@ class Gateway < ApplicationRecord
     PRIVACY_MODE_APPLY => 'Not trusted gw. Apply',
     PRIVACY_MODE_TRUSTED => 'Trusted gw. Forward',
     PRIVACY_MODE_TRUSTED_REMOVE_FROM => 'Trusted gw. Forward. Anonymize from'
+  }.freeze
+
+  DUMP_LEVEL_DISABLED = 0
+  DUMP_LEVEL_CAPTURE_SIP = 1
+  DUMP_LEVEL_CAPTURE_RTP = 2
+  DUMP_LEVEL_CAPTURE_ALL = 3
+  DUMP_LEVELS = {
+    DUMP_LEVEL_DISABLED => 'Capture nothing',
+    DUMP_LEVEL_CAPTURE_SIP => 'Capture signaling traffic',
+    DUMP_LEVEL_CAPTURE_RTP => 'Capture RTP traffic',
+    DUMP_LEVEL_CAPTURE_ALL => 'Capture all traffic'
   }.freeze
 
   class << self
@@ -269,8 +304,10 @@ class Gateway < ApplicationRecord
   belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
   belongs_to :diversion_send_mode, class_name: 'Equipment::GatewayDiversionSendMode', foreign_key: :diversion_send_mode_id
   belongs_to :stir_shaken_crt, class_name: 'Equipment::StirShaken::SigningCertificate', foreign_key: :stir_shaken_crt_id, optional: :true
+  belongs_to :throttling_profile, class_name: 'Equipment::GatewayThrottlingProfile', foreign_key: :throttling_profile_id, optional: true
 
   has_many :customers_auths, class_name: 'CustomersAuth', dependent: :restrict_with_error
+  has_many :api_accesses, class_name: 'System::ApiAccess', foreign_key: :provision_gateway_id, dependent: :nullify
   has_many :dialpeers, class_name: 'Dialpeer', dependent: :restrict_with_error
   has_many :quality_stats, class_name: 'Stats::TerminationQualityStat', foreign_key: :gateway_id, dependent: :nullify
   has_many :rate_management_projects, class_name: 'RateManagement::Project'
@@ -302,7 +339,17 @@ class Gateway < ApplicationRecord
 
   validates :max_30x_redirects, :max_transfers, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true }
 
-  validates :origination_capacity, :termination_capacity, numericality: { greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true }
+  validates :origination_capacity,
+            :termination_capacity,
+            :termination_subscriber_capacity,
+            :termination_cps_limit,
+            :termination_subscriber_cps_limit,
+            numericality: { greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true }
+
+  validates :termination_cps_wsize,
+            :termination_subscriber_cps_wsize,
+            numericality: { greater_than: 0, less_than_or_equal_to: 900, allow_nil: false, only_integer: true }
+
   validates :port, numericality: { greater_than_or_equal_to: ApplicationRecord::L4_PORT_MIN, less_than_or_equal_to: ApplicationRecord::L4_PORT_MAX, allow_nil: true, only_integer: true }
 
   validates :fake_180_timer, numericality: { greater_than: 0, less_than_or_equal_to: PG_MAX_SMALLINT, allow_nil: true, only_integer: true }
@@ -312,7 +359,14 @@ class Gateway < ApplicationRecord
   validates :registered_aor_mode_id, inclusion: { in: REGISTERED_AOR_MODES.keys }, allow_nil: true
 
   validates :pai_send_mode_id, inclusion: { in: PAI_SEND_MODES.keys }, allow_nil: true
-  validates :pai_domain, presence: true, if: proc { pai_send_mode_id == 2 }
+  validates :pai_domain,
+            presence: true,
+            if: proc {
+              [
+                PAI_SEND_MODE_BUILD_SIP, PAI_SEND_MODE_BUILD_SIP_WITH_USER_PHONE,
+                PAI_SEND_MODE_RELAY_AS_SIP, PAI_SEND_MODE_RELAY_AS_SIP_FORCE_DOMAIN
+              ].include?(pai_send_mode_id)
+            }
 
   validates :diversion_domain, presence: true, if: proc { diversion_send_mode_id == 2 }
 
@@ -345,10 +399,18 @@ class Gateway < ApplicationRecord
   validates :rtp_acl, array_format: { without: /\s/, message: 'spaces are not allowed', allow_nil: true }, array_uniqueness: { allow_nil: true }
   validate :validate_rtp_acl
 
+  validates :dump_level_id, presence: true
+  validates :dump_level_id, inclusion: { in: CustomersAuth::DUMP_LEVELS.keys }, allow_nil: false
+
+  validates :orig_outbound_proxy, presence: true, if: proc { orig_use_outbound_proxy? or orig_force_outbound_proxy? }
+  validates :term_outbound_proxy, presence: true, if: proc { term_use_outbound_proxy? or term_force_outbound_proxy? }
+
   include Yeti::ResourceStatus
+  include Yeti::Scheduler
 
   scope :locked, -> { where locked: true }
   scope :with_radius_accounting, -> { where 'radius_accounting_profile_id is not null' }
+  scope :with_dump, -> { where('dump_level_id > 0') }
   scope :shared, -> { where is_shared: true }
   scope :origination_contractor_id_eq, lambda { |contractor_id|
     where("#{table_name}.allow_origination AND (#{table_name}.is_shared OR #{table_name}.contractor_id=?)", contractor_id)
@@ -394,8 +456,23 @@ class Gateway < ApplicationRecord
   end
 
   def orig_append_headers_reply=(value)
-    value = value.split(',').map(&:strip).reject(&:blank?) if value.is_a? String
+    value = value.split("\r\n").map(&:strip).reject(&:blank?) if value.is_a? String
     self[:orig_append_headers_reply] = value
+  end
+
+  def orig_append_headers_req=(value)
+    value = value.split("\r\n").map(&:strip).reject(&:blank?) if value.is_a? String
+    self[:orig_append_headers_req] = value
+  end
+
+  def term_append_headers_req=(value)
+    value = value.split("\r\n").map(&:strip).reject(&:blank?) if value.is_a? String
+    self[:term_append_headers_req] = value
+  end
+
+  def transfer_append_headers_req=(value)
+    value = value.split("\r\n").map(&:strip).reject(&:blank?) if value.is_a? String
+    self[:transfer_append_headers_req] = value
   end
 
   def host=(value)
@@ -440,6 +517,10 @@ class Gateway < ApplicationRecord
     PRIVACY_MODES[privacy_mode_id]
   end
 
+  def dump_level_name
+    dump_level_id.nil? ? DUMP_LEVELS[0] : DUMP_LEVELS[dump_level_id]
+  end
+
   def use_registered_aor?
     registered_aor_mode_id > 0
   end
@@ -476,15 +557,14 @@ class Gateway < ApplicationRecord
   end
 
   def incoming_auth_can_be_disabled
-    if (incoming_auth_username_changed?(to: nil) || incoming_auth_username_changed?(to: '')) && customers_auths.where(require_incoming_auth: true).any?
+    if incoming_auth_disabled? && customers_auths.where(require_incoming_auth: true).any?
       errors.add(:incoming_auth_username, I18n.t('activerecord.errors.models.gateway.attributes.incoming_auth_username.cant_be_cleared'))
       errors.add(:incoming_auth_password, I18n.t('activerecord.errors.models.gateway.attributes.incoming_auth_password.cant_be_cleared'))
     end
   end
 
-  include Yeti::IncomingAuthReloader
   include Yeti::StateUpdater
-  self.state_name = 'auth_credentials'
+  self.state_names = %w[auth_credentials gateways_cache]
 
   private
 
@@ -502,23 +582,11 @@ class Gateway < ApplicationRecord
     self.rtp_acl = nil if rtp_acl.blank?
   end
 
-  # @see Yeti::IncomingAuthReloader
-  def reload_incoming_auth_on_create?
-    incoming_auth_username.present?
-  end
-
-  # @see Yeti::IncomingAuthReloader
-  def reload_incoming_auth_on_update?
-    (incoming_auth_username.present? && enabled_changed?) || incoming_auth_changed?
-  end
-
-  # @see Yeti::IncomingAuthReloader
-  def reload_incoming_auth_on_destroy?
-    incoming_auth_username.present?
-  end
-
-  def incoming_auth_changed?
-    incoming_auth_username_changed? || incoming_auth_password_changed?
+  def incoming_auth_disabled?
+    (
+      (incoming_auth_username_changed?(to: nil) || incoming_auth_username_changed?(to: '')
+      ) && incoming_auth_allow_jwt == false
+    ) || (incoming_auth_allow_jwt_changed?(to: false) && incoming_auth_username == true)
   end
 
   def check_associated_records

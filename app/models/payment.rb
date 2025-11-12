@@ -4,15 +4,17 @@
 #
 # Table name: payments
 #
-#  id            :bigint(8)        not null, primary key
-#  amount        :decimal(, )      not null
-#  notes         :string
-#  private_notes :string
-#  uuid          :uuid             not null
-#  created_at    :timestamptz      not null
-#  account_id    :integer(4)       not null
-#  status_id     :integer(2)       default(20), not null
-#  type_id       :integer(2)       default(20), not null
+#  id                     :bigint(8)        not null, primary key
+#  amount                 :decimal(, )      not null
+#  balance_before_payment :decimal(, )
+#  notes                  :string
+#  private_notes          :string
+#  rolledback_at          :timestamptz
+#  uuid                   :uuid             not null
+#  created_at             :timestamptz      not null
+#  account_id             :integer(4)       not null
+#  status_id              :integer(2)       default(20), not null
+#  type_id                :integer(2)       default(20), not null
 #
 # Indexes
 #
@@ -29,10 +31,12 @@ class Payment < ApplicationRecord
     STATUS_ID_CANCELED = 10
     STATUS_ID_COMPLETED = 20
     STATUS_ID_PENDING = 30
+    STATUS_ID_ROLLED_BACK = 40
     STATUS_IDS = {
       STATUS_ID_CANCELED => 'canceled',
       STATUS_ID_COMPLETED => 'completed',
-      STATUS_ID_PENDING => 'pending'
+      STATUS_ID_PENDING => 'pending',
+      STATUS_ID_ROLLED_BACK => 'rolled_back'
     }.freeze
 
     TYPE_ID_CRYPTOMUS = 10
@@ -92,6 +96,10 @@ class Payment < ApplicationRecord
     status_id == CONST::STATUS_ID_CANCELED
   end
 
+  def rolled_back?
+    status_id == CONST::STATUS_ID_ROLLED_BACK
+  end
+
   def pending?
     status_id == CONST::STATUS_ID_PENDING
   end
@@ -117,6 +125,7 @@ class Payment < ApplicationRecord
   def top_up_balance
     if (new_record? || status_id_changed?) && completed?
       account.lock! # will generate SELECT FOR UPDATE SQL statement
+      self.balance_before_payment = account.balance
       account.balance += amount
       throw(:abort) unless account.save
     end
@@ -133,11 +142,11 @@ class Payment < ApplicationRecord
       return
     end
 
-    if persisted? && status_id_changed? && status_id_was == Payment::CONST::STATUS_ID_COMPLETED
+    if persisted? && status_id_changed? && status_id_was == Payment::CONST::STATUS_ID_ROLLED_BACK
       errors.add(:status_id, 'is readonly')
     end
 
-    if new_record? && type_manual? && !completed?
+    if new_record? && type_manual? && (canceled? || pending?)
       errors.add(:status_id, 'must be completed for manual payments')
     end
   end

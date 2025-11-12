@@ -16,6 +16,7 @@ ActiveAdmin.register Billing::ServiceType, as: 'ServiceType' do
   filter :name
   filter :provisioning_class
   filter :force_renew
+  filter :ui_type
 
   index do
     selectable_column
@@ -25,6 +26,7 @@ ActiveAdmin.register Billing::ServiceType, as: 'ServiceType' do
     column :force_renew
     column :provisioning_class
     column :variables, :variables_json
+    column :ui_type
   end
 
   show do
@@ -39,6 +41,7 @@ ActiveAdmin.register Billing::ServiceType, as: 'ServiceType' do
             link_to resource.services.count,
                     services_path(q: { type_id_eq: resource.id })
           end
+          row :ui_type
         end
       end
 
@@ -50,14 +53,15 @@ ActiveAdmin.register Billing::ServiceType, as: 'ServiceType' do
     end
   end
 
-  permit_params :name, :provisioning_class, :force_renew, :variables_json
+  permit_params :name, :provisioning_class, :force_renew, :variables_json, :ui_type
 
   form do |f|
     f.semantic_errors *f.object.errors.attribute_names
     f.inputs do
       f.input :name
       f.input :force_renew
-      f.input :provisioning_class
+      f.input :provisioning_class, as: :select, collection: Billing::ServiceType.available_provisioning_classes, input_html: { class: :chosen }
+      f.input :ui_type
       f.input :variables_json, label: 'Variables', as: :text
     end
     f.actions

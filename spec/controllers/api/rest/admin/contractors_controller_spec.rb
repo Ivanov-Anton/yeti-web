@@ -1,14 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Api::Rest::Admin::ContractorsController, type: :controller do
-  let(:user) { create :admin_user }
-  let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: user.id }).token }
-
-  before do
-    request.accept = 'application/vnd.api+json'
-    request.headers['Content-Type'] = 'application/vnd.api+json'
-    request.headers['Authorization'] = auth_token
-  end
+  include_context :jsonapi_admin_headers
 
   describe 'GET index' do
     let!(:contractors) { create_list :contractor, 2, vendor: true }
@@ -128,7 +121,7 @@ RSpec.describe Api::Rest::Admin::ContractorsController, type: :controller do
     end
 
     context 'when attributes are valid' do
-      let(:attributes) { { name: 'name', vendor: true, 'external-id': 100 } }
+      let(:attributes) { { name: 'name', enabled: true, customer: false, vendor: true, 'external-id': 100 } }
 
       let(:relationships) do
         { 'smtp-connection': wrap_relationship(:'smtp-connections', create(:smtp_connection).id) }

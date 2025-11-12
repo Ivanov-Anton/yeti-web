@@ -35,7 +35,9 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
 
   decorate_with DestinationDecorator
 
-  acts_as_export :id, :enabled, :prefix, :dst_number_min_length, :dst_number_max_length,
+  acts_as_export :id, :enabled,
+                 [:scheduler_name, proc { |row| row.scheduler.try(:name) }],
+                 :prefix, :dst_number_min_length, :dst_number_max_length,
                  [:rate_group_name, proc { |row| row.rate_group.try(:name) }],
                  :reject_calls,
                  :rate_policy_name,
@@ -52,8 +54,9 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   acts_as_import resource_class: Importing::Destination,
                  skip_columns: [:routing_tag_ids]
 
-  scope :low_quality
-  scope :time_valid
+  scope :low_quality, show_count: false
+  scope :time_valid, show_count: false
+  scope :scheduled, show_count: false
 
   filter :id
   filter :uuid_equals, label: 'UUID'
@@ -61,7 +64,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   filter :prefix
   filter :routing_for_contains, as: :string, input_html: { class: 'search_filter_string' }
   filter :rate_group, input_html: { class: 'chosen' }
-  filter :rate_group_rateplans_id_eq, as: :select, input_html: { class: 'chosen' }, label: 'Rateplan', collection: -> { Routing::Rateplan.all }
+  filter :rateplan_id_filter, as: :select, input_html: { class: 'chosen' }, label: 'Rateplan', collection: -> { Routing::Rateplan.all }
   filter :reject_calls, as: :select, collection: [['Yes', true], ['No', false]]
   filter :initial_rate
   filter :next_rate
@@ -71,22 +74,19 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   filter :network_prefix_country_id_eq,
          as: :select,
          label: 'Country',
-         input_html: {
-           class: 'chosen network_prefix_country_id_eq-filter'
-         },
+         input_html: { class: 'chosen' },
          collection: -> { System::Country.order(:name) }
 
   association_ajax_filter :network_prefix_network_id_eq,
                           label: 'Network',
                           scope: -> { System::Network.order(:name) },
-                          path: '/system_networks/search',
-                          input_html: {
-                            'data-path-params': { 'q[country_id_eq]': '.network_prefix_country_id_eq-filter' }.to_json,
-                            'data-required-param': 'q[country_id_eq]'
-                          },
-                          fill_params: lambda {
-                            { country_id_eq: params.dig(:q, :network_prefix_country_id_eq) }
-                          }
+                          path: '/system_networks/search'
+
+  filter :network_type_id,
+         as: :select,
+         label: 'Network Type',
+         input_html: { class: 'chosen' },
+         collection: -> { System::NetworkType.collection }
 
   filter :external_id_eq, label: 'EXTERNAL_ID'
   filter :valid_from, as: :date_time_range
@@ -98,15 +98,17 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
   filter :asr_limit
   filter :acd_limit
   filter :short_calls_limit
+  filter :cdo, if: proc { authorized?(:allow_cdo) }
+  filter :scheduler, as: :select, input_html: { class: 'chosen' }
 
   acts_as_filter_by_routing_tag_ids routing_tag_ids_count: true
 
   permit_params :enabled, :prefix, :dst_number_min_length, :dst_number_max_length, :rate_group_id, :next_rate, :connect_fee,
-                :initial_interval, :next_interval, :dp_margin_fixed,
+                :initial_interval, :next_interval, :dp_margin_fixed, :cdo,
                 :dp_margin_percent, :rate_policy_id, :reverse_billing, :initial_rate,
                 :reject_calls, :use_dp_intervals, :test, :profit_control_mode_id,
                 :valid_from, :valid_till, :asr_limit, :acd_limit, :short_calls_limit, :batch_prefix,
-                :reverse_billing, :routing_tag_mode_id, :allow_package_billing, routing_tag_ids: []
+                :reverse_billing, :routing_tag_mode_id, :allow_package_billing, :scheduler_id, routing_tag_ids: []
 
   action_item :show_rates, only: [:show] do
     link_to 'Show Rates', destination_destination_next_rates_path(resource.id)
@@ -212,6 +214,7 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       f.input :dst_number_max_length
       f.input :enabled
       f.input :reject_calls
+      f.input :scheduler, as: :select, input_html: { class: 'chosen' }
       f.input :rate_group, input_html: { class: 'chosen' }
 
       f.input :routing_tag_ids, as: :select,
@@ -228,6 +231,9 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
       f.input :initial_interval
       f.input :next_interval
       f.input :use_dp_intervals
+      if authorized?(:allow_cdo)
+        f.input :cdo
+      end
     end
     f.inputs 'Fixed rating configuration' do
       f.input :initial_rate
@@ -267,6 +273,9 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
           row :country
           row :network
           row :reject_calls
+          row :scheduler do |row|
+            row.scheduler.try(:decorated_display_name)
+          end
           row :quality_alarm
           row :rate_group
           row :routing_tags
@@ -279,6 +288,9 @@ ActiveAdmin.register Routing::Destination, as: 'Destination' do
           row :initial_interval
           row :next_interval
           row :use_dp_intervals
+          if authorized?(:allow_cdo)
+            row :cdo
+          end
           row 'external id', &:external_id
         end
         panel 'Fixed rating configuration' do

@@ -5,11 +5,11 @@
 # Table name: data_import.import_gateways
 #
 #  id                                 :integer(4)       not null, primary key
-#  acd_limit                          :float
+#  acd_limit                          :float(24)
 #  allow_1xx_without_to_tag           :boolean
 #  allow_origination                  :boolean
 #  allow_termination                  :boolean
-#  asr_limit                          :float
+#  asr_limit                          :float(24)
 #  auth_enabled                       :boolean
 #  auth_from_domain                   :string
 #  auth_from_user                     :string
@@ -38,6 +38,7 @@
 #  force_symmetric_rtp                :boolean
 #  gateway_group_name                 :string
 #  host                               :string
+#  incoming_auth_allow_jwt            :boolean          default(FALSE), not null
 #  incoming_auth_password             :string
 #  incoming_auth_username             :string
 #  is_changed                         :boolean
@@ -48,7 +49,6 @@
 #  media_encryption_mode_name         :string
 #  name                               :string
 #  network_protocol_priority_name     :string
-#  orig_append_headers_req            :string
 #  orig_disconnect_policy_name        :string
 #  orig_force_outbound_proxy          :boolean
 #  orig_next_hop                      :string
@@ -76,6 +76,7 @@
 #  rtp_relay_timestamp_aligning       :boolean
 #  rtp_timeout                        :integer(4)
 #  rx_inband_dtmf_filtering_mode_name :string
+#  scheduler_name                     :string
 #  sdp_alines_filter_list             :string
 #  sdp_alines_filter_type_name        :string
 #  sdp_c_location_name                :string
@@ -83,7 +84,7 @@
 #  sensor_level_name                  :string
 #  sensor_name                        :string
 #  session_refresh_method_name        :string
-#  short_calls_limit                  :float
+#  short_calls_limit                  :float(24)
 #  single_codec_in_200ok              :boolean
 #  sip_schema_name                    :string
 #  sip_timer_b                        :integer(4)
@@ -98,7 +99,6 @@
 #  sst_session_expires                :integer(4)
 #  suppress_early_media               :boolean
 #  symmetric_rtp_nonstop              :boolean
-#  term_append_headers_req            :string
 #  term_disconnect_policy_name        :string
 #  term_force_outbound_proxy          :boolean
 #  term_next_hop                      :string
@@ -131,6 +131,7 @@
 #  registered_aor_mode_id             :integer(2)
 #  rel100_mode_id                     :integer(2)
 #  rx_inband_dtmf_filtering_mode_id   :integer(2)
+#  scheduler_id                       :integer(2)
 #  sdp_alines_filter_type_id          :integer(4)
 #  sdp_c_location_id                  :integer(4)
 #  sensor_id                          :integer(2)
@@ -173,6 +174,7 @@ class Importing::Gateway < Importing::Base
   belongs_to :termination_dst_numberlist, class_name: '::Routing::Numberlist', foreign_key: :termination_dst_numberlist_id, optional: true
   belongs_to :termination_src_numberlist, class_name: '::Routing::Numberlist', foreign_key: :termination_src_numberlist_id, optional: true
   belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
+  belongs_to :scheduler, class_name: 'System::Scheduler', foreign_key: :scheduler_id, optional: true
 
   self.import_attributes = %w[
     name enabled
@@ -199,7 +201,6 @@ class Importing::Gateway < Importing::Base
     auth_enabled auth_user auth_password
     term_use_outbound_proxy term_outbound_proxy term_force_outbound_proxy
     term_next_hop orig_next_hop
-    term_append_headers_req orig_append_headers_req
     sdp_alines_filter_type_id
     sdp_alines_filter_list
     term_next_hop_for_replies
@@ -229,12 +230,14 @@ class Importing::Gateway < Importing::Base
     rel100_mode_id
     incoming_auth_username
     incoming_auth_password
+    incoming_auth_allow_jwt
     preserve_anonymous_from_domain
     termination_dst_numberlist_id
     termination_src_numberlist_id
     lua_script_id
     registered_aor_mode_id
     force_cancel_routeset
+    scheduler_id
   ]
 
   import_for ::Gateway

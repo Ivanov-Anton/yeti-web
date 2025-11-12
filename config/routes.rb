@@ -17,13 +17,20 @@ Rails.application.routes.draw do
   post 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#create'
   get 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#show'
   delete 'api/rest/customer/v1/auth', to: 'api/rest/customer/v1/auth#destroy'
+  post 'api/rest/customer/v1/call-auth', to: 'api/rest/customer/v1/call_auth#create'
 
   get 'api/rest/customer/v1/origination-statistics', to: 'api/rest/customer/v1/origination_statistics#show'
   get 'api/rest/customer/v1/origination-statistics-quality', to: 'api/rest/customer/v1/origination_statistics_quality#show'
   get 'api/rest/customer/v1/origination-active-calls', to: 'api/rest/customer/v1/origination_active_calls#show'
 
+  get 'api/rest/customer/v1/termination-statistics', to: 'api/rest/customer/v1/termination_statistics#show'
+  get 'api/rest/customer/v1/termination-statistics-quality', to: 'api/rest/customer/v1/termination_statistics_quality#show'
+  get 'api/rest/customer/v1/termination-active-calls', to: 'api/rest/customer/v1/termination_active_calls#show'
+
   get 'with_contractor_accounts', to: 'accounts#with_contractor'
-  ActiveAdmin.routes(self)
+  authenticate :admin_user do
+    ActiveAdmin.routes(self)
+  end
 
   post 'api/cryptomus_callbacks', to: 'api/cryptomus_callbacks#create'
 
@@ -74,6 +81,7 @@ Rails.application.routes.draw do
           jsonapi_resources :contacts
           jsonapi_resources :api_accesses
           jsonapi_resources :customers_auths
+          jsonapi_resources :rate_groups
 
           jsonapi_resources :dialpeers
           jsonapi_resources :dialpeer_next_rates
@@ -85,7 +93,6 @@ Rails.application.routes.draw do
           jsonapi_resources :codec_groups
 
           jsonapi_resources :disconnect_policies
-          jsonapi_resources :diversion_policies
           jsonapi_resources :filter_types
           jsonapi_resources :pops
           jsonapi_resources :nodes
@@ -94,81 +101,70 @@ Rails.application.routes.draw do
           jsonapi_resources :active_calls, only: %i[index show destroy]
           jsonapi_resources :incoming_registrations, only: %i[index]
 
-          namespace :cdr do
-            jsonapi_resources :cdrs, only: %i[index show] do
-              member { get :recording }
-            end
-            jsonapi_resources :auth_logs, only: %i[index show] do
-            end
-            jsonapi_resources :cdr_exports, only: %i[index show create destroy] do
-              jsonapi_relationships
-              member { get :download }
-            end
+          jsonapi_resources :cdrs, only: %i[index show update] do
+            jsonapi_relationships
+            member { get :recording }
+          end
+          jsonapi_resources :auth_logs, only: %i[index show] do
+          end
+          jsonapi_resources :cdr_exports, only: %i[index show create destroy] do
+            jsonapi_relationships
+            member { get :download }
           end
 
-          namespace :billing do
-            jsonapi_resources :invoice_template
-            jsonapi_resources :invoices, only: %i[index show create destroy] do
-              jsonapi_relationships
-              member do
-                get :pdf
-                get :odt
-              end
-            end
-            jsonapi_resources :invoice_originated_destinations, only: %i[index show]
-            jsonapi_resources :invoice_originated_networks, only: %i[index show]
-            jsonapi_resources :invoice_terminated_destinations, only: %i[index show]
-            jsonapi_resources :invoice_terminated_networks, only: %i[index show]
-            jsonapi_resources :invoice_service_data, only: %i[index show]
-            jsonapi_resources :service_types
-            jsonapi_resources :services, only: %i[index show create update]
-            jsonapi_resources :transactions, only: %i[index show]
-          end
-
-          namespace :system do
-            jsonapi_resources :timezones
-            jsonapi_resources :dtmf_receive_modes
-            jsonapi_resources :dtmf_send_modes
-            jsonapi_resources :sensor_levels
-            jsonapi_resources :sensors
-            jsonapi_resources :smtp_connections
-            jsonapi_resources :countries
-            jsonapi_resources :networks
-            jsonapi_resources :network_types
-          end
-
-          namespace :equipment do
-            jsonapi_resources :gateway_rel100_modes
-            jsonapi_resources :gateway_inband_dtmf_filtering_modes
-            jsonapi_resources :gateway_diversion_send_modes
-            jsonapi_resources :gateway_network_protocol_priorities
-            jsonapi_resources :gateway_media_encryption_modes
-            jsonapi_resources :transport_protocols
-            jsonapi_resources :registrations
-            jsonapi_resources :sip_options_probers
-            namespace :radius do
-              jsonapi_resources :accounting_profiles
-              jsonapi_resources :auth_profiles
+          jsonapi_resources :invoice_template
+          jsonapi_resources :invoices, only: %i[index show create destroy] do
+            jsonapi_relationships
+            member do
+              get :pdf
+              get :odt
             end
           end
+          jsonapi_resources :invoice_originated_destinations, only: %i[index show]
+          jsonapi_resources :invoice_originated_networks, only: %i[index show]
+          jsonapi_resources :invoice_terminated_destinations, only: %i[index show]
+          jsonapi_resources :invoice_terminated_networks, only: %i[index show]
+          jsonapi_resources :invoice_service_data, only: %i[index show]
+          jsonapi_resources :service_types
+          jsonapi_resources :services, only: %i[index show create update]
+          jsonapi_resources :transactions, only: %i[index show]
 
-          namespace :routing do
-            jsonapi_resources :areas
-            jsonapi_resources :area_prefixes
-            jsonapi_resources :numberlists
-            jsonapi_resources :numberlist_items
-            jsonapi_resources :routing_tag_detection_rules
-            jsonapi_resources :tag_actions
-            jsonapi_resources :rateplans
-            jsonapi_resources :routing_groups
-            jsonapi_resources :routing_tags
-            jsonapi_resources :routing_tag_modes
-            jsonapi_resources :routeset_discriminators
-            jsonapi_resources :destinations do
-              # remove relationships endpoints because they fail work with cross namespace relationships.
-            end
-            jsonapi_resources :destination_next_rates
-          end
+          jsonapi_resources :timezones
+          jsonapi_resources :dtmf_receive_modes
+          jsonapi_resources :dtmf_send_modes
+          jsonapi_resources :sensor_levels
+          jsonapi_resources :sensors
+          jsonapi_resources :smtp_connections
+          jsonapi_resources :countries
+          jsonapi_resources :networks
+          jsonapi_resources :network_types
+
+          jsonapi_resources :gateway_rel100_modes
+          jsonapi_resources :gateway_inband_dtmf_filtering_modes
+          jsonapi_resources :gateway_diversion_send_modes
+          jsonapi_resources :gateway_network_protocol_priorities
+          jsonapi_resources :gateway_media_encryption_modes
+          jsonapi_resources :transport_protocols
+          jsonapi_resources :registrations
+          jsonapi_resources :sip_options_probers
+
+          jsonapi_resources :radius_accounting_profiles
+          jsonapi_resources :radius_auth_profiles
+
+          jsonapi_resources :areas
+          jsonapi_resources :area_prefixes
+          jsonapi_resources :numberlists
+          jsonapi_resources :numberlist_items
+          jsonapi_resources :routing_tag_detection_rules
+          jsonapi_resources :tag_actions
+          jsonapi_resources :rateplans
+          jsonapi_resources :routing_groups
+          jsonapi_resources :routing_tags
+          jsonapi_resources :routing_tag_modes
+          jsonapi_resources :routeset_discriminators
+          jsonapi_resources :destinations
+          jsonapi_resources :destination_next_rates
+          jsonapi_resources :package_counters, only: %i[index show]
         end
 
         namespace :customer do
@@ -176,6 +172,8 @@ Rails.application.routes.draw do
             jsonapi_resources :accounts, only: %i[index show]
             jsonapi_resources :rateplans, only: %i[index show]
             jsonapi_resources :rates, only: %i[index show]
+            jsonapi_resources :outgoing_numberlists, only: %i[index show]
+            jsonapi_resources :outgoing_numberlist_items, only: %i[index show create update destroy]
             jsonapi_resource :check_rate, only: %i[create]
             jsonapi_resources :cdrs, only: %i[index show] do
               jsonapi_relationships
@@ -203,6 +201,8 @@ Rails.application.routes.draw do
             jsonapi_resources :countries, only: %i[index show]
             jsonapi_resources :services, only: %i[index show]
             jsonapi_resources :transactions, only: %i[index show]
+            jsonapi_resources :phone_systems_sessions, only: %i[create]
+            jsonapi_resource :profiles, only: %i[show]
           end
         end
 

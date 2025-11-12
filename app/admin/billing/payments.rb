@@ -20,7 +20,9 @@ ActiveAdmin.register Payment do
                  :notes,
                  :private_notes,
                  :status,
-                 :type_name
+                 :type_name,
+                 :balance_before_payment,
+                 :rolledback_at
 
   controller do
     def scoped_collection
@@ -57,12 +59,15 @@ ActiveAdmin.register Payment do
     }
     column :private_notes
     column :notes
+    column :balance_before_payment
+    column :rolledback_at
     column :uuid
   end
 
   filter :id
   filter :uuid_equals, label: 'UUID'
   filter :created_at, as: :date_time_range
+  filter :rolledback_at, as: :date_time_range, label: 'RolledBack at'
   account_filter :account_id_eq
   filter :type_id,
          label: 'Type',
@@ -76,6 +81,7 @@ ActiveAdmin.register Payment do
          input_html: { class: 'chosen' }
   filter :amount
   filter :private_notes
+  filter :balance_before_payment
   filter :notes
 
   show do |_s|
@@ -90,7 +96,9 @@ ActiveAdmin.register Payment do
           row :status, &:status_formatted
           row :amount
           row :private_notes
+          row :balance_before_payment
           row :notes
+          row :rolledback_at
         end
       end
 
@@ -104,6 +112,22 @@ ActiveAdmin.register Payment do
           end
         end
       end
+    end
+  end
+
+  member_action :rollback, method: :post do
+    Payment::Rollback.call(payment: resource)
+    flash[:notice] = 'Payment has been rolled back successfully.'
+  rescue Payment::Rollback::Error => e
+    flash[:error] = e.message
+  ensure
+    redirect_back fallback_location: root_path
+  end
+
+  action_item :rollback, only: :show do
+    if authorized?(:rollback, resource)
+      hint = "Balance will be restored, status changed, rolledback_at recorded. This action can't be reverted."
+      link_to('Rollback', rollback_payment_path(resource.id), method: :post, title: hint)
     end
   end
 end

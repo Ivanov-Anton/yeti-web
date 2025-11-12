@@ -72,9 +72,8 @@ class System::Sensor < ApplicationRecord
     self[:target_ip]
   end
 
-  include Yeti::SensorReloader
   include Yeti::StateUpdater
-  self.state_name = 'sensors'
+  self.state_names = ['sensors']
 
   def display_name
     name.to_s

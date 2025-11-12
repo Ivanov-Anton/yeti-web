@@ -7,10 +7,10 @@
 #  id               :bigint(8)        not null, primary key
 #  action           :string
 #  controller       :string
-#  db_duration      :float
+#  db_duration      :float(24)
 #  meta             :jsonb
 #  method           :string
-#  page_duration    :float
+#  page_duration    :float(24)
 #  params           :text
 #  path             :string
 #  remote_ip        :inet
@@ -29,7 +29,7 @@
 #
 
 FactoryBot.define do
-  factory :api_log, class: Log::ApiLog do
+  factory :api_log, class: 'Log::ApiLog' do
     path { '/api/rest/qweasd' }
     add_attribute(:method) { 'GET' }
     status { 204 }

@@ -131,16 +131,16 @@ RSpec.describe Api::Rest::Admin::CustomersAuthsController, type: :request do
     end
 
     context 'with filter by diversion_policy.id' do
-      let!(:diversion_policy) { DiversionPolicy.find(1) }
-      let!(:other_diversion_policy) { DiversionPolicy.find(2) }
-      let!(:customers_auths) { create_list(:customers_auth, 3, diversion_policy: diversion_policy) }
-      before { create(:customers_auth, diversion_policy: other_diversion_policy) }
+      let!(:diversion_policy_id) { CustomersAuth::DIVERSION_POLICY_NOT_ACCEPT }
+      let!(:other_diversion_policy_id) { CustomersAuth::DIVERSION_POLICY_ACCEPT }
+      let!(:customers_auths) { create_list(:customers_auth, 3, diversion_policy_id: diversion_policy_id) }
+      before { create(:customers_auth, diversion_policy_id: other_diversion_policy_id) }
 
       let(:request_params) do
-        { filter: { 'diversion_policy.id': diversion_policy.id } }
+        { filter: { 'diversion_policy_id_eq': diversion_policy_id } }
       end
 
-      it 'returns filtered gateways by diversion_policy.id' do
+      it 'returns filtered gateways by diversion_policy_id' do
         subject
         expect(response.status).to eq(200)
         actual_ids = response_json[:data].map { |r| r[:id] }
@@ -257,13 +257,13 @@ RSpec.describe Api::Rest::Admin::CustomersAuthsController, type: :request do
     end
 
     context 'with filter by transport_protocol.id' do
-      let!(:transport_protocol) { Equipment::TransportProtocol.first }
-      let!(:other_transport_protocol) { Equipment::TransportProtocol.second }
-      let!(:customers_auths) { create_list(:customers_auth, 3, transport_protocol: transport_protocol) }
-      before { create(:customers_auth, transport_protocol: other_transport_protocol) }
+      let!(:transport_protocol_id) { CustomersAuth::TRANSPORT_PROTOCOL_UDP }
+      let!(:other_transport_protocol_id) { CustomersAuth::TRANSPORT_PROTOCOL_TCP }
+      let!(:customers_auths) { create_list(:customers_auth, 3, transport_protocol_id: transport_protocol_id) }
+      before { create(:customers_auth, transport_protocol_id: other_transport_protocol_id) }
 
       let(:request_params) do
-        { filter: { 'transport_protocol.id': transport_protocol.id } }
+        { filter: { 'transport_protocol_id_eq': transport_protocol_id } }
       end
 
       it 'returns filtered gateways by transport_protocol.id' do

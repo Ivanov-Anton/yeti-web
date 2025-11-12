@@ -5,6 +5,7 @@ ActiveAdmin.register Importing::Destination, as: 'Destination Imports' do
   filter :prefix
   filter :rate
   filter :connect_fee
+  filter :cdo, if: proc { authorized?(:allow_cdo) }
   boolean_filter :is_changed
 
   acts_as_import_preview
@@ -24,10 +25,10 @@ ActiveAdmin.register Importing::Destination, as: 'Destination Imports' do
     column :error_string
     column :o_id
     column :is_changed
-
     column :enabled
     column :prefix
     column :reject_calls
+    column :scheduler
     column :rate_group, sortable: :rate_group_name
     column :routing_tag_ids
     column :routing_tag_mode, sortable: :routing_tag_mode_name
@@ -47,5 +48,8 @@ ActiveAdmin.register Importing::Destination, as: 'Destination Imports' do
     column :asr_limit
     column :acd_limit
     column :short_calls_limit
+    if authorized?(:allow_cdo)
+      column :cdo
+    end
   end
 end

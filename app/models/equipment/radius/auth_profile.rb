@@ -22,7 +22,7 @@ class Equipment::Radius::AuthProfile < ApplicationRecord
   self.table_name = 'class4.radius_auth_profiles'
   include WithPaperTrail
   include Yeti::StateUpdater
-  self.state_name = 'radius_authorization_profiles'
+  self.state_names = ['radius_authorization_profiles']
 
   has_many :customers_auths, class_name: 'CustomersAuth', foreign_key: :radius_auth_profile_id, dependent: :restrict_with_error
   has_many :avps, class_name: 'Equipment::Radius::AuthProfileAttribute', foreign_key: :profile_id, inverse_of: :profile, dependent: :destroy
@@ -42,14 +42,6 @@ class Equipment::Radius::AuthProfile < ApplicationRecord
   validates :attempts, numericality: { greater_than_or_equal_to: ATTEMPTS_MIN, less_than_or_equal_to: ATTEMPTS_MAX, allow_nil: true, only_integer: true }
   validates :port, numericality: { greater_than_or_equal_to: ApplicationRecord::L4_PORT_MIN, less_than_or_equal_to: ApplicationRecord::L4_PORT_MAX, allow_nil: true, only_integer: true }
 
-  before_save do
-    Event.reload_radius_auth_profiles
-  end
-
-  after_destroy do
-    Event.reload_radius_auth_profiles
-  end
-
   def set_reject_on_error
     self.reject_on_error = true
     save!
@@ -61,6 +53,6 @@ class Equipment::Radius::AuthProfile < ApplicationRecord
   end
 
   def display_name
-    "#{id} | #{name}"
+    "#{name} | #{id}"
   end
 end

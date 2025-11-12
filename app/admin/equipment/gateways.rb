@@ -19,6 +19,7 @@ ActiveAdmin.register Gateway do
   decorate_with GatewayDecorator
 
   acts_as_export :id, :name, :enabled,
+                 [:scheduler_name, proc { |row| row.scheduler.try(:name) }],
                  [:gateway_group_name, proc { |row| row.gateway_group.try(:name) }],
                  :priority,
                  :weight,
@@ -26,7 +27,9 @@ ActiveAdmin.register Gateway do
                  [:contractor_name, proc { |row| row.contractor.try(:name) }],
                  :is_shared,
                  :allow_origination, :allow_termination, :sst_enabled,
-                 :origination_capacity, :termination_capacity,
+                 :origination_capacity, :termination_capacity, :termination_subscriber_capacity,
+                 :termination_cps_limit, :termination_cps_wsize,
+                 :termination_subscriber_cps_limit, :termination_subscriber_cps_wsize,
                  :preserve_anonymous_from_domain,
                  [:termination_src_numberlist_name, proc { |row| row.termination_src_numberlist.try(:name) }],
                  [:termination_dst_numberlist_name, proc { |row| row.termination_dst_numberlist.try(:name) }],
@@ -61,8 +64,7 @@ ActiveAdmin.register Gateway do
                  :dst_rewrite_rule, :dst_rewrite_result,
                  :to_rewrite_rule, :to_rewrite_result,
                  [:lua_script_name, proc { |row| row.lua_script.try(:name) }],
-                 :auth_enabled, :auth_user, :auth_password, :auth_from_user, :auth_from_domain,
-                 :incoming_auth_username, :incoming_auth_password,
+                 :auth_enabled, :auth_from_user, :auth_from_domain,
                  :term_use_outbound_proxy, :term_force_outbound_proxy,
                  [:term_proxy_transport_protocol_name, proc { |row| row.term_proxy_transport_protocol.try(:name) }],
                  :term_outbound_proxy,
@@ -96,13 +98,16 @@ ActiveAdmin.register Gateway do
                  :force_one_way_early_media, :max_30x_redirects,
                  :privacy_mode_name,
                  :stir_shaken_mode_name,
-                 [:stir_shaken_crt_name, proc { |row| row.stir_shaken_crt.try(:name) }]
+                 [:stir_shaken_crt_name, proc { |row| row.stir_shaken_crt.try(:name) }],
+                 :dump_level_name
 
   acts_as_import resource_class: Importing::Gateway
 
   scope :locked
   scope :shared
   scope :with_radius_accounting
+  scope :with_dump
+  scope :scheduled
 
   includes :contractor, :gateway_group, :pop, :statistic, :diversion_send_mode,
            :session_refresh_method, :codec_group,
@@ -114,7 +119,8 @@ ActiveAdmin.register Gateway do
            :transport_protocol, :term_proxy_transport_protocol, :orig_proxy_transport_protocol,
            :rel100_mode, :rx_inband_dtmf_filtering_mode, :tx_inband_dtmf_filtering_mode,
            :network_protocol_priority, :media_encryption_mode,
-           :termination_src_numberlist, :termination_dst_numberlist, :lua_script, :stir_shaken_crt
+           :termination_src_numberlist, :termination_dst_numberlist, :lua_script, :stir_shaken_crt,
+           :throttling_profile, :scheduler
 
   controller do
     def resource_params
@@ -215,15 +221,6 @@ ActiveAdmin.register Gateway do
 
     column :resolve_ruri
 
-    column :incoming_auth_username
-    column :incoming_auth_password
-
-    column :auth_enabled
-    column :auth_user
-    column :auth_password
-    column :auth_from_user
-    column :auth_from_domain
-
     column :term_use_outbound_proxy
     column :term_force_outbound_proxy
     column :term_proxy_transport_protocol
@@ -313,10 +310,12 @@ ActiveAdmin.register Gateway do
   filter :auth_password
   filter :incoming_auth_username
   filter :incoming_auth_password
+  filter :incoming_auth_allow_jwt
   filter :codec_group, input_html: { class: 'chosen' }, collection: proc { CodecGroup.pluck(:name, :id) }
   filter :diversion_send_mode
   filter :sip_schema_id, as: :select, collection: proc { Gateway::SIP_SCHEMAS.invert }
   filter :privacy_mode_id, as: :select, collection: proc { Gateway::PRIVACY_MODES.invert }
+  filter :dump_level_id, as: :select, collection: proc { Gateway::DUMP_LEVELS.invert }
 
   association_ajax_filter :termination_src_numberlist_id_eq,
                           label: 'Termination SRC Numberlist',
@@ -327,6 +326,10 @@ ActiveAdmin.register Gateway do
                           label: 'Termination DST Numberlist',
                           scope: -> { Routing::Numberlist.order(:name) },
                           path: '/numberlists/search'
+
+  filter :stir_shaken_crt, as: :select, input_html: { class: 'chosen' }
+  filter :throttling_profile, as: :select, input_html: { class: 'chosen' }
+  filter :scheduler, as: :select, input_html: { class: 'chosen' }
 
   form do |f|
     f.semantic_errors *f.object.errors.attribute_names
@@ -351,11 +354,18 @@ ActiveAdmin.register Gateway do
           f.input :weight
           f.input :pop, as: :select, include_blank: 'Any', input_html: { class: 'chosen' }
 
+          f.input :scheduler, as: :select, input_html: { class: 'chosen' }
+
           f.input :allow_origination
           f.input :allow_termination
 
           f.input :origination_capacity
           f.input :termination_capacity
+          f.input :termination_subscriber_capacity
+          f.input :termination_cps_limit
+          f.input :termination_cps_wsize
+          f.input :termination_subscriber_cps_limit
+          f.input :termination_subscriber_cps_wsize
           f.input :acd_limit
           f.input :asr_limit
           f.input :short_calls_limit
@@ -391,14 +401,19 @@ ActiveAdmin.register Gateway do
               f.input :transit_headers_from_origination
               f.input :transit_headers_from_termination
               f.input :sip_interface_name
-              f.input :incoming_auth_username, hint: "#{link_to('Сlick to fill random username', 'javascript:void(0)', onclick: 'generateCredential(this)')}. #{t('formtastic.hints.gateway.incoming_auth_username')}".html_safe
-              f.input :incoming_auth_password, as: :string, input_html: { autocomplete: 'off' }, hint: link_to('Сlick to fill random password', 'javascript:void(0)', onclick: 'generateCredential(this)')
+
+              if f.object.external_id.nil? || authorized?(:allow_incoming_auth_credentials)
+                f.input :incoming_auth_username, hint: "#{link_to('Сlick to fill random username', 'javascript:void(0)', onclick: 'generateCredential(this)')}. #{t('formtastic.hints.gateway.incoming_auth_username')}".html_safe
+                f.input :incoming_auth_password, as: :string, input_html: { autocomplete: 'off' }, hint: link_to('Сlick to fill random password', 'javascript:void(0)', onclick: 'generateCredential(this)')
+              end
+
+              f.input :incoming_auth_allow_jwt
             end
 
             f.inputs 'Origination' do
               f.input :orig_next_hop
-              f.input :orig_append_headers_req
-              f.input :orig_append_headers_reply, as: :array_of_strings
+              f.input :orig_append_headers_req, as: :newline_array_of_headers
+              f.input :orig_append_headers_reply, as: :newline_array_of_headers
               f.input :orig_use_outbound_proxy
               f.input :orig_force_outbound_proxy
               f.input :orig_proxy_transport_protocol, as: :select, include_blank: false
@@ -410,6 +425,7 @@ ActiveAdmin.register Gateway do
           end
           column do
             f.inputs 'Termination' do
+              f.input :dump_level_id, as: :select, include_blank: false, collection: Gateway::DUMP_LEVELS.invert
               f.input :transport_protocol, as: :select, include_blank: false
               f.input :sip_schema_id, as: :select, include_blank: false, collection: Gateway::SIP_SCHEMAS.invert
               f.input :host
@@ -433,7 +449,7 @@ ActiveAdmin.register Gateway do
               f.input :term_next_hop_for_replies
               f.input :term_next_hop
               f.input :term_disconnect_policy, input_html: { class: 'chosen' }, include_blank: true
-              f.input :term_append_headers_req
+              f.input :term_append_headers_req, as: :newline_array_of_headers
               f.input :sdp_alines_filter_type, as: :select, include_blank: false
               f.input :sdp_alines_filter_list
               f.input :ringing_timeout
@@ -441,11 +457,14 @@ ActiveAdmin.register Gateway do
               f.input :force_cancel_routeset
               f.input :max_30x_redirects
               f.input :max_transfers
+              f.input :transfer_append_headers_req, as: :newline_array_of_headers
+              f.input :transfer_tel_uri_host
               f.input :sip_timer_b
               f.input :dns_srv_failover_timer
               f.input :suppress_early_media
               f.input :fake_180_timer
               f.input :send_lnp_information
+              f.input :throttling_profile, input_html: { class: 'chosen' }, include_blank: true
             end
           end
         end
@@ -520,7 +539,7 @@ ActiveAdmin.register Gateway do
         f.inputs 'STIR/SHAKEN' do
           f.input :stir_shaken_mode_id, as: :select, include_blank: false,
                                         collection: Gateway::STIR_SHAKEN_MODES.invert
-          f.input :stir_shaken_crt, as: :select
+          f.input :stir_shaken_crt, as: :select, input_html: { class: 'chosen' }
         end
       end
     end
@@ -545,10 +564,18 @@ ActiveAdmin.register Gateway do
           row :priority
           row :weight
           row :pop
+          row :scheduler do |row|
+            row.scheduler.try(:decorated_display_name)
+          end
           row :allow_origination
           row :allow_termination
           row :origination_capacity
           row :termination_capacity
+          row :termination_subscriber_capacity
+          row :termination_cps_limit
+          row :termination_cps_wsize
+          row :termination_subscriber_cps_limit
+          row :termination_subscriber_cps_wsize
           row :acd_limit
           row :asr_limit
           row :short_calls_limit
@@ -589,8 +616,12 @@ ActiveAdmin.register Gateway do
         panel 'Origination' do
           attributes_table_for s do
             row :orig_next_hop
-            row :orig_append_headers_req
-            row :orig_append_headers_reply
+            row :orig_append_headers_req do |row|
+              pre row.orig_append_headers_req.join("\r\n")
+            end
+            row :orig_append_headers_reply do |row|
+              pre row.orig_append_headers_reply.join("\r\n")
+            end
             row :orig_use_outbound_proxy
             row :orig_force_outbound_proxy
             row :orig_proxy_transport_protocol
@@ -599,12 +630,16 @@ ActiveAdmin.register Gateway do
             row :dialog_nat_handling
             row :orig_disconnect_policy
 
-            row :incoming_auth_username
-            row :incoming_auth_password
+            if s.external_id.nil? || authorized?(:allow_incoming_auth_credentials)
+              row :incoming_auth_username
+              row :incoming_auth_password
+            end
+            row :incoming_auth_allow_jwt
           end
         end
         panel 'Termination' do
           attributes_table_for s do
+            row :dump_level_id, &:dump_level_name
             row :transport_protocol
             row :sip_schema_id, &:sip_schema_name
             row :host
@@ -629,7 +664,9 @@ ActiveAdmin.register Gateway do
             row :term_next_hop_for_replies
             row :term_next_hop
             row :term_disconnect_policy
-            row :term_append_headers_req
+            row :term_append_headers_req do |row|
+              pre row.term_append_headers_req.join("\r\n")
+            end
             row :sdp_alines_filter_type
             row :sdp_alines_filter_list
             row :ringing_timeout
@@ -637,11 +674,16 @@ ActiveAdmin.register Gateway do
             row :force_cancel_routeset
             row :max_30x_redirects
             row :max_transfers
+            row :transfer_append_headers_req do |row|
+              pre row.transfer_append_headers_req.join("\r\n")
+            end
+            row :transfer_tel_uri_host
             row :sip_timer_b
             row :dns_srv_failover_timer
             row :suppress_early_media
             row :fake_180_timer
             row :send_lnp_information
+            row :throttling_profile
           end
         end
       end

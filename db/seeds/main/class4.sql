@@ -107,6 +107,8 @@ INSERT INTO codecs (id, name) VALUES (18, 'G726-16/8000');
 INSERT INTO codecs (id, name) VALUES (19, 'L16/8000');
 INSERT INTO codecs (id, name) VALUES (20, 'G722/8000');
 INSERT INTO codecs (id, name) VALUES (21, 'opus/48000/2');
+INSERT INTO codecs (id, name) VALUES (22, 'AMR/8000');
+INSERT INTO codecs (id, name) VALUES (23, 'AMR-WB/16000');
 
 --
 -- TOC entry 4431 (class 0 OID 0)
@@ -124,19 +126,8 @@ SELECT pg_catalog.setval('blacklists_id_seq', 1, true);
 --
 
 INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (19, 1, 6, 64, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (20, 1, 7, 27, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (21, 1, 8, 66, NULL, NULL);
 INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (22, 1, 9, 99, NULL, NULL);
 INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (23, 1, 10, 40, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (24, 1, 11, 93, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (25, 1, 12, 32, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (26, 1, 13, 8, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (27, 1, 14, 68, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (28, 1, 15, 23, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (29, 1, 16, 33, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (30, 1, 17, 59, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (31, 1, 18, 95, NULL, NULL);
-INSERT INTO codec_group_codecs (id, codec_group_id, codec_id, priority, dynamic_payload_type, format_parameters) VALUES (32, 1, 19, 6, NULL, NULL);
 
 
 --
@@ -297,7 +288,8 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (105, 2, false, false, 600, 'Busy Everywhere', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (107, 2, false, false, 604, 'Does Not Exist Anywhere', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (108, 2, false, false, 606, 'Not Acceptable', NULL, NULL, false, false, true, false);
-INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (125, 1, true, false, 200, 'Rtp timeout', NULL, '', false, true, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (125, 1, true, false, 200, 'Rtp timeout', NULL, NULL, false, true, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (132, 1, true, false, 200, 'Rtp timeout(legB)', NULL, NULL, false, true, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (100, 2, false, false, 503, 'Service Unavailable', NULL, '', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (90, 2, true, false, 486, 'Busy Here', NULL, '', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (114, 1, true, false, 400, 'cant parse From in req', NULL, 'Bad Request', false, false, true, false);
@@ -314,6 +306,13 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (120, 1, true, false, 500, 'profile evaluation failed', NULL, 'Internal Server Error', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (130, 1, true, false, 408, 'SIP transaction timeout', NULL, NULL, false, true, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (131, 1, true, false, 480, 'Gateway not registered', NULL, NULL, false, true, true, false);
+
+insert into class4.disconnect_code
+    (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop)
+values
+    (133, 1, true, false, 480, 'Term. gw throttled', 480, 'Temporarily Unavailable', false, true,  true, false);
+
+
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1500, 1, true, false, 500, 'SDP processing exception', NULL, NULL, false, true, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1501, 1, true, false, 500, 'SDP parsing failed', NULL, NULL, false, true, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1502, 1, true, false, 500, 'SDP empty answer', NULL, NULL, false, true, true, false);
@@ -323,6 +322,15 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (60, 2, false, false, 404, 'Not Found', NULL, '', false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1602, 2, false, true, 607, 'Unwanted', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1603, 2, false, true, 608, 'Rejected', NULL, NULL, false, false, true, false);
+
+INSERT INTO class4.disconnect_code
+    (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop)
+VALUES
+    (1604, 2, false, true, 411, 'Length Required', NULL, NULL, false, false, true, false),
+    (1605, 2, false, true, 430, 'Flow Failed', NULL, NULL, false, false, true, false),
+    (1606, 2, false, true, 439, 'First Hop Lacks Outbound Support', NULL, NULL, false, false, true, false),
+    (1607, 2, false, true, 470, 'Consent Needed', NULL, NULL, false, false, true, false),
+    (1608, 2, false, true, 699, 'CAC exceeded', NULL, NULL, false, false, true, false);
 
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8000, 0, true, true, 403, 'Not enough customer balance', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8001, 0, true, true, 403, 'Destination number blacklisted', NULL, NULL, false, false, true, false);
@@ -343,12 +351,13 @@ INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_orig
 
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8013,0,true,true,500,'Privacy calls not allowed',NULL,NULL,false,false,true,false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8014,0,true,true,500,'Critical privacy not allowed',NULL,NULL,false,false,true,false);
-INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8015,0,true,true,500,'Anonymous calls not allowed',NULL,NULL,false,false,true,false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success,  successnozerolen,store_cdr,silently_drop) VALUES (8015,0,true,true,433,'Anonymity Disallowed',NULL,NULL,false,false,true,false);
 
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8016, 0, true, true, 403, 'Destination number blacklisted by routing plan', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8017, 0, true, true, 403, 'Source number blacklisted by routing plan', NULL, NULL, false, false, true, false);
-INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8018, 0, true, true, 403, 'Identity required', NULL, NULL, false, false, true, false);
-INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8019, 0, true, true, 403, 'Identity invalid', NULL, NULL, false, false, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8018, 0, true, true, 428, 'Use Identity Header', NULL, NULL, false, false, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8019, 0, true, true, 438, 'Invalid Identity Header', NULL, NULL, false, false, true, false);
+INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (8020, 0, true, true, 403, 'PAI header required', NULL, NULL, false, false, true, false);
 
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (1505, 1, false, false, 487, 'Ringing timeout', NULL, NULL, false, false, true, false);
 INSERT INTO disconnect_code (id, namespace_id, stop_hunting, pass_reason_to_originator, code, reason, rewrited_code, rewrited_reason, success, successnozerolen, store_cdr, silently_drop) VALUES (2001, 3, true, false, 503, 'Radius response timeout', NULL, NULL, false, false, true, false);
@@ -366,6 +375,10 @@ insert into disconnect_code (id,namespace_id,code,reason) values (1509, 1, 480, 
 insert into disconnect_code (id,namespace_id,code,reason) values (1510, 1, 480,  'Vendor gateway $id overloaded');
 insert into disconnect_code (id,namespace_id,code,reason) values (1511, 1, 480,  'Dialpeer $id overloaded');
 insert into disconnect_code (id,namespace_id,code,reason) values (1512, 1, 480,  'Account $id total capacity reached');
+insert into disconnect_code (id,namespace_id,code,reason) values (1513, 1, 480,  'Subscriber capacity limit');
+insert into disconnect_code (id,namespace_id,code,reason) values (1514, 1, 480,  'Termination gw cps limit');
+insert into disconnect_code (id,namespace_id,code,reason) values (1515, 1, 480,  'Dest. subscriber cps limit');
+
 insert into disconnect_code (id,namespace_id,code,reason) values (1600, 1, 503,  'Resource cache error');
 insert into disconnect_code (id,namespace_id,code,reason) values (1601, 1, 503,  'Unknown resource overload');
 
@@ -408,16 +421,6 @@ SELECT pg_catalog.setval('disconnect_code_policy_codes_id_seq', 3, true);
 SELECT pg_catalog.setval('disconnect_code_policy_id_seq', 2, true);
 
 
-
-
---
--- TOC entry 4337 (class 0 OID 19209)
--- Dependencies: 320
--- Data for Name: diversion_policy; Type: TABLE DATA; Schema: class4; Owner: yeti
---
-
-INSERT INTO diversion_policy (id, name) VALUES (1, 'Do not accept');
-INSERT INTO diversion_policy (id, name) VALUES (2, 'Accept');
 
 insert into class4.gateway_diversion_send_modes(id,name) values(1,'Do not send');
 insert into class4.gateway_diversion_send_modes(id,name) values(2,'Send as SIP URI');
@@ -863,20 +866,6 @@ insert into class4.gateway_network_protocol_priorities(id, name) values(1, 'forc
 insert into class4.gateway_network_protocol_priorities(id, name) values(2, 'Any');
 insert into class4.gateway_network_protocol_priorities(id, name) values(3, 'prefer IPv4');
 insert into class4.gateway_network_protocol_priorities(id, name) values(4, 'prefer IPv6');
-
-insert into class4.gateway_group_balancing_modes(id,name) values(1,'Priority/Weigth balancing');
-insert into class4.gateway_group_balancing_modes(id,name) values(2,'Priority/Weigth balancing. Prefer gateways from same POP');
-insert into class4.gateway_group_balancing_modes(id,name) values(3,'Priority/Weigth balancing. Exclude gateways from other POPs');
-
-
-insert into class4.customers_auth_src_number_fields(id,name) values(1,'From header userpart');
-insert into class4.customers_auth_src_number_fields(id,name) values(2,'From header display name');
-
-insert into class4.customers_auth_src_name_fields(id,name) values(1,'From header display name');
-
-insert into class4.customers_auth_dst_number_fields(id,name) values(1,'R-URI userpart');
-insert into class4.customers_auth_dst_number_fields(id,name) values(2,'To URI userpart');
-insert into class4.customers_auth_dst_number_fields(id,name) values(3,'Top Diversion header userpart');
 
 insert into class4.lnp_databases_30x_redirect_formats(id, name) values (1,'Contact URI username rn parameter');
 insert into class4.lnp_databases_30x_redirect_formats(id, name) values (2,'Contact URI username');

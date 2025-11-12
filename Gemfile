@@ -9,8 +9,8 @@ gem 'activerecord-import'
 gem 'pg'
 gem 'pg_advisory_lock', git: 'https://github.com/didww/pg_advisory_lock.git'
 gem 'pg_sql_caller', git: 'https://github.com/didww/pg_sql_caller.git'
-gem 'rack', ' ~> 2.2.6'
-gem 'rails', '~> 7.0'
+gem 'rack'
+gem 'rails', '~> 7.2.0'
 gem 'responders'
 
 # Authentication
@@ -18,11 +18,13 @@ gem 'activeldap'
 gem 'd3-rails', '3.5.2'
 gem 'devise', '>= 4.6.0'
 gem 'devise_ldap_authenticatable', github: 'cschiewek/devise_ldap_authenticatable', branch: 'default'
-gem 'net-ldap', '~> 0.16.0'
+gem 'net-ldap', '~> 0.19.0'
+gem 'ostruct', '~> 0.6.1' # need for net-ldap
 
 # Seamless JWT authentication for Rails API
 gem 'jwt'
-gem 'knock', github: 'nsarno/knock'
+
+gem 'jquery-ui-rails'
 
 # ActiveAdmin
 gem 'activeadmin'
@@ -45,14 +47,17 @@ gem 'active_admin_sidebar', '1.1.0'
 gem 'excelinator', github: 'senid231/excelinator', branch: 'ruby3-fix'
 
 # REST API
-gem 'jsonapi-resources', '~> 0.9.12'
+# TODO: switch to the official gem from rubygems.org after the 0.9.13 release
+# https://github.com/cerebris/jsonapi-resources/issues/1456#issuecomment-2710742154
+# https://github.com/cerebris/jsonapi-resources/pull/1463
+gem 'jsonapi-resources', github: 'cerebris/jsonapi-resources', branch: 'release-0-9'
 
 # gem 'activeadmin_async_export'
 
 # Ext
 gem 'validates_timeliness', '~> 7.0.0.beta1'
 
-# Object oriented authorization for Rails applications
+# Object-oriented authorization for Rails applications
 gem 'pundit'
 
 gem 'paper_trail'
@@ -66,10 +71,9 @@ gem 'chosen-rails', '1.5.2', require: 'chosen-rails/engine'
 gem 'font-awesome-rails'
 gem 'jquery-rails'
 gem 'jquery-tablesorter'
-gem 'jquery-ui-rails', github: 'jquery-ui-rails/jquery-ui-rails', tag: 'v7.0.0'
+
 gem 'mini_racer'
-gem 'rails-html-sanitizer', '~> 1.0'
-gem 'sass-globbing'
+gem 'rails-html-sanitizer', '>= 1.6.1'
 gem 'uglifier', '>= 1.3'
 
 # Server Tools
@@ -78,6 +82,7 @@ gem 'delayed_job_active_record'
 gem 'odf-report', github: 'yeti-switch/odf-report', branch: 'master-2018'
 gem 'puma', '~> 6.1'
 gem 'puma_worker_killer'
+gem 'syslog', '~> 0.2.0' # need for syslog-logger
 gem 'syslog-logger'
 gem 'zip-zip'
 
@@ -92,6 +97,7 @@ gem 'rufus-scheduler', require: false
 # Easiest way to add multi-environment yaml settings to Rails, Sinatra, Pandrino and other Ruby projects.
 # https://github.com/rubyconfig/config
 gem 'config', require: false
+gem 'dry-validation', '~> 1.0', require: false
 
 group :development do
   gem 'annotate'
@@ -102,17 +108,13 @@ group :development, :test do
   gem 'awesome_print'
   gem 'bullet'
   gem 'byebug'
-  gem 'thin'
 
   gem 'brakeman'
   gem 'bundler-audit', require: false
   gem 'factory_bot_rails'
   gem 'parallel_tests'
+  gem 'rspec_api_documentation', github: 'stitchfix/rspec_api_documentation'
   gem 'rspec-rails'
-  # https://github.com/zipmark/rspec_api_documentation/pull/458
-  # present only on master
-  # Temporary solution. Waiting for merge https://github.com/zipmark/rspec_api_documentation/pull/507
-  gem 'rspec_api_documentation', github: 'BigG1947/rspec_api_documentation'
   gem 'rubocop', require: false
   gem 'rubocop-performance', require: false
   gem 'rubocop-rails', require: false
@@ -129,7 +131,7 @@ group :test do
   gem 'selenium-webdriver'
   gem 'shoulda-matchers'
   gem 'simplecov', '~> 0.21.2', require: false
-  gem 'simplecov-cobertura', '~> 2.1', require: false
+  gem 'simplecov-cobertura', '~> 3.1', require: false
   gem 'webdrivers', '~> 4.0'
   gem 'webmock'
 end
@@ -141,18 +143,16 @@ gem 'matrix', '~> 0.4.2'
 
 gem 'net-smtp', '~> 0.3.3'
 
-gem 'net-pop', '~> 0.1.2'
-
-gem 'net-imap', '~> 0.3.4'
-
 gem 'webrick', '~> 1.8', require: false
 
 gem 'cronex', '~> 0.12.0'
 
 gem 'click_house'
 
-gem 'cryptomus', '~> 0.2.0'
-
+gem 'aws-sdk-s3', require: false
+gem 'cryptomus', '~> 0.2.2'
+gem 'elasticsearch', require: false
 gem 'opentelemetry-exporter-otlp'
 gem 'opentelemetry-instrumentation-all'
 gem 'opentelemetry-sdk'
+gem 'rails_semantic_logger', require: false

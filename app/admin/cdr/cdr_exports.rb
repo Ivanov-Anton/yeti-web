@@ -3,10 +3,13 @@
 ActiveAdmin.register CdrExport, as: 'CDR Export' do
   menu parent: 'CDR', priority: 97
   actions :index, :show, :create, :new
+  decorate_with CdrExportDecorator
 
   acts_as_clone
 
   controller do
+    include ActionController::Live
+
     def scoped_collection
       super.preload(:customer_account)
     end
@@ -14,7 +17,7 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
     def build_new_resource
       record = super
       if params[:action] == 'new'
-        record.fields = CdrExport.last&.fields || []
+        record.fields = CdrExport.where(type: CdrExport::TYPE_BASE).last&.fields || []
       end
       record
     end
@@ -28,6 +31,7 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
   filter :created_at
   filter :updated_at
   filter :uuid_equals, label: 'UUID'
+  filter :time_zone_name
 
   action_item(:download, only: [:show]) do
     link_to 'Download', action: :download if resource.completed?
@@ -78,6 +82,8 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
           row :created_at
           row :updated_at
           row :rows_count
+          row 'Time format', &:time_format_with_hint
+          row 'Time zone name', &:time_zone_name
         end
         active_admin_comments
       end
@@ -96,11 +102,15 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
   end
 
   member_action :download do
-    response.headers['X-Accel-Redirect'] = "/x-redirect/cdr_export/#{resource.id}.csv.gz"
-    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-    response.headers['Content-Disposition'] = "attachment; filename=\"#{resource.id}.csv.gz\""
-
-    render body: nil
+    Cdr::DownloadCdrExport.call(cdr_export: resource, response_object: response)
+  rescue Cdr::DownloadCallRecord::NotFoundError => e
+    flash[:error] = e.message
+    redirect_back(fallback_location: root_path)
+  rescue StandardError => e
+    flash[:error] = "An unexpected error occurred: #{e.message}"
+    redirect_back(fallback_location: root_path)
+  ensure
+    response.stream.close
   end
 
   member_action :delete_file, method: :delete do
@@ -110,6 +120,8 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
   end
 
   permit_params :callback_url,
+                :time_format,
+                :time_zone_name,
                 filters: [
                   :time_start_gteq,
                   :time_start_lteq,
@@ -165,11 +177,22 @@ ActiveAdmin.register CdrExport, as: 'CDR Export' do
       f.input :fields,
               as: :select,
               multiple: true,
-              collection: CdrExport.allowed_fields,
-              input_html: { class: 'chosen' },
+              collection: (f.object.fields | CdrExport.allowed_fields),
+              input_html: { class: 'chosen-sortable' },
               required: true
 
       f.input :callback_url, required: false
+    end
+
+    inputs 'Time specific configurations' do
+      f.input :time_format, as: :select,
+                            collection: CdrExport::ALLOWED_TIME_FORMATS.map { |i| [i.humanize, i] },
+                            input_html: { class: :chosen }
+
+      f.input :time_zone_name,
+             as: :select,
+             input_html: { class: 'chosen' },
+             collection: Yeti::TimeZoneHelper.all
     end
     f.inputs 'Filters', for: [:filters, f.object.filters] do |ff|
       # accounts = Account.order(:name)

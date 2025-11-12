@@ -31,6 +31,7 @@
 
 en:
   hint_array_of_strings: "Comma-separated array of strings"
+  hint_newline_array_of_headers: "Newline separated array of Header: Value elements"
   date:
     formats:
       long: "%Y-%m-%d"
@@ -62,6 +63,8 @@ en:
         notes: "Notes visible on customer portal"
         private_notes: "Private notes not available via customer portal"
       gateway:
+        priority: "Priority in Gateway group. Less value means higher priority"
+        weight: "Weight in Gateway group - controls load distribution between gateways with same priority"
         is_shared: "Allows gateway to be used as origination/termination equipment by any customer/vendor"
         max_30x_redirects: "How many 301/302 redirects Yeti will process"
         max_transfers: "How many SIP REFERs Yeti will process"
@@ -75,6 +78,17 @@ en:
         incoming_auth_username: "Will be used for authentication of incoming INVITE and REGISTER requests"
         fake_180_timer: "Timeout in sec."
         rtp_timeout: "Timeout in sec., 0 - do not check RTP timeout, 1-600 - valid range"
+        relay_options: 'Relay in-dialog OPTIONS received on other leg to this gw'
+        relay_reinvite: 'Relay re-INVITE received on other leg to this gw'
+        relay_update: 'Relay UPDATE received on other leg to this gw'
+        relay_hold: 'Relay hold/unhold re-INVITE received on other leg to this gw'
+        relay_prack: 'Relay PRACK received on other leg to this gw'
+        termination_subscriber_cps_wsize: 'Big values may cause performance issues on high traffic'
+        termination_cps_wsize: 'Big values may cause performance issues on high traffic'
+        transfer_append_headers_req: 'When legB transferred/redirected these headers will be appended to new call leg'
+        transfer_tel_uri_host: 'When legB transferred/redirected to TEL URI Yeti will use this host to build SIP uri from TEL URI'
+      gateway_group:
+        max_rerouting_attempts: 'The maximum allowable number of gateways from this group to be utilized for call rerouting'
       equipment_sip_options_prober:
         node: "PoP and Node selectors limit nodes which send OPTIONS requests"
         ruri_domain: "Domainpart of OPTIONS R-URI"
@@ -85,11 +99,24 @@ en:
         contact_uri: "From header URI in format sip:userpart@domain"
         interval: "OPTIONS sending interval in seconds"
         append_headers: "Custom headers to send in OPTIONS, separated by \\r\\n"
+      equipment_gateway_throttling_profile:
+        codes: "Responses that will be treated as failures"
+        threshold: "Percent of failures to activate throttling. 1-100."
+        window: "Monitoring window size in seconds. 1-120"
+      equipment_stir_shaken_rcd_profile:
+        nam: "display name, associated with the originator of personal communications"
+        apn: "apn value is an optional alternate presentation number"
+        icn: "icn value is an optional HTTPS URL reference to an image that can be used to pictorially represent the call originator"
+        jcd: "jCard JSON object [RFC7095]"
+        jcl: "HTTPS URL that refers to a jCard JSON object [RFC7095]"
       system_sensor:
         hep_capture_id: "Leave it empty to use YETI Node ID as HEP_CAPTURE_ID"
+      system_scheduler:
+        use_reject_calls: "Try to block traffic using reject_calls mechanism when possible"
       customers_auth:
         check_account_balance: "Reject calls if originator hasn't enough funds"
         ip: 'Comma-separated list of IPs with masks'
+        require_incoming_auth: 'When enabled SIP digest auth procedure will be initiated'
         src_prefix: 'Comma-separated list of SRC number prefixes accepted by this auth record'
         dst_prefix: 'Comma-separated list of DST number prefixes accepted by this auth record'
         uri_domain: 'Comma-separated list of SIP R-URI domains accepted by this auth record'
@@ -100,15 +127,19 @@ en:
         radius_accounting_profile: "RADIUS accounting profile for LegA(Origination)"
         ss_src_rewrite_rule: 'Rewrite rule to adapt SRC number before STIR/SHAKEN Identity validation'
         ss_dst_rewrite_rule: 'Rewrite rule to adapt DST number before STIR/SHAKEN Identity validation'
+        stir_shaken_crt: 'Redefine certificate for signature. If null - vendor gw certificate will be used'
       destination:
         reverse_billing: "If enabled, customer account balance is raised"
       routing_routing_plan:
-        max_rerouting_attempts: "Should be in range 1..10"
+        max_rerouting_attempts: "Should be in range 1..30"
+      routing_area_prefix:
+        batch_prefix: "Enter multiple values separated by commas to create several objects"
       dialpeers:
         reverse_billing: "If enabled, vendor account balance is lowered"
       equipment_registration:
         contact: "Must be in URI format (sip:user@domain or sip:domain)"
-      numberlist_item:
+      routing_numberlist_item:
+        batch_key: "Enter multiple values separated by commas to create several objects"
         number_min_length: "Affects only prefix match mode"
         number_max_length: "Affects only prefix match mode"
       lnp_database:
@@ -116,6 +147,10 @@ en:
       lnp_routing_plan_lnp_rule:
         drop_call_on_error: "Drop call if LNP resolve failed. When disabled routing will fallback to use destination number"
         rewrite_call_destination: "use LRN as new call destination"
+      billing_service_type:
+        ui_type: "This field will be used in Service Resource of Customer API"
+      system_customer_portal_access_profile:
+        account: "Display Account default page"
 
 
   attributes:

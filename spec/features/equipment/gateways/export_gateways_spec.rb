@@ -19,7 +19,8 @@ RSpec.describe 'Export Gateways', type: :feature do
            termination_dst_numberlist: create(:numberlist),
            termination_src_numberlist: create(:numberlist),
            lua_script: create(:lua_script),
-           stir_shaken_crt: create(:stir_shaken_signing_certificate)
+           stir_shaken_crt: create(:stir_shaken_signing_certificate),
+           scheduler: create(:scheduler)
   end
 
   before do
@@ -45,6 +46,11 @@ RSpec.describe 'Export Gateways', type: :feature do
         ['Sst enabled',                        item.sst_enabled.to_s],
         ['Origination capacity',               item.origination_capacity.to_s],
         ['Termination capacity',               item.termination_capacity.to_s],
+        ['Termination subscriber capacity',    item.termination_subscriber_capacity.to_s],
+        ['Termination cps limit',              item.termination_cps_limit.to_s],
+        ['Termination cps wsize',              item.termination_cps_wsize.to_s],
+        ['Termination subscriber cps limit',   item.termination_subscriber_cps_limit.to_s],
+        ['Termination subscriber cps wsize',   item.termination_subscriber_cps_wsize.to_s],
         ['Acd limit',                          item.acd_limit.to_s],
         ['Asr limit',                          item.asr_limit.to_s],
         ['Short calls limit',                  item.short_calls_limit.to_s],
@@ -83,12 +89,8 @@ RSpec.describe 'Export Gateways', type: :feature do
         ['To rewrite rule',                    item.to_rewrite_rule.to_s],
         ['To rewrite result',                  item.to_rewrite_result.to_s],
         ['Auth enabled',                       item.auth_enabled.to_s],
-        ['Auth user',                          item.auth_user.to_s],
-        ['Auth password',                      item.auth_password.to_s],
         ['Auth from user',                     item.auth_from_user.to_s],
         ['Auth from domain',                   item.auth_from_domain.to_s],
-        ['Incoming auth username',             item.incoming_auth_username.to_s],
-        ['Incoming auth password',             item.incoming_auth_password.to_s],
         ['Term use outbound proxy',            item.term_use_outbound_proxy.to_s],
         ['Term force outbound proxy',          item.term_force_outbound_proxy.to_s],
         ['Term proxy transport protocol name', item.term_proxy_transport_protocol.name],
@@ -139,7 +141,9 @@ RSpec.describe 'Export Gateways', type: :feature do
         ['Force cancel routeset',              item.force_cancel_routeset.to_s],
         ['Stir shaken mode name',              item.stir_shaken_mode_name],
         ['Stir shaken crt name',               item.stir_shaken_crt.name],
-        ['Privacy mode name',                  item.privacy_mode_name]
+        ['Privacy mode name',                  item.privacy_mode_name],
+        ['Dump level name',                    item.dump_level_name],
+        ['Scheduler name',                     item.scheduler.name]
       ]
     )
   end

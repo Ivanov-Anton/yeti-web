@@ -397,7 +397,7 @@
   name: Marshall Islands
 - id: 126
   iso2: MK
-  name: Macedonia
+  name: North Macedonia
 - id: 131
   iso2: ML
   name: Mali
@@ -722,3 +722,31 @@
 - id: 239
   iso2: ZW
   name: Zimbabwe
+- id: 274
+  iso2: BQ
+  name: Bonaire Sint Eustatius and Saba
+- id: 275
+  iso2: DG
+  name: Diego Garcia
+- id: 276
+  iso2: CW
+  name: Curacao
+- id: 277
+  iso2: SX
+  name: Sint Maarten (Dutch part)
+- id: 278
+  iso2: VA
+  name: Vatican City State
+- id: 279
+  iso2: IC
+  name: Canary Islands
+- id: 280
+  iso2: MF
+  name: Saint Martin (French part)
+- id: 281
+  iso2: JE
+  name: Jersey
+- id: 282
+  iso2: IO
+  name: British Indian Ocean Territory
+

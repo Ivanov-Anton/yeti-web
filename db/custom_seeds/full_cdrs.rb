@@ -20,7 +20,7 @@ end
 
 200.times do
   dur = rand(-5000..5000)
-  initial_time = Time.now.utc - 3.days
+  initial_time = Time.now.utc - 1.day
   if dur > 0
     connect_time = initial_time + rand(40)
     end_time = connect_time + dur
@@ -58,19 +58,20 @@ end
     destination_prefix: 380,
     destination_initial_rate: rand(0..5),
     destination_next_rate: rand(0..5),
-    destination_reverse_billing: rand(-1..1).to_i > 0,
+    destination_reverse_billing: [nil, true, false].sample,
+    destination_rate_policy_id: [nil, 1, 2, 3, 4].sample,
     dialpeer_prefix: 380,
     dialpeer_initial_rate: rand(0..5),
     dialpeer_next_rate: rand(0..5),
-    dialpeer_reverse_billing: rand(-1..1).to_i > 0,
+    dialpeer_reverse_billing: [nil, true, false].sample,
     customer: customer,
     customer_acc: customer_acc,
     vendor: vendor,
     vendor_acc: vendor_acc,
     duration: dur,
-    customer_duration: dur,
+    customer_duration: [nil, dur].sample,
     customer_price: cp,
-    vendor_duration: dur,
+    vendor_duration: [nil, dur].sample,
     vendor_price: vp,
     profit: prof,
     dst_country: System::Country.offset(rand(System::Country.count)).first,
@@ -106,8 +107,9 @@ end
     routing_delay: 0.1223456,
     pdd: 0.1245678,
     rtt: 0.987654321,
-    lega_identity: '[{"header":{"alg":"ES256","ppt":"shaken","typ":"passport","x5u":"http://127.0.0.1/share/test.pem"},"parsed":true,"payload":{"attest":"C","dest":{"tn":"456","uri":"sip:456"},"iat":1622830203,"orig":{"tn":"123","uri":"sip:123"},"origid":"8-000F7304-60BA6C7B000B6828-A43657C0"},"verified":true},{"error_code":4,"error_reason":"Incorrect Identity Header Value","parsed":false},{"error_code":-1,"error_reason":"certificate is not available","header":{"alg":"ES256","ppt":"shaken","typ":"passport","x5u":"http://127.0.0.1/share/test2.pem"},"parsed":true,"payload":{"attest":"C","dest":{"tn":"13"},"iat":1622831252,"orig":{"tn":"42"},"origid":"8-000F7304-60BA7094000207EC-2B5F27C0"},"verified":false}]',
+    lega_identity: [{ "header": { "alg": 'ES256', "ppt": 'shaken', "typ": 'passport', "x5u": 'http://127.0.0.1/share/test.pem' }, "parsed": true, "payload": { "attest": 'C', "dest": { "tn": '456', "uri": 'sip:456' }, "iat": 1_622_830_203, "orig": { "tn": '123', "uri": 'sip:123' }, "origid": '8-000F7304-60BA6C7B000B6828-A43657C0' }, "verified": true }, { "error_code": 4, "error_reason": 'Incorrect Identity Header Value', "parsed": false }, { "error_code": -1, "error_reason": 'certificate is not available', "header": { "alg": 'ES256', "ppt": 'shaken', "typ": 'passport', "x5u": 'http://127.0.0.1/share/test2.pem' }, "parsed": true, "payload": { "attest": 'C', "dest": { "tn": '13' }, "iat": 1_622_831_252, "orig": { "tn": '42' }, "origid": '8-000F7304-60BA7094000207EC-2B5F27C0' }, "verified": false }],
     lega_ss_status_id: [nil, -1, 0, 1, 2, 3].sample,
-    legb_ss_status_id: [nil, -1, 0, 1, 2, 3].sample
+    legb_ss_status_id: [nil, -1, 0, 1, 2, 3].sample,
+    metadata: [nil, { key: 'value', hash: { key1: 'value1', key2: 1000 } }].sample
   )
 end

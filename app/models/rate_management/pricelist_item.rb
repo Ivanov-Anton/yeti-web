@@ -5,8 +5,8 @@
 # Table name: ratemanagement.pricelist_items
 #
 #  id                        :bigint(8)        not null, primary key
-#  acd_limit                 :float
-#  asr_limit                 :float
+#  acd_limit                 :float(24)
+#  asr_limit                 :float(24)
 #  capacity                  :integer(2)
 #  connect_fee               :decimal(, )      not null
 #  detected_dialpeer_ids     :bigint(8)        default([]), is an Array
@@ -26,7 +26,7 @@
 #  priority                  :integer(4)
 #  reverse_billing           :boolean          default(FALSE)
 #  routing_tag_ids           :integer(2)       default([]), not null, is an Array
-#  short_calls_limit         :float            not null
+#  short_calls_limit         :float(24)        not null
 #  src_name_rewrite_result   :string
 #  src_name_rewrite_rule     :string
 #  src_rewrite_result        :string
@@ -108,6 +108,13 @@ module RateManagement
     }
     scope :applied, -> { joins(:pricelist).where(pricelist: { state_id: RateManagement::PricelistState::CONST::STATE_ID_APPLIED }) }
     scope :not_applied, -> { joins(:pricelist).where.not(pricelist: { state_id: RateManagement::PricelistState::CONST::STATE_ID_APPLIED }) }
+    scope :to_change_rate_fields, lambda {
+      to_change.joins(:dialpeer).where('pricelist_items.initial_interval != dialpeers.initial_interval
+      OR pricelist_items.initial_rate != dialpeers.initial_rate
+      OR pricelist_items.next_interval != dialpeers.next_interval
+      OR pricelist_items.next_rate != dialpeers.next_rate
+      OR pricelist_items.connect_fee != dialpeers.connect_fee')
+    }
 
     def type
       return nil if pricelist.new?

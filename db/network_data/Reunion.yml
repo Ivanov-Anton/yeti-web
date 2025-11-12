@@ -1,0 +1,1203 @@
+country_id: &re 175
+networks:
+# Fixed Networks
+  - id: &re_fixed 23091
+    name: RE Fixed
+    uuid: 61e94887-6532-4b93-85e7-ce2b9bbf8fde
+    type_id: 2
+  - id: &re_french_southern_and_antarctic_lands_region 23093
+    name: RE French Southern And Antarctic Lands Region
+    uuid: ab338794-b2ab-4543-986f-c0285ab520dd
+    type_id: 2
+# Supplementary services Networks
+  - id: &re_mobile 23559
+    name: RE Mobile
+    uuid: c025dc5e-e69c-4bf9-8044-f6ee248c982b
+    type_id: 3
+  - id: &re_orange_reunion_mobile 24124
+    name: RE Orange Reunion Mobile
+    uuid: a65404c1-6016-4af3-ab8e-0a36445aa593
+    type_id: 3
+  - id: &re_sfr_reunion_mobile 24125
+    name: RE Sfr Reunion Mobile
+    uuid: 73262abc-0c0b-4231-8c3d-9c988d44eccd
+    type_id: 3
+  - id: &re_only_free_mobile 24126
+    name: RE Only Free Mobile
+    uuid: 3e4e5824-8996-47b4-b90e-8951a0f11943
+    type_id: 3
+  - id: &re_zeop_mobile_mobile 24127
+    name: RE Zeop Mobile Mobile
+    uuid: 7a6d46bb-3f2d-43df-935a-24482c72709b
+    type_id: 3
+  - id: &re_machine_to_machine_m2m_services 24188
+    name: RE Machine To Machine M2M Services
+    uuid: 1b6c4e8a-f86b-4abe-b6ee-31bfd5b327c7
+    type_id: 13
+  - id: &re_exchange_with_a_platform_services 26116
+    name: RE Exchange With A Platform Services
+    uuid: b04a125c-8e75-433f-abff-7f547ea73ff4
+    type_id: 13
+  - id: &re_directory_enquiry_services 43616
+    name: RE Directory Enquiry Services
+    uuid: 2b349c92-ca5c-45b9-96e1-fc8dc27044a8
+    type_id: 13
+# Mobile Networks
+  - id: &re_freephone_services 43620
+    name: RE Freephone Services
+    uuid: f484f145-e8bb-45ee-8f5e-5e705a4a8fea
+    type_id: 13
+  - id: &re_premium_rate_services 43621
+    name: RE Premium Rate Services
+    uuid: 69da6ef4-b07e-494e-8091-9513b4285c1f
+    type_id: 13
+  - id: &re_dial_up_internet_access 43627
+    name: RE Dial Up Internet Access
+    uuid: 24f2a84a-f116-4213-8c41-507cc06a03c2
+    type_id: 13
+  - id: &re_standard_rate_services 43634
+    name: RE Standard Rate Services
+    uuid: 82645c96-fb87-4d91-ae7b-8ebb984b5089
+    type_id: 13
+  - id: &re_data_services 43635
+    name: RE Data Services
+    uuid: dee46283-22bc-44ba-8364-da472e748e44
+    type_id: 13
+network_prefixes:
+# Fixed Prefixes
+  - id: 535346
+    prefix: '262'
+    number_min_length: 4
+    number_max_length: 100
+    uuid: 40431cf8-d8c8-4c0d-9304-93d6bc629047
+    country_id: *re
+    network_id: *re_fixed
+  - id: 535351
+    prefix: '2621180'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 4434eed2-95fa-4bbe-80c3-3859567f9da7
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535352
+    prefix: '2621182'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 3436ff43-ef7e-47f8-9359-9fdca80c6fc6
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535353
+    prefix: '2621183'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 50cd5df9-c9b4-4988-8463-3c104ffa1feb
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535354
+    prefix: '2621184'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: 2ac113e4-673d-47ed-80e7-c3084f7eced2
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535355
+    prefix: '2621185'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: e54ef96d-4541-45f6-afcf-d4abf1630949
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535356
+    prefix: '2621186'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: a7a5d195-0b22-4619-8e30-d7a6cf9c6b72
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+# Supplementary services Prefixes
+  - id: 535357
+    prefix: '2621187'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: dfe0abaa-fd79-4389-abea-f74a2c0a5b2d
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535358
+    prefix: '2621188'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: ac2df485-2b93-42dd-beae-4fb0855faf22
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 535359
+    prefix: '2621189'
+    number_min_length: 9
+    number_max_length: 9
+    uuid: d8bf6ec7-9c8e-463e-9067-e906c6230fd6
+    country_id: *re
+    network_id: *re_directory_enquiry_services
+  - id: 509170
+    prefix: '262262'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4a856d8b-f7cc-4881-8989-287fb7dad23c
+    country_id: *re
+    network_id: *re_fixed
+  - id: 509172
+    prefix: '26226200'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4d1f1c61-4418-4fd1-80bd-f5b0dca3a62c
+    country_id: *re
+    network_id: *re_french_southern_and_antarctic_lands_region
+  - id: 509175
+    prefix: '262263'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ac22357a-7a77-4ad7-a46b-e923715bbe06
+    country_id: *re
+    network_id: *re_fixed
+  - id: 535452
+    prefix: '2623000'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: d99cffb6-0e3a-411e-82d8-fd8cade3db1b
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535363
+    prefix: '2623001'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: becb680d-6848-406e-96da-c5b36fd918da
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535364
+    prefix: '2623002'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 69f62856-bd25-46fc-bf45-4af7694bba16
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535365
+    prefix: '2623003'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: a32bb3c4-454b-4221-b922-5a253caddeb7
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535366
+    prefix: '2623004'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 30782392-538b-4619-af30-109c2d91bd1b
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535367
+    prefix: '2623005'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 535fed66-f734-4542-9fc1-a7605f16fe3d
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535368
+    prefix: '2623006'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 9548f830-3657-4379-afc5-f5bc1a1c2ef3
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535369
+    prefix: '2623007'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 44d1f6f5-210d-4e24-aa85-34abc19540a5
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535370
+    prefix: '2623009'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 5a227939-0540-4ca6-9c09-117f97ef5512
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535371
+    prefix: '262301'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 2f6250be-498c-48c7-8d7e-63f451597143
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535372
+    prefix: '262302'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: a03e21c3-f021-49c5-8575-341850157ca3
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535373
+    prefix: '262303'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: d0ba7687-6a6c-4611-9ac0-da78f6dd9915
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535374
+    prefix: '262304'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: c8dac59f-1bd1-40fb-afd7-00df76a8061d
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535375
+    prefix: '262305'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 142b4005-3514-4338-9563-1de59be04e6a
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535376
+    prefix: '262306'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: a557d7ba-5af8-43f3-a868-4c61282af751
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535377
+    prefix: '262307'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 3f533898-2fdb-499f-a591-8f7ae9286fb3
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535378
+    prefix: '262308'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 99b5127f-9542-4814-b4e4-1cec9e4927af
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535379
+    prefix: '262309'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: b3b334f1-e461-4cad-9915-2a2bb025af74
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535380
+    prefix: '262310'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: f56d72cb-ae87-48bf-8d0d-d2545b12ea96
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535381
+    prefix: '262311'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 689a255c-bb7d-4be3-b06b-7829b1d5ab1c
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535382
+    prefix: '262312'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 09e5db73-391a-4e62-839e-af61ab18332d
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535383
+    prefix: '262313'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: b3e798e1-9400-43f8-b5fc-826206280db1
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535384
+    prefix: '262314'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 93a22caf-1f38-466f-aea2-33ee37c67ca5
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535385
+    prefix: '262315'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 01dddb77-f9d8-4e6e-b707-3fcc8544675e
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535386
+    prefix: '262316'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 8e7eecd6-37a0-43ec-a0b1-fbedff474ba7
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535387
+    prefix: '262318'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 00166e54-2ce5-488b-8f29-7509cb9fd0cc
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535388
+    prefix: '262319'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: be56c528-fb2d-4b99-8b4c-ffbab68d6941
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535389
+    prefix: '26232'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 3db907ee-492f-4d99-b7e9-bd79ae722acd
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 535390
+    prefix: '26234'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 993e5cae-f8a1-4825-8586-aef13b0584e6
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 535392
+    prefix: '26236'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 3821cf2a-6ae9-4f7e-a828-ec2f06333457
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 535395
+    prefix: '26239'
+    number_min_length: 7
+    number_max_length: 7
+    uuid: 6a0fc1b2-40c0-4c7e-b41d-5c2e19f19d48
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 509847
+    prefix: '262692'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ef1db951-a591-422f-8adb-33653c2eb104
+    country_id: *re
+    network_id: *re_mobile
+  - id: 509848
+    prefix: '26269200'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6858ea53-6965-42f4-844d-05c6fd498d60
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509849
+    prefix: '26269201'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ca344f12-ff02-455c-8629-adc4fea1c2e1
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509850
+    prefix: '26269202'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 17866f97-bfc6-4826-b009-2648f44f7b55
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509851
+    prefix: '26269203'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 5569ba11-6c3c-44a6-bfa8-331b222d618f
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509852
+    prefix: '26269204'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 75f9cd95-d7d7-4b89-994a-869d24207497
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509853
+    prefix: '26269205'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8dd302fb-88e4-4f26-81a9-e1161019159a
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509854
+    prefix: '26269206'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b9b30aa3-adab-42b4-b9b4-497b571c22ea
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509855
+    prefix: '26269207'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 23a25994-1b45-48c2-a10a-28b3b38875b0
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509856
+    prefix: '26269208'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: cf9381a4-f845-481a-b65f-c1da9745b8c2
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509857
+    prefix: '26269209'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: d6116edc-1528-4a37-8753-8bd9f9eb74cc
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509858
+    prefix: '2626921'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c76840aa-7f35-45b4-b7de-64bda9761432
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509859
+    prefix: '2626922'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e206a7e1-16ed-4fdd-9275-2ba63d698b2b
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509860
+    prefix: '2626923'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1f5fc9f4-e81b-433b-b395-cc81721e023c
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509861
+    prefix: '26269240'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 526b3c16-ed63-4561-b3ec-59e294ec7366
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509862
+    prefix: '26269241'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: bb53f7bf-ae1a-4ecb-92d1-4000e18fc4aa
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509863
+    prefix: '26269242'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6703594a-bc62-4d19-8fe9-432e2ff7e737
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509864
+    prefix: '26269243'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: db673111-7a63-4d32-aa18-eeee54d37ef2
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509865
+    prefix: '26269244'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8f96c495-bba8-41f5-b723-628b90be8584
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509866
+    prefix: '26269245'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 70012b6e-8bd1-4d25-aaa1-f285d7247ec7
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509867
+    prefix: '26269246'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b34b2e94-4def-464a-b86d-79176e00ef67
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509868
+    prefix: '26269247'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f41e9770-dd7b-4193-a13a-3fa8662c263f
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+# Mobile Prefixes
+  - id: 509869
+    prefix: '26269248'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 5033a16b-458b-4c53-8da2-d76792c6c962
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509870
+    prefix: '26269249'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 53be95ac-907a-4a18-8992-cd0bc980a1d4
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509871
+    prefix: '2626925'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 9349b5c5-dd17-4ffb-ad4b-8a1ef4661aee
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509872
+    prefix: '2626926'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ff080ea1-2048-403e-9962-8877d92636dc
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509873
+    prefix: '2626927'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7c9d0824-7ded-4040-bb15-f5fe5ae44ba2
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509874
+    prefix: '2626928'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 370a386c-3d1a-4a7a-86b4-e2a222a7153f
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509875
+    prefix: '26269290'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2b1a63a0-2367-4bdd-957f-c531600664f8
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509876
+    prefix: '26269291'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 0b936ffd-b4c3-4d9b-a717-88b30bc7534f
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509877
+    prefix: '26269292'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: fdfac548-17b8-4908-8246-cff01d579911
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509878
+    prefix: '26269293'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: d9d6cd65-c5ca-415b-87b3-319d642998a6
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509879
+    prefix: '26269294'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e85a50ee-3250-4688-923e-acaa9d35e374
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509880
+    prefix: '26269295'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8149507e-7b10-4615-b3d8-c52bfa067906
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509881
+    prefix: '26269296'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 46bcd8c6-8f41-4ba6-9612-631d2bf2ef27
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509882
+    prefix: '26269297'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 03b2f11e-7352-491e-ac77-c878045331d6
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509883
+    prefix: '26269298'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 9d5d842e-0ef6-45f4-908b-c1706459b6dd
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509884
+    prefix: '26269299'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 557d034c-9ecf-451b-b665-0cd83e99bff1
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509886
+    prefix: '262693'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 5476a9ae-afe2-4e50-a96f-1bfa47158639
+    country_id: *re
+    network_id: *re_mobile
+  - id: 509887
+    prefix: '26269300'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e6552e8e-4687-4246-b305-836984abcdcd
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509888
+    prefix: '26269301'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e49ae108-0798-4085-bb9b-1b566ede7507
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509889
+    prefix: '26269302'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e0fe6b5d-c041-4c5b-a58b-0f42a09804ae
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509890
+    prefix: '26269303'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 637d8f10-694d-419a-a4bf-5f90a492cd8d
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509891
+    prefix: '26269304'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e8462c79-7517-43a7-8b01-b87d8e3861f0
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509892
+    prefix: '26269305'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 9154551d-3802-4384-bf3b-cec7acf09a41
+    country_id: *re
+    network_id: *re_zeop_mobile_mobile
+  - id: 509893
+    prefix: '26269306'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7b3e654a-705f-416e-a1e2-5599a29da47a
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509894
+    prefix: '26269310'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 37aa3d8f-a497-45fd-bfc0-6767d72abad4
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509895
+    prefix: '26269311'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: abad2489-aee6-4354-b6a2-97b49cbdf0fe
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509896
+    prefix: '26269313'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: d2c49638-a58e-40f8-951b-30a43645c75a
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509897
+    prefix: '26269320'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8ff92232-543b-496e-bea3-5ca008e70ba9
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509898
+    prefix: '26269321'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 17d1fa35-7b71-429b-a351-7a104c595eaa
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509899
+    prefix: '26269322'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4d8b2b9f-c93d-4852-a3c6-47ed96b3f8e9
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509900
+    prefix: '26269330'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 96df036e-02a6-4cf8-b8bf-5d43915bb8f7
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509901
+    prefix: '26269331'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: a40aaefb-5804-47e5-aa26-f215e31d34db
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509902
+    prefix: '26269332'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 009a2583-09e1-46a3-b2cb-1c4a045da467
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509903
+    prefix: '26269333'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f5aefea0-a333-480a-a165-8684b79e63da
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509904
+    prefix: '26269339'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 93183ebf-0d34-439d-b796-fbeab550a8dc
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509905
+    prefix: '2626934'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: eb57e741-d403-404d-be9f-1e26dbe09cec
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509906
+    prefix: '26269350'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ba56e807-b83b-4ac4-8f06-c5a38e294973
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509907
+    prefix: '26269351'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6220c07f-633d-4ef9-91ba-2ed942f64be7
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509908
+    prefix: '26269352'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ef2f0a0e-3915-4b34-9f62-668a530660e8
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509909
+    prefix: '26269353'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 0871ed92-e757-4deb-a8dd-ac68898bd84a
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509910
+    prefix: '26269354'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4988963f-92ab-4441-9ee4-fd8b8043026d
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509911
+    prefix: '26269355'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b3d6d414-8352-417d-9d65-153e9e7c4205
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509912
+    prefix: '26269360'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: d66f1452-f586-4fca-b7e5-cc2ab6cfe885
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509913
+    prefix: '26269361'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 44049524-338f-4b1c-90af-aad7e70dc7f6
+    country_id: *re
+    network_id: *re_zeop_mobile_mobile
+  - id: 509914
+    prefix: '26269362'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 170b4cdd-a10c-4f6f-a225-214998508368
+    country_id: *re
+    network_id: *re_zeop_mobile_mobile
+  - id: 509915
+    prefix: '26269363'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b972ca46-8f16-4c9d-b48b-cc848765c329
+    country_id: *re
+    network_id: *re_zeop_mobile_mobile
+  - id: 509916
+    prefix: '26269364'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 011efbe1-0fc8-448c-9943-770e77103e34
+    country_id: *re
+    network_id: *re_zeop_mobile_mobile
+  - id: 509917
+    prefix: '26269365'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: a78146b5-c7e0-4483-9041-40c90f8eb4e8
+    country_id: *re
+    network_id: *re_zeop_mobile_mobile
+  - id: 509918
+    prefix: '26269366'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f5c09d17-b23d-4e8d-b0f6-859683d8f100
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509919
+    prefix: '26269370'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 44fbd02a-fb2a-4a47-9d7c-e229cbfc1346
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509920
+    prefix: '26269371'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6f58f364-bb45-4c08-9d28-202eb74f4a58
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509921
+    prefix: '26269372'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 5661114a-a8e8-4a01-b4bc-1f3dd2c81f18
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509922
+    prefix: '26269373'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 941e1c5b-8c44-44a1-a372-e899d8d7158d
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509923
+    prefix: '26269377'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 591a97ed-d5aa-46b5-b68e-6c44e36349fd
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509924
+    prefix: '26269380'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 711e7f34-d254-48c4-9777-39b640a0c29b
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509925
+    prefix: '26269381'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 43975d64-10e9-4023-8339-86c25b5bdf36
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509926
+    prefix: '26269382'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 36327453-71bd-40ae-9ece-ba8369c8b8bf
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509927
+    prefix: '26269383'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ec7aa7d0-778d-4982-9865-d530210320ed
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509928
+    prefix: '26269384'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 89fe0eff-6365-49aa-9e25-f439b1608216
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509929
+    prefix: '26269385'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c2b93e7e-ccf2-40f2-8c32-999ea715e114
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509930
+    prefix: '26269386'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c7029e1b-efb3-47ba-bafc-88e0aafff188
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509931
+    prefix: '26269387'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7dc5bfa2-d24c-4df8-b751-bec3f37d354e
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 509932
+    prefix: '26269388'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c9f385f1-34e9-4e56-bf43-f0c6f11754ca
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509933
+    prefix: '26269390'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: dd875014-b4c9-453f-a019-85fb18964102
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509934
+    prefix: '26269391'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e30e5af9-a5a6-4e11-a9aa-9a07c4b28c05
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509935
+    prefix: '26269392'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8fbe259b-ea10-4f81-a572-5ff457c153b7
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509936
+    prefix: '26269393'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: d40657a5-ad8e-41b6-97dd-89b8eaae2fe3
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 509937
+    prefix: '26269394'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 12f0c222-5d37-4f63-81cb-9476cd34175c
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509938
+    prefix: '26269397'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 22d0860a-46b6-4cd2-93a9-135b21d24918
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 509939
+    prefix: '26269399'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 70886e7b-360c-438d-b6ac-a9aaab29cb04
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 507399
+    prefix: '2627009'
+    number_min_length: 15
+    number_max_length: 15
+    uuid: 34ab4a2e-3437-4de5-84c7-9b4cee69ec4e
+    country_id: *re
+    network_id: *re_machine_to_machine_m2m_services
+  - id: 507400
+    prefix: '262700900'
+    number_min_length: 15
+    number_max_length: 15
+    uuid: 03f73ecd-b004-4ae6-8b87-0fa66fd738a9
+    country_id: *re
+    network_id: *re_sfr_reunion_mobile
+  - id: 507401
+    prefix: '262700901'
+    number_min_length: 15
+    number_max_length: 15
+    uuid: ae3c8600-b588-4079-a4a5-dc1c5039b63f
+    country_id: *re
+    network_id: *re_orange_reunion_mobile
+  - id: 507402
+    prefix: '262700909'
+    number_min_length: 15
+    number_max_length: 15
+    uuid: 274afe59-35e9-49a3-b883-aaccc9b67475
+    country_id: *re
+    network_id: *re_only_free_mobile
+  - id: 507419
+    prefix: '2627092'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2181a03f-e10c-4139-847d-dcdecfd2e6d2
+    country_id: *re
+    network_id: *re_mobile
+  - id: 535467
+    prefix: '262800'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: cc13d6b8-3093-4173-95a5-83cb4595c9a1
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535468
+    prefix: '262801'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: fd2dc651-b92d-4651-be3d-85366cef2c89
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535469
+    prefix: '262802'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 0471dd96-88fc-4617-8b4a-f739213fa145
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535470
+    prefix: '262803'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1dfc5073-9470-43fb-8539-3a7dd27ae637
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535471
+    prefix: '262804'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 9b96477b-c7e4-4745-9b7b-36e48d3d9af9
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535472
+    prefix: '262805'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c7fa409b-e49c-44dc-b8a6-d0fc8eb98a0b
+    country_id: *re
+    network_id: *re_freephone_services
+  - id: 535473
+    prefix: '262806'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2711ff9a-1d41-4943-8e8f-b1321d36e2f1
+    country_id: *re
+    network_id: *re_standard_rate_services
+  - id: 535474
+    prefix: '262807'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c69e0633-9aff-4abf-8e4d-40a06dcd9249
+    country_id: *re
+    network_id: *re_standard_rate_services
+  - id: 535475
+    prefix: '262808'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 73ee64fb-e193-4f7b-8666-8aa065b01a9a
+    country_id: *re
+    network_id: *re_standard_rate_services
+  - id: 535476
+    prefix: '262809'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c5244525-7a88-4be1-a26c-a6c08d1c033a
+    country_id: *re
+    network_id: *re_standard_rate_services
+  - id: 535477
+    prefix: '26281'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2e3f858e-eebe-4d30-9326-90ae421a7fbf
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 535479
+    prefix: '26282'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7fcb68ab-7433-49f3-9e01-f6dfc683c967
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 535481
+    prefix: '262836'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: afa392d1-644f-41c0-9d75-624342a82584
+    country_id: *re
+    network_id: *re_data_services
+  - id: 535484
+    prefix: '262860'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f8373589-3982-4d56-aa31-d1534020e0b0
+    country_id: *re
+    network_id: *re_dial_up_internet_access
+  - id: 535405
+    prefix: '262868'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e860ca9b-eb5b-4453-b5ee-0161e9ab2611
+    country_id: *re
+    network_id: *re_dial_up_internet_access
+  - id: 535408
+    prefix: '26289'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 58a8e0f5-2a3e-4a22-bc4f-1beb2e44ac66
+    country_id: *re
+    network_id: *re_premium_rate_services
+  - id: 508403
+    prefix: '2629019'
+    number_min_length: 15
+    number_max_length: 15
+    uuid: 729bbac8-6f87-4a10-a69e-736384830315
+    country_id: *re
+    network_id: *re_machine_to_machine_m2m_services
+  - id: 510982
+    prefix: '2629399'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 5f195da9-b7d7-4a4c-b848-31b87e2a8d7a
+    country_id: *re
+    network_id: *re_exchange_with_a_platform_services
+  - id: 510994
+    prefix: '2629479'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4e311146-7d33-401b-98dd-12eaef3b9e4b
+    country_id: *re
+    network_id: *re_fixed
+  - id: 511011
+    prefix: '2629762'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: df90e07d-d75d-4228-ac09-cbfc8cbf5225
+    country_id: *re
+    network_id: *re_fixed
+  - id: 511013
+    prefix: '2629763'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: bf1758b0-7e6f-476f-a95e-d24e51e94626
+    country_id: *re
+    network_id: *re_fixed

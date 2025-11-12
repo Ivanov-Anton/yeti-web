@@ -1,0 +1,728 @@
+country_id: &ve 230
+networks:
+# Supplementary services Networks
+  - id: &ve_national_access_number_services 4689
+    name: VE National Access Number Services
+    uuid: e718ec60-b1cd-41a5-bc3c-d6a229ce75b0
+    type_id: 13
+  - id: &ve_virtual_private_network 10558
+    name: VE Virtual Private Network
+    uuid: 681d28e2-8348-4cc2-a098-9ae0aa6da716
+    type_id: 13
+  - id: &ve_special_services 21510
+    name: VE Special Services
+    uuid: a40b0879-d905-4e2d-9d6d-c424e7008c1d
+    type_id: 13
+  - id: &ve_gran_caracas_miranda_vargas_region 27216
+    name: VE Gran Caracas Miranda Vargas Region
+    uuid: 07e11dc3-e325-4124-bf33-155b45ca0f09
+    type_id: 2
+  - id: &ve_guarico_region 28444
+    name: VE Guarico Region
+    uuid: 392b4483-3b59-49b7-95e8-df04b7411a1f
+    type_id: 2
+  - id: &ve_dependencias_federales_region 28610
+    name: VE Dependencias Federales Region
+    uuid: 09ab430b-129f-48f9-8d7a-a2d0a112faba
+    type_id: 2
+  - id: &ve_apure_barinas_region 28638
+    name: VE Apure Barinas Region
+    uuid: c431c563-0e49-499e-992c-f38a4247ec06
+    type_id: 2
+  - id: &ve_carabobo_region 28689
+    name: VE Carabobo Region
+    uuid: db7ebddd-916b-49e7-ac51-c021dafad122
+    type_id: 2
+# Fixed Networks
+  - id: &ve_aragua_guarico_region 28715
+    name: VE Aragua Guarico Region
+    uuid: af7241bf-2272-44ef-9e6b-1335868ad672
+    type_id: 2
+  - id: &ve_apure_barinas_guarico_region 28761
+    name: VE Apure Barinas Guarico Region
+    uuid: 3cd31270-4b08-4eb6-9774-d9e69e6a6483
+    type_id: 2
+  - id: &ve_miranda_region 28874
+    name: VE Miranda Region
+    uuid: 6b21ac14-372b-4c3b-8ee1-48bfba03c114
+    type_id: 2
+  - id: &ve_aragua_carabobo_region 29060
+    name: VE Aragua Carabobo Region
+    uuid: cc1ff253-190f-4bb5-a167-2d1f2a2feaad
+    type_id: 2
+  - id: &ve_aragua_region 29084
+    name: VE Aragua Region
+    uuid: d90ed62a-c851-4dcb-b7f3-d01ce32fd3b8
+    type_id: 2
+  - id: &ve_amazonas_region 29129
+    name: VE Amazonas Region
+    uuid: c6db29e4-8e54-4866-909f-7a9e8d906576
+    type_id: 2
+  - id: &ve_lara_yaracuy_region 29194
+    name: VE Lara Yaracuy Region
+    uuid: 900d80df-2684-493d-9965-40d538710033
+    type_id: 2
+  - id: &ve_lara_region 29235
+    name: VE Lara Region
+    uuid: 670f9eec-80ea-472d-a17f-b9e902d969da
+    type_id: 2
+  - id: &ve_portuguesa_region 29323
+    name: VE Portuguesa Region
+    uuid: 7e44888d-a6e0-4ae4-a7b1-d1c3be5c7851
+    type_id: 2
+  - id: &ve_barinas_cojedes_region 29454
+    name: VE Barinas Cojedes Region
+    uuid: 4e5c7670-0ae3-4ff2-aa69-2742972230d2
+    type_id: 2
+  - id: &ve_falcon_region 29477
+    name: VE Falcon Region
+    uuid: f15d4798-f3b4-4122-909e-0ace198ef4e1
+    type_id: 2
+  - id: &ve_zulia_region 29597
+    name: VE Zulia Region
+    uuid: a26ac529-1744-4ea4-afe2-a5eda160aa39
+    type_id: 2
+  - id: &ve_yaracuy_region 29958
+    name: VE Yaracuy Region
+    uuid: 9ce5b301-cb1b-4af6-aa3e-33f2e98dbfc0
+    type_id: 2
+  - id: &ve_merida_trujillo_zulia_region 30227
+    name: VE Merida Trujillo Zulia Region
+    uuid: 5cfab632-9891-4e64-b5a5-0b72b7a4baa7
+    type_id: 2
+  - id: &ve_trujillo_region 30254
+    name: VE Trujillo Region
+    uuid: c394f243-b71a-46c0-b7d9-f6096b3580fc
+    type_id: 2
+  - id: &ve_merida_tachira_zulia_region 30290
+    name: VE Merida Tachira Zulia Region
+    uuid: ba2085e1-e7b8-4ccf-9c78-cbb1514a138f
+    type_id: 2
+  - id: &ve_tachira_region 30327
+    name: VE Tachira Region
+    uuid: 801044ce-33e0-4a95-ba53-87af0285ea85
+    type_id: 2
+  - id: &ve_merida_tachira_region 30407
+    name: VE Merida Tachira Region
+    uuid: 3d6d501d-d4d6-433e-907a-ac07232043bc
+    type_id: 2
+  - id: &ve_anzoategui_region 30471
+    name: VE Anzoategui Region
+    uuid: f2ba1068-5049-4b51-a955-3f421d0e1b51
+    type_id: 2
+  - id: &ve_bolivar_region 30536
+    name: VE Bolivar Region
+    uuid: 32651e3c-63f3-4bc3-807f-363b99599dfc
+    type_id: 2
+  - id: &ve_anzoategui_bolivar_region 30574
+    name: VE Anzoategui Bolivar Region
+    uuid: fdcee290-f6fe-4d6a-90c6-e3267879d4f8
+    type_id: 2
+  - id: &ve_bolivar_monagas_region 30597
+    name: VE Bolivar Monagas Region
+    uuid: 6e001d9d-52d1-4996-b01d-a39daa557ad4
+    type_id: 2
+  - id: &ve_delta_amacuro_monagas_region 30613
+    name: VE Delta Amacuro Monagas Region
+    uuid: e7965e72-e647-45e0-b2eb-776e277d2c0b
+    type_id: 2
+  - id: &ve_monagas_region 30690
+    name: VE Monagas Region
+    uuid: 287679e1-9fcb-486d-b72e-f9acac018450
+    type_id: 2
+  - id: &ve_anzoategui_monagas_region 30701
+    name: VE Anzoategui Monagas Region
+    uuid: ea34b815-dc13-404a-b44e-ed565a14074e
+    type_id: 2
+  - id: &ve_sucre_region 30734
+    name: VE Sucre Region
+    uuid: e9bbda2b-5084-4697-8e27-6c53eab32be2
+    type_id: 2
+  - id: &ve_nueva_esparta_region 30792
+    name: VE Nueva Esparta Region
+    uuid: 0402c67c-363c-4fcf-9653-02145d905654
+    type_id: 2
+  - id: &ve_barinas_region 31009
+    name: VE Barinas Region
+    uuid: abe4e88b-38a3-4683-b035-da67586c8e55
+    type_id: 2
+  - id: &ve_merida_region 31044
+    name: VE Merida Region
+    uuid: 6efa0060-9049-443e-b1b0-00e2e0500cea
+    type_id: 2
+  - id: &ve_personal_number_services 34343
+    name: VE Personal Number Services
+    uuid: e22ac233-6372-4957-b0cf-3afc05e5a014
+    type_id: 13
+  - id: &ve_globalstar_satellite 36328
+    name: VE Globalstar Satellite
+    uuid: 0fa49323-5cff-42b9-871b-c4a796760f26
+    type_id: 15
+  - id: &ve_movistar_mobile 36479
+    name: VE Movistar Mobile
+    uuid: d25fdbc3-885b-4f50-b945-a71a83497fdd
+    type_id: 3
+  - id: &ve_digitel_mobile 36963
+    name: VE Digitel Mobile
+    uuid: 23a892f5-f0f2-43f5-8485-ca78da476f1a
+    type_id: 3
+  - id: &ve_movilnet_mobile 37067
+    name: VE Movilnet Mobile
+    uuid: d18aa041-0679-4396-a734-934086f6cf32
+    type_id: 3
+  - id: &ve_mobile 37594
+    name: VE Mobile
+    uuid: 944783e6-19e9-4cad-823a-0661fcf2a4ea
+    type_id: 3
+# Mobile Networks
+  - id: &ve_freephone_services 38521
+    name: VE Freephone Services
+    uuid: b4eeabde-b031-497e-837c-3483bf8502aa
+    type_id: 13
+  - id: &ve_premium_rate_services 42079
+    name: VE Premium Rate Services
+    uuid: e67edf95-fbcd-4c6e-a553-25a66a9402eb
+    type_id: 13
+  - id: &ve_adults_entertainment_services 42107
+    name: VE Adults Entertainment Services
+    uuid: 260d012f-e363-467a-9a4c-f8bddfcdf7e7
+    type_id: 13
+  - id: &ve_internet_access_services 42151
+    name: VE Internet Access Services
+    uuid: 6c2fadba-d8a1-4c81-881c-d61e5cc826e2
+    type_id: 13
+# Satellite Networks
+  - id: &ve_fixed 43481
+    name: VE Fixed
+    uuid: a17a7378-21dc-4da1-9b8a-acc4adf419ab
+    type_id: 2
+network_prefixes:
+# Supplementary services Prefixes
+  - id: 242129
+    prefix: '58'
+    number_min_length: 3
+    number_max_length: 100
+    uuid: 534b1f40-cd5a-47d9-a86f-03d1fa194f91
+    country_id: *ve
+    network_id: *ve_fixed
+  - id: 242516
+    prefix: '581'
+    number_min_length: 5
+    number_max_length: 5
+    uuid: bac459f8-dadf-4ac0-9a81-5dfb43375fed
+    country_id: *ve
+    network_id: *ve_special_services
+  - id: 512467
+    prefix: '58212'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 01b9c1cd-58ce-4df6-a3a3-df47a2d79c69
+    country_id: *ve
+    network_id: *ve_gran_caracas_miranda_vargas_region
+  - id: 512719
+    prefix: '58234'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ae403ed9-0a25-45f5-9d4a-c28e9091cb30
+    country_id: *ve
+    network_id: *ve_miranda_region
+  - id: 512739
+    prefix: '58235'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 9db88bab-cd6b-4417-8f74-bad241916684
+    country_id: *ve
+    network_id: *ve_guarico_region
+  - id: 512792
+    prefix: '58237'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 69c9c597-d082-4e06-bec7-5b531a0c7549
+    country_id: *ve
+    network_id: *ve_dependencias_federales_region
+  - id: 512793
+    prefix: '58238'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4f11ddf8-dd12-4408-9bcc-d9580a3fc446
+    country_id: *ve
+    network_id: *ve_guarico_region
+  - id: 512795
+    prefix: '58239'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7c4bfb4a-f310-4592-b874-c835a56bbcbc
+    country_id: *ve
+    network_id: *ve_miranda_region
+  - id: 512943
+    prefix: '58240'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f205572c-0e83-4b84-ad08-d42ae0075dd5
+    country_id: *ve
+    network_id: *ve_apure_barinas_region
+# Fixed Prefixes
+  - id: 512944
+    prefix: '58241'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ef42ee46-cc12-4496-9f72-83545aa770ec
+    country_id: *ve
+    network_id: *ve_carabobo_region
+  - id: 512946
+    prefix: '58242'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 75f2f8b3-8f5f-44ae-a8e6-bc2e81f6747a
+    country_id: *ve
+    network_id: *ve_carabobo_region
+  - id: 512947
+    prefix: '58243'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 47af1876-82a3-4a41-9f86-c02044bd5c95
+    country_id: *ve
+    network_id: *ve_aragua_carabobo_region
+  - id: 512948
+    prefix: '58244'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2d96cf1b-b6d5-4ecc-9ba3-ba56f195f67f
+    country_id: *ve
+    network_id: *ve_aragua_region
+  - id: 512964
+    prefix: '58245'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 14e4c1a1-cfb7-4533-9346-57d08e7cde7e
+    country_id: *ve
+    network_id: *ve_carabobo_region
+  - id: 512966
+    prefix: '58246'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 232388e8-c09f-4aef-b079-0ad533871b3e
+    country_id: *ve
+    network_id: *ve_aragua_guarico_region
+  - id: 512949
+    prefix: '58247'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 504de77b-c319-4bd8-ba54-43925b4c3c05
+    country_id: *ve
+    network_id: *ve_apure_barinas_guarico_region
+  - id: 512951
+    prefix: '58248'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 175f3a6d-d190-4b33-a89f-87547a5409f9
+    country_id: *ve
+    network_id: *ve_amazonas_region
+  - id: 512968
+    prefix: '58249'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 276a8320-9c25-43ed-872f-2051dac419c5
+    country_id: *ve
+    network_id: *ve_carabobo_region
+  - id: 513180
+    prefix: '58251'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 761b11fa-0a94-4816-b38e-bf4c3145783d
+    country_id: *ve
+    network_id: *ve_lara_yaracuy_region
+  - id: 512976
+    prefix: '58252'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: d576d92d-98fc-4261-9324-b11f4e2e50a2
+    country_id: *ve
+    network_id: *ve_lara_region
+  - id: 512980
+    prefix: '58253'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 649ba445-2067-4f95-bba5-64f1db95352c
+    country_id: *ve
+    network_id: *ve_lara_yaracuy_region
+  - id: 513188
+    prefix: '58254'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 313fed42-f5d7-4938-b3a8-9878b63589bc
+    country_id: *ve
+    network_id: *ve_yaracuy_region
+  - id: 513201
+    prefix: '58255'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f7b366a4-7ee5-4a17-842c-459822da6af7
+    country_id: *ve
+    network_id: *ve_portuguesa_region
+  - id: 513203
+    prefix: '58256'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b1d11b0a-d1d8-41a5-a373-c1068de5a9c1
+    country_id: *ve
+    network_id: *ve_portuguesa_region
+  - id: 513205
+    prefix: '58257'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 46900944-f255-40a6-b737-22374aeaa0fc
+    country_id: *ve
+    network_id: *ve_portuguesa_region
+  - id: 513206
+    prefix: '58258'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: dc5f1d93-8fd7-4e47-a064-f301fa159a48
+    country_id: *ve
+    network_id: *ve_barinas_cojedes_region
+  - id: 513207
+    prefix: '58259'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 51e0b6a9-f265-46da-a6cd-41917116322d
+    country_id: *ve
+    network_id: *ve_falcon_region
+  - id: 513213
+    prefix: '58261'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: efc96d03-8e17-441c-bb2b-0b8d47689b4b
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513215
+    prefix: '58262'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1333f580-6b2d-406c-add2-af3a74c666ad
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513226
+    prefix: '58263'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8f088235-47cb-41b9-ac75-1cd724803f6f
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513232
+    prefix: '58264'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1102c4df-fe2c-4edc-b56d-6f8c971183b7
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513233
+    prefix: '58265'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7b8f0738-adc0-4d9a-aad9-7f0e9127416f
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513234
+    prefix: '58266'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 438fd396-e171-47bf-9ea9-7cb3829604be
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513236
+    prefix: '58267'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 0dae3259-2b72-4e04-95c7-15f42a6fc63c
+    country_id: *ve
+    network_id: *ve_zulia_region
+  - id: 513238
+    prefix: '58268'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 766b3dc3-e54e-45b7-be20-281a68de9f00
+    country_id: *ve
+    network_id: *ve_falcon_region
+  - id: 513240
+    prefix: '58269'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 2df97677-cce5-47f6-af17-705138198d2a
+    country_id: *ve
+    network_id: *ve_falcon_region
+  - id: 513417
+    prefix: '58271'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 4bff2396-05d3-43d8-990a-4f303034e77a
+    country_id: *ve
+    network_id: *ve_merida_trujillo_zulia_region
+  - id: 513419
+    prefix: '58272'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1a231f6e-6966-4090-a2f1-2f50caef7ef4
+    country_id: *ve
+    network_id: *ve_trujillo_region
+  - id: 513431
+    prefix: '58273'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 764598df-7c8c-4a3f-be25-d01c2e17e670
+    country_id: *ve
+    network_id: *ve_barinas_region
+  - id: 513433
+    prefix: '58274'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 56cbf8e0-4943-4976-a12e-60e614c799f6
+    country_id: *ve
+    network_id: *ve_merida_region
+  - id: 513436
+    prefix: '58275'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: bad5c0f0-4ddb-4aa1-b133-199af2bc9065
+    country_id: *ve
+    network_id: *ve_merida_tachira_zulia_region
+  - id: 513438
+    prefix: '58276'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c9d2ca3f-b56a-42b8-a859-2c767f13af47
+    country_id: *ve
+    network_id: *ve_tachira_region
+  - id: 512981
+    prefix: '58277'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: a5d6d39e-0e2a-4dd7-b979-e935787048e8
+    country_id: *ve
+    network_id: *ve_merida_tachira_region
+  - id: 512982
+    prefix: '58278'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: e2422615-fa3d-4ed3-a7f0-cf46832a54e8
+    country_id: *ve
+    network_id: *ve_apure_barinas_region
+  - id: 512984
+    prefix: '58279'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 8b8c0352-7c55-4dd1-ac98-c616ffc45315
+    country_id: *ve
+    network_id: *ve_falcon_region
+  - id: 513113
+    prefix: '58281'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 13bac7bc-896f-4dfc-9dfb-10ddc13cf6c9
+    country_id: *ve
+    network_id: *ve_anzoategui_region
+  - id: 513114
+    prefix: '58282'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 72e0dac5-a7eb-4ce7-ad49-9e032d86d27f
+    country_id: *ve
+    network_id: *ve_anzoategui_region
+  - id: 513116
+    prefix: '58283'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6eab55b3-f23e-4ed3-b728-9b0731bd1218
+    country_id: *ve
+    network_id: *ve_anzoategui_region
+  - id: 513123
+    prefix: '58284'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ee02ebc7-b98a-4f22-8c17-34ba34619ee1
+    country_id: *ve
+    network_id: *ve_bolivar_region
+  - id: 513125
+    prefix: '58285'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: a4ab7e23-f242-4ffb-bee7-62a0b32d5bd0
+    country_id: *ve
+    network_id: *ve_anzoategui_bolivar_region
+  - id: 513126
+    prefix: '58286'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7ad8ec70-e119-4d6a-a844-034d81a78c08
+    country_id: *ve
+    network_id: *ve_bolivar_monagas_region
+  - id: 513127
+    prefix: '58287'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 46b947d1-0c89-47f4-9da7-499ecee8881e
+    country_id: *ve
+    network_id: *ve_delta_amacuro_monagas_region
+  - id: 513128
+    prefix: '58288'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 6dcf8a27-7381-416e-978e-ec051419a5e0
+    country_id: *ve
+    network_id: *ve_bolivar_region
+  - id: 513130
+    prefix: '58289'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 7d400fcb-2270-4581-9bb9-263535ac0edb
+    country_id: *ve
+    network_id: *ve_bolivar_region
+  - id: 513131
+    prefix: '58291'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 80e29ff3-f6e4-414b-94c1-81db905bb2a5
+    country_id: *ve
+    network_id: *ve_monagas_region
+  - id: 513132
+    prefix: '58292'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 641b807c-945c-4924-92c3-03ba5b81d348
+    country_id: *ve
+    network_id: *ve_anzoategui_monagas_region
+  - id: 513133
+    prefix: '58293'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: f2ce1efe-f40a-48de-880c-9c49a467fc24
+    country_id: *ve
+    network_id: *ve_sucre_region
+  - id: 513134
+    prefix: '58294'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 985ae9c9-454b-4376-a0a0-b0224fbd36c6
+    country_id: *ve
+    network_id: *ve_sucre_region
+  - id: 513443
+    prefix: '58295'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c03aa079-2e19-466d-b372-3c98074a9346
+    country_id: *ve
+    network_id: *ve_nueva_esparta_region
+  - id: 513444
+    prefix: '58296'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: c707909a-4fd9-4de0-b05b-19510e54fc2e
+    country_id: *ve
+    network_id: *ve_amazonas_region
+  - id: 349990
+    prefix: '58400'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 0cb06ce7-6cec-4421-ae6f-7e9e4dcbdbc8
+    country_id: *ve
+    network_id: *ve_personal_number_services
+  - id: 371926
+    prefix: '58412'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: dbc87360-771b-4227-adbc-78f5a8292be2
+    country_id: *ve
+    network_id: *ve_digitel_mobile
+  - id: 373767
+    prefix: '58414'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 34810edc-85eb-41f3-bd6d-e847954bdc23
+    country_id: *ve
+    network_id: *ve_movistar_mobile
+  - id: 363956
+    prefix: '58415'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ab61d7ef-3b9e-4f41-9ef3-3f04fd30a0d2
+    country_id: *ve
+    network_id: *ve_globalstar_satellite
+  - id: 374509
+    prefix: '58416'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 92666597-241b-4747-9979-160933e3ada7
+    country_id: *ve
+    network_id: *ve_movilnet_mobile
+  - id: 366691
+    prefix: '58424'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 56def1f3-32b1-4522-b08d-330285fde87b
+    country_id: *ve
+    network_id: *ve_movistar_mobile
+  - id: 378664
+    prefix: '58426'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: cbefa4e9-3672-44cd-b98b-ef2d5032d118
+    country_id: *ve
+    network_id: *ve_movilnet_mobile
+  - id: 381400
+    prefix: '58438'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: bbc633bc-5b71-4b83-ae67-2e567d365678
+    country_id: *ve
+    network_id: *ve_mobile
+# Mobile Prefixes
+  - id: 54947
+    prefix: '58500'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 52e1f0ac-c081-4839-9877-0e13f2bcb1a1
+    country_id: *ve
+    network_id: *ve_national_access_number_services
+  - id: 55005
+    prefix: '58501'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: ffaa9556-1551-4aab-b4a3-20c2bdec5bbc
+    country_id: *ve
+    network_id: *ve_national_access_number_services
+  - id: 95266
+    prefix: '58600'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1f05ba42-7c09-499b-b8c4-24344e8fd7ec
+    country_id: *ve
+    network_id: *ve_virtual_private_network
+  - id: 403497
+    prefix: '58800'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 1c07bfd4-67da-4949-b7bc-f331a6c00b22
+    country_id: *ve
+    network_id: *ve_freephone_services
+  - id: 454591
+    prefix: '58900'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 837cbbfd-8a98-449d-9dc1-ad0f78861ea9
+    country_id: *ve
+    network_id: *ve_premium_rate_services
+  - id: 454716
+    prefix: '58901'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: 132778bc-4ff7-429d-89d1-60f51b939d15
+    country_id: *ve
+    network_id: *ve_adults_entertainment_services
+# Satellite Prefixes
+  - id: 455874
+    prefix: '58904'
+    number_min_length: 12
+    number_max_length: 12
+    uuid: b466ecb6-004a-4b7e-bc76-b215ac77e612
+    country_id: *ve
+    network_id: *ve_internet_access_services

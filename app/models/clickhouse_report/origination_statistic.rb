@@ -27,12 +27,25 @@ module ClickhouseReport
            column: :time_start,
            type: 'DateTime',
            operation: :gteq,
-           required: true
+           required: true,
+           format_value: lambda { |value, _options|
+             from_time = DateUtilities.safe_datetime_parse(value)
+             raise InvalidParamValue, 'invalid value from-time' if from_time.nil?
+             raise FromDateTimeInFutureError, 'from-time cannot be in the future' if from_time > DateTime.now
+
+             value
+           }
 
     filter :'to-time',
            column: :time_start,
            type: 'DateTime',
-           operation: :lteq
+           operation: :lteq,
+           format_value: lambda { |value, _options|
+             to_time = DateUtilities.safe_datetime_parse(value)
+             raise InvalidParamValue, 'invalid value to-time' if to_time.nil?
+
+             value
+           }
 
     filter :'src-country-id',
            column: :src_country_id,
@@ -130,13 +143,15 @@ module ClickhouseReport
         raise InvalidParamValue, 'invalid sampling'
       end
 
+      total_duration_column = YetiConfig.api.customer.outgoing_statistics_use_customer_duration ? 'customer_duration' : 'duration'
+
       "
       SELECT
         toUnixTimestamp(#{sampling_fn}(time_start)) as t,
         toUInt32(count(*)) AS total_calls,
         toUInt32(countIf(duration>0)) as successful_calls,
         toUInt32(countIf(duration=0)) as failed_calls,
-        round(sum(duration)/60,2) as total_duration,
+        round(sum(#{total_duration_column})/60,2) as total_duration,
         round(avgIf(duration, duration>0)/60,2) AS acd,
         round(countIf(duration>0)/count(*),3)*100 AS asr,
         round(sum(customer_price),2) as total_price

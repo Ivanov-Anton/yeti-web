@@ -4,7 +4,7 @@
 #
 # Table name: class4.numberlists
 #
-#  id                         :integer(2)       not null, primary key
+#  id                         :integer(4)       not null, primary key
 #  default_dst_rewrite_result :string
 #  default_dst_rewrite_rule   :string
 #  default_src_rewrite_result :string
@@ -20,6 +20,7 @@
 #  external_id                :bigint(8)
 #  lua_script_id              :integer(2)
 #  mode_id                    :integer(2)       default(1), not null
+#  rewrite_ss_status_id       :integer(2)
 #  tag_action_id              :integer(2)
 #
 # Indexes

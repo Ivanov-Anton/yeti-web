@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 class Api::Rest::Admin::GatewayResource < ::BaseResource
-  attributes :name, :enabled, :priority, :weight, :acd_limit, :asr_limit, :allow_origination, :allow_termination, :sst_enabled,
+  attributes :external_id, :name, :enabled,
+             :priority, :weight, :acd_limit, :asr_limit, :allow_origination, :allow_termination, :sst_enabled,
              :host, :port, :resolve_ruri,
              :diversion_domain, :diversion_rewrite_rule, :diversion_rewrite_result,
              :src_name_rewrite_rule, :src_name_rewrite_result, :src_rewrite_rule, :src_rewrite_result,
              :dst_rewrite_rule, :dst_rewrite_result, :auth_enabled, :auth_user, :auth_password, :auth_from_user,
              :auth_from_domain, :term_use_outbound_proxy, :term_force_outbound_proxy, :term_outbound_proxy,
              :term_next_hop_for_replies, :term_next_hop, :term_append_headers_req,
+             :orig_append_headers_req, :orig_append_headers_reply,
              :sdp_alines_filter_list, :ringing_timeout, :relay_options, :relay_reinvite, :relay_hold, :relay_prack,
              :relay_update, :suppress_early_media, :fake_180_timer, :transit_headers_from_origination,
              :transit_headers_from_termination, :sip_interface_name, :allow_1xx_without_to_tag, :sip_timer_b,
@@ -20,27 +22,28 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
 
   paginator :paged
 
-  has_one :contractor
-  has_one :session_refresh_method
-  has_one :sdp_alines_filter_type, class_name: 'FilterType'
-  has_one :term_disconnect_policy, class_name: 'DisconnectPolicy'
-  has_one :gateway_group
-  has_one :diversion_send_mode, class_name: 'Equipment::GatewayDiversionSendMode'
-  has_one :pop
-  has_one :codec_group
-  has_one :sdp_c_location, class_name: 'SdpCLocation'
-  has_one :sensor, class_name: 'System::Sensor'
-  has_one :sensor_level, class_name: 'System::SensorLevel'
-  has_one :dtmf_receive_mode, class_name: 'System::DtmfReceiveMode'
-  has_one :dtmf_send_mode, class_name: 'System::DtmfSendMode'
-  has_one :transport_protocol, class_name: 'Equipment::TransportProtocol'
-  has_one :term_proxy_transport_protocol, class_name: 'Equipment::TransportProtocol'
-  has_one :orig_proxy_transport_protocol, class_name: 'Equipment::TransportProtocol'
-  has_one :rel100_mode, class_name: 'Equipment::GatewayRel100Mode'
-  has_one :rx_inband_dtmf_filtering_mode, class_name: 'Equipment::GatewayInbandDtmfFilteringMode'
-  has_one :tx_inband_dtmf_filtering_mode, class_name: 'Equipment::GatewayInbandDtmfFilteringMode'
-  has_one :network_protocol_priority, class_name: 'Equipment::GatewayNetworkProtocolPriority'
-  has_one :media_encryption_mode, class_name: 'Equipment::GatewayMediaEncryptionMode'
+  has_one :contractor, always_include_linkage_data: true
+  has_one :session_refresh_method, always_include_linkage_data: true
+  has_one :sdp_alines_filter_type, class_name: 'FilterType', always_include_linkage_data: true
+  has_one :term_disconnect_policy, class_name: 'DisconnectPolicy', always_include_linkage_data: true
+  has_one :orig_disconnect_policy, class_name: 'DisconnectPolicy', always_include_linkage_data: true
+  has_one :gateway_group, always_include_linkage_data: true
+  has_one :diversion_send_mode, class_name: 'GatewayDiversionSendMode', always_include_linkage_data: true
+  has_one :pop, always_include_linkage_data: true
+  has_one :codec_group, always_include_linkage_data: true
+  has_one :sdp_c_location, class_name: 'SdpCLocation', always_include_linkage_data: true
+  has_one :sensor, class_name: 'Sensor', always_include_linkage_data: true
+  has_one :sensor_level, class_name: 'SensorLevel', always_include_linkage_data: true
+  has_one :dtmf_receive_mode, class_name: 'DtmfReceiveMode', always_include_linkage_data: true
+  has_one :dtmf_send_mode, class_name: 'DtmfSendMode', always_include_linkage_data: true
+  has_one :transport_protocol, class_name: 'TransportProtocol', always_include_linkage_data: true
+  has_one :term_proxy_transport_protocol, class_name: 'TransportProtocol', always_include_linkage_data: true
+  has_one :orig_proxy_transport_protocol, class_name: 'TransportProtocol', always_include_linkage_data: true
+  has_one :rel100_mode, class_name: 'GatewayRel100Mode', always_include_linkage_data: true
+  has_one :rx_inband_dtmf_filtering_mode, class_name: 'GatewayInbandDtmfFilteringMode', always_include_linkage_data: true
+  has_one :tx_inband_dtmf_filtering_mode, class_name: 'GatewayInbandDtmfFilteringMode', always_include_linkage_data: true
+  has_one :network_protocol_priority, class_name: 'GatewayNetworkProtocolPriority', always_include_linkage_data: true
+  has_one :media_encryption_mode, class_name: 'GatewayMediaEncryptionMode', always_include_linkage_data: true
 
   filter :name # DEPRECATED
 
@@ -48,6 +51,7 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
   relationship_filter :session_refresh_method
   relationship_filter :sdp_alines_filter_type
   relationship_filter :term_disconnect_policy
+  relationship_filter :orig_disconnect_policy
   relationship_filter :gateway_group
   relationship_filter :diversion_send_mode
   relationship_filter :pop
@@ -97,8 +101,10 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
   ransack_filter :termination_capacity, type: :number
   ransack_filter :term_next_hop, type: :string
   ransack_filter :orig_next_hop, type: :string
-  ransack_filter :orig_append_headers_req, type: :string
-  ransack_filter :term_append_headers_req, type: :string
+  # Disabled because there is no support for arrays in ransack_filter
+  # ransack_filter :orig_append_headers_req, type: :array_of_strings
+  # ransack_filter :orig_append_headers_reply, type: :array_of_strings
+  # ransack_filter :term_append_headers_req, type: :array_of_strings
   ransack_filter :dialog_nat_handling, type: :boolean
   ransack_filter :orig_force_outbound_proxy, type: :boolean
   ransack_filter :orig_use_outbound_proxy, type: :boolean
@@ -156,6 +162,7 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
 
   def self.updatable_fields(_context)
     %i[
+      external_id
       name
       enabled
       priority
@@ -207,6 +214,9 @@ class Api::Rest::Admin::GatewayResource < ::BaseResource
       term_next_hop
       term_disconnect_policy
       term_append_headers_req
+      orig_append_headers_req
+      orig_append_headers_reply
+      orig_disconnect_policy
       sdp_alines_filter_list
       ringing_timeout
       relay_options

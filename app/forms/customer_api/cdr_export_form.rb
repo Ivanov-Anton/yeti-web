@@ -22,19 +22,45 @@ module CustomerApi
       time_end
       success
       duration
+      src_name_in
+      src_prefix_in
+      dst_prefix_in
+      from_domain
+      to_domain
+      ruri_domain
+      lega_disconnect_code
+      lega_disconnect_reason
+      auth_orig_ip
+      auth_orig_port
       src_prefix_routing
       dst_prefix_routing
+      destination_prefix
+      destination_initial_interval
+      destination_next_interval
       destination_initial_rate
       destination_next_rate
+      destination_fee
+      customer_price
+      customer_duration
+      orig_call_id
+      local_tag
+      lega_user_agent
+      diversion_in
     ].freeze
 
     model_class 'CdrExport'
-    model_attributes :filters
+    model_attributes :filters, :time_format, :time_zone_name
     attr_accessor :account_id, :customer_id, :allowed_account_ids
 
     before_validation :apply_fields
     validate :validate_account
     validate :validate_filters
+
+    validates :time_format, presence: true,
+                            inclusion: {
+                              in: CdrExport::ALLOWED_TIME_FORMATS,
+                              message: "is not included in the list: #{CdrExport::ALLOWED_TIME_FORMATS.join(', ')}"
+                            }
 
     before_save :assign_customer_account
     after_create { model.reload } # need to get uuid from database
@@ -50,7 +76,8 @@ module CustomerApi
     private
 
     def apply_fields
-      model.fields = FIELDS
+      hidden_fields = YetiConfig.api&.customer&.outgoing_cdr_hide_fields || []
+      model.fields = FIELDS - hidden_fields
     end
 
     def validate_account

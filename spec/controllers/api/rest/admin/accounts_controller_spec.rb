@@ -1,14 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Api::Rest::Admin::AccountsController, type: :controller do
-  let(:user) { create :admin_user }
-  let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: user.id }).token }
-
-  before do
-    request.accept = 'application/vnd.api+json'
-    request.headers['Content-Type'] = 'application/vnd.api+json'
-    request.headers['Authorization'] = auth_token
-  end
+  include_context :jsonapi_admin_headers
 
   describe 'GET index' do
     let!(:accounts) { create_list :account, 2 }
@@ -88,10 +81,31 @@ RSpec.describe Api::Rest::Admin::AccountsController, type: :controller do
   end
 
   describe 'POST create' do
-    before do
+    subject do
       post :create, params: request_payload
     end
 
+    shared_examples :creates_account do
+      it 'creates account' do
+        expect { subject }.to change { Account.count }.by(1)
+                          .and change { AccountBalanceNotificationSetting.count }.by(1)
+      end
+
+      include_examples :creates_audit_log, qty: 1, ordered: true do
+        let(:audit_log_attrs) do
+          item = Account.last
+          { event: 'create', item_id: item.id, item_type: item.class.name, whodunnit: admin_user.id.to_s }
+        end
+      end
+    end
+
+    shared_examples :does_not_create_account do
+      it 'creates account' do
+        expect { subject }.not_to change { [Account.count, AccountBalanceNotificationSetting.count] }
+      end
+    end
+
+    let!(:contractor) { create(:contractor, vendor: true) }
     let(:request_payload) do
       {
         data: {
@@ -122,23 +136,21 @@ RSpec.describe Api::Rest::Admin::AccountsController, type: :controller do
     let(:relationships) do
       {
         timezone: wrap_relationship(:timezones, 1),
-        contractor: wrap_relationship(:contractors, create(:contractor, vendor: true).id)
+        contractor: wrap_relationship(:contractors, contractor.id)
       }
     end
 
     context 'when attributes and relationships are valid' do
-      it { expect(response.status).to eq(201) }
-      it { expect(Account.count).to eq(1) }
-      it { expect(AccountBalanceNotificationSetting.count).to eq(1) }
+      include_examples :responds_with_status, 201
+      include_examples :creates_account
     end
 
     context 'when attributes and relationships are invalid' do
       let(:attributes) { { name: 'name', 'max-balance': -1 } }
       let(:relationships) { {} }
 
-      it { expect(response.status).to eq(422) }
-      it { expect(Account.count).to eq(0) }
-      it { expect(AccountBalanceNotificationSetting.count).to eq(0) }
+      include_examples :responds_with_status, 422
+      include_examples :does_not_create_account
     end
 
     context 'when only required attributes and relationships' do
@@ -149,13 +161,12 @@ RSpec.describe Api::Rest::Admin::AccountsController, type: :controller do
       end
       let(:relationships) do
         {
-          contractor: wrap_relationship(:contractors, create(:contractor, vendor: true).id)
+          contractor: wrap_relationship(:contractors, contractor.id)
         }
       end
 
-      it { expect(response.status).to eq(201) }
-      it { expect(Account.count).to eq(1) }
-      it { expect(AccountBalanceNotificationSetting.count).to eq(1) }
+      include_examples :responds_with_status, 201
+      include_examples :creates_account
     end
 
     context 'with attributes balance-low-threshold = balance-high-threshold' do
@@ -164,8 +175,8 @@ RSpec.describe Api::Rest::Admin::AccountsController, type: :controller do
                       'balance-high-threshold': 90
       end
 
-      it { expect(response.status).to eq(422) }
-      it { expect(Account.count).to eq(0) }
+      include_examples :responds_with_status, 422
+      include_examples :does_not_create_account
     end
 
     context 'with attributes balance-low-threshold > balance-high-threshold' do
@@ -174,8 +185,8 @@ RSpec.describe Api::Rest::Admin::AccountsController, type: :controller do
                       'balance-high-threshold': 90
       end
 
-      it { expect(response.status).to eq(422) }
-      it { expect(Account.count).to eq(0) }
+      include_examples :responds_with_status, 422
+      include_examples :does_not_create_account
     end
   end
 

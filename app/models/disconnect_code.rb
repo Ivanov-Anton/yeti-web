@@ -37,9 +37,8 @@ class DisconnectCode < ApplicationRecord
 
   include WithPaperTrail
 
-  include Yeti::TranslationReloader
   include Yeti::StateUpdater
-  self.state_name = 'translations'
+  self.state_names = ['translations']
 
   NS_TM  = 0
   NS_TS  = 1
@@ -59,6 +58,7 @@ class DisconnectCode < ApplicationRecord
   DC_NO_DESTINATION_WITH_APPROPRIATE_RATE = 8006
   DC_IDENTITY_REQUIRED = 8018
   DC_IDENTITY_INVALID = 8019
+  DC_PAI_REQUIRED = 8020
 
   def namespace_name
     NSS[namespace_id]

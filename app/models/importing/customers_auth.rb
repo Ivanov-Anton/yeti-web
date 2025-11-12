@@ -14,7 +14,7 @@
 #  diversion_policy_name            :string
 #  diversion_rewrite_result         :string
 #  diversion_rewrite_rule           :string
-#  dst_number_field_name            :integer(2)
+#  dst_number_field_name            :string
 #  dst_number_max_length            :integer(4)
 #  dst_number_min_length            :integer(4)
 #  dst_number_radius_rewrite_result :string
@@ -35,7 +35,11 @@
 #  max_dst_number_length            :integer(2)
 #  min_dst_number_length            :integer(2)
 #  name                             :string
+#  pai_policy_name                  :string
+#  pai_rewrite_result               :string
+#  pai_rewrite_rule                 :string
 #  pop_name                         :string
+#  privacy_mode_name                :string
 #  radius_accounting_profile_name   :string
 #  radius_auth_profile_name         :string
 #  rateplan_name                    :string
@@ -43,8 +47,9 @@
 #  require_incoming_auth            :boolean
 #  routing_group_name               :string
 #  routing_plan_name                :string
+#  scheduler_name                   :string
 #  send_billing_information         :boolean          default(FALSE), not null
-#  src_name_field_name              :integer(2)
+#  src_name_field_name              :string
 #  src_name_rewrite_result          :string
 #  src_name_rewrite_rule            :string
 #  src_number_field_name            :string
@@ -56,6 +61,7 @@
 #  src_prefix                       :string
 #  src_rewrite_result               :string
 #  src_rewrite_rule                 :string
+#  stir_shaken_crt_name             :string
 #  tag_action_name                  :string
 #  tag_action_value                 :integer(2)       default([]), not null, is an Array
 #  tag_action_value_names           :string
@@ -65,22 +71,26 @@
 #  x_yeti_auth                      :string
 #  account_id                       :integer(4)
 #  customer_id                      :integer(4)
-#  diversion_policy_id              :integer(4)
+#  diversion_policy_id              :integer(2)
 #  dst_number_field_id              :integer(2)
 #  dst_numberlist_id                :integer(4)
 #  dump_level_id                    :integer(4)
 #  gateway_id                       :integer(4)
 #  lua_script_id                    :integer(2)
 #  o_id                             :bigint(8)
+#  pai_policy_id                    :integer(2)
 #  pop_id                           :integer(4)
+#  privacy_mode_id                  :integer(2)
 #  radius_accounting_profile_id     :integer(2)
 #  radius_auth_profile_id           :integer(2)
 #  rateplan_id                      :integer(4)
 #  routing_group_id                 :integer(4)
 #  routing_plan_id                  :integer(4)
+#  scheduler_id                     :integer(2)
 #  src_name_field_id                :integer(2)
 #  src_number_field_id              :integer(2)
 #  src_numberlist_id                :integer(4)
+#  stir_shaken_crt_id               :integer(2)
 #  tag_action_id                    :integer(2)
 #  transport_protocol_id            :integer(2)
 #
@@ -95,15 +105,15 @@ class Importing::CustomersAuth < Importing::Base
   belongs_to :rateplan, class_name: 'Routing::Rateplan', optional: true
   belongs_to :pop, class_name: '::Pop', optional: true
   belongs_to :customer, -> { where customer: true }, class_name: '::Contractor', foreign_key: :customer_id, optional: true
-  belongs_to :diversion_policy, class_name: '::DiversionPolicy', optional: true
 
   belongs_to :dst_numberlist, class_name: '::Routing::Numberlist', foreign_key: :dst_numberlist_id, optional: true
   belongs_to :src_numberlist, class_name: '::Routing::Numberlist', foreign_key: :src_numberlist_id, optional: true
   belongs_to :radius_auth_profile, class_name: '::Equipment::Radius::AuthProfile', foreign_key: :radius_auth_profile_id, optional: true
   belongs_to :radius_accounting_profile, class_name: '::Equipment::Radius::AccountingProfile', foreign_key: :radius_accounting_profile_id, optional: true
-  belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_protocol_id, optional: true
   belongs_to :tag_action, class_name: 'Routing::TagAction', optional: true
   belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
+  belongs_to :stir_shaken_crt, class_name: 'Equipment::StirShaken::SigningCertificate', foreign_key: :stir_shaken_crt_id, optional: :true
+  belongs_to :scheduler, class_name: 'System::Scheduler', foreign_key: :scheduler_id, optional: true
 
   self.import_attributes = %w[
     enabled
@@ -126,6 +136,7 @@ class Importing::CustomersAuth < Importing::Base
     dst_numberlist_id
     src_numberlist_id
     dump_level_id
+    privacy_mode_id
     enable_audio_recording
     capacity
     allow_receive_rate_limit
@@ -133,6 +144,9 @@ class Importing::CustomersAuth < Importing::Base
     diversion_policy_id
     diversion_rewrite_rule
     diversion_rewrite_result
+    pai_policy_id
+    pai_rewrite_rule
+    pai_rewrite_result
     src_name_rewrite_rule
     src_name_rewrite_result
     src_rewrite_rule
@@ -150,19 +164,40 @@ class Importing::CustomersAuth < Importing::Base
     tag_action_id
     tag_action_value
     lua_script_id
+    stir_shaken_crt_id
+    scheduler_id
   ]
 
   import_for ::CustomersAuth
 
+  def transport_protocol_display_name
+    transport_protocol_id.nil? ? 'Any' : CustomersAuth::TRANSPORT_PROTOCOLS[transport_protocol_id]
+  end
+
   def dump_level_display_name
     dump_level_id.nil? ? 'unknown' : CustomersAuth::DUMP_LEVELS[dump_level_id]
+  end
+
+  def diversion_policy_display_name
+    diversion_policy_id.nil? ? 'unknown' : CustomersAuth::DIVERSION_POLICIES[diversion_policy_id]
+  end
+
+  def pai_policy_display_name
+    pai_policy_id.nil? ? 'unknown' : CustomersAuth::PAI_POLICIES[pai_policy_id]
   end
 
   def self.after_import_hook
     where(src_prefix: nil).update_all(src_prefix: '')
     where(dst_prefix: nil).update_all(dst_prefix: '')
     resolve_array_of_tags('tag_action_value', 'tag_action_value_names')
+    resolve_integer_constant('transport_protocol_id', 'transport_protocol_name', CustomersAuth::TRANSPORT_PROTOCOLS)
     resolve_integer_constant('dump_level_id', 'dump_level_name', CustomersAuth::DUMP_LEVELS)
+    resolve_integer_constant('privacy_mode_id', 'privacy_mode_name', CustomersAuth::PRIVACY_MODES)
+    resolve_integer_constant('diversion_policy_id', 'diversion_policy_name', CustomersAuth::DIVERSION_POLICIES)
+    resolve_integer_constant('pai_policy_id', 'pai_policy_name', CustomersAuth::PAI_POLICIES)
+    resolve_integer_constant('src_name_field_id', 'src_name_field_name', CustomersAuth::SRC_NAME_FIELDS)
+    resolve_integer_constant('src_number_field_id', 'src_number_field_name', CustomersAuth::SRC_NUMBER_FIELDS)
+    resolve_integer_constant('dst_number_field_id', 'dst_number_field_name', CustomersAuth::DST_NUMBER_FIELDS)
     super
     CustomersAuth.increment_state_value
   end

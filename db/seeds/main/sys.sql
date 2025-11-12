@@ -76,7 +76,6 @@ INSERT INTO sys.guiconfig (rows_per_page, id, cdr_unload_dir, cdr_unload_uri, ma
 --
 
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (1, 'CdrPartitioning', NULL, NULL, NULL);
-INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (2, 'EventProcessor', NULL, NULL, NULL);
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (3, 'CdrBatchCleaner', NULL, NULL, NULL);
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (4, 'PartitionRemoving', NULL, NULL, NULL);
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (5, 'CallsMonitoring', NULL, NULL, NULL);
@@ -94,6 +93,10 @@ INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALU
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (17, 'DeleteBalanceNotifications', NULL, NULL, NULL);
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (18, 'PrometheusCustomerAuthStats', NULL, NULL, NULL);
 INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (19, 'ServiceRenew', NULL, NULL, NULL);
+INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (20, 'CdrCompaction', NULL, NULL, NULL);
+INSERT INTO sys.jobs (id, name, last_duration, last_exception, last_run_at) VALUES (21, 'Scheduler', NULL, NULL, NULL);
+
+
 --
 -- Data for Name: lnp_resolvers; Type: TABLE DATA; Schema: sys; Owner: senid
 --
@@ -150,6 +153,8 @@ INSERT INTO sys.sensor_modes (id, name) VALUES (3, 'HEPv3');
 INSERT INTO sys.states (key, value) VALUES ('customers_auth', 1);
 INSERT INTO sys.states (key, value) VALUES ('stir_shaken_trusted_certificates', 1);
 INSERT INTO sys.states (key, value) VALUES ('stir_shaken_trusted_repositories', 1);
+INSERT INTO sys.states (key, value) VALUES ('stir_shaken_rcd_profiles', 1);
+
 INSERT INTO sys.states (key, value) VALUES ('load_balancers', 1);
 
 INSERT INTO sys.states(key,value) VALUES('sensors',1);
@@ -162,6 +167,7 @@ INSERT INTO sys.states(key,value) VALUES('auth_credentials',1);
 INSERT INTO sys.states(key,value) VALUES('options_probers',1);
 
 INSERT INTO sys.states(key,value) VALUES('stir_shaken_signing_certificates',1);
+insert into sys.states(key,value) values('gateways_cache', 1);
 
 
 --
@@ -1444,13 +1450,6 @@ SELECT pg_catalog.setval('sys.currencies_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('sys.delayed_jobs_id_seq', 1, false);
-
-
---
--- Name: events_id_seq; Type: SEQUENCE SET; Schema: sys; Owner: senid
---
-
-SELECT pg_catalog.setval('sys.events_id_seq', 1, false);
 
 
 --

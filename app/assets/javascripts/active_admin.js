@@ -34,7 +34,9 @@
 //= require d3_charts
 //= require password-toggle
 
-//= require vendor/highlight.pack
+//= require vendor/highlightjs/highlight.min
+//= require vendor/highlightjs/languages/lua.min
+//= require vendor/highlightjs/languages/json.min
 //= require highlightjs
 //= require modal_link
 //= require import_apply_unique_fields
@@ -119,5 +121,10 @@ $(document).ready(function () {
     $('form.formtastic li.datetime_preset_pair').date_range_ext_preset({
         show_time: true
     });
+
+    $('form.filter_form div.select_and_search > select').chosen({
+        disable_search: true,
+        allow_single_deselect: false
+    })
 
 });

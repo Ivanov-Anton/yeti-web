@@ -25,6 +25,8 @@
 #  interface                        :string           default([]), not null, is an Array
 #  ip                               :inet             default(["\"127.0.0.0/8\""]), is an Array
 #  name                             :string           not null
+#  pai_rewrite_result               :string
+#  pai_rewrite_rule                 :string
 #  reject_calls                     :boolean          default(FALSE), not null
 #  require_incoming_auth            :boolean          default(FALSE), not null
 #  send_billing_information         :boolean          default(FALSE), not null
@@ -49,13 +51,14 @@
 #  account_id                       :integer(4)
 #  cnam_database_id                 :integer(2)
 #  customer_id                      :integer(4)       not null
-#  diversion_policy_id              :integer(4)       default(1), not null
+#  diversion_policy_id              :integer(2)       default(1), not null
 #  dst_number_field_id              :integer(2)       default(1), not null
-#  dst_numberlist_id                :integer(2)
+#  dst_numberlist_id                :integer(4)
 #  dump_level_id                    :integer(2)       default(0), not null
 #  external_id                      :bigint(8)
 #  gateway_id                       :integer(4)       not null
 #  lua_script_id                    :integer(2)
+#  pai_policy_id                    :integer(2)       default(1), not null
 #  pop_id                           :integer(4)
 #  privacy_mode_id                  :integer(2)       default(1), not null
 #  radius_accounting_profile_id     :integer(2)
@@ -63,12 +66,14 @@
 #  rateplan_id                      :integer(4)       not null
 #  rewrite_ss_status_id             :integer(2)
 #  routing_plan_id                  :integer(4)       not null
+#  scheduler_id                     :integer(2)
 #  src_name_field_id                :integer(2)       default(1), not null
 #  src_number_field_id              :integer(2)       default(1), not null
-#  src_numberlist_id                :integer(2)
+#  src_numberlist_id                :integer(4)
 #  ss_invalid_identity_action_id    :integer(2)       default(0), not null
 #  ss_mode_id                       :integer(2)       default(0), not null
 #  ss_no_identity_action_id         :integer(2)       default(0), not null
+#  stir_shaken_crt_id               :integer(2)
 #  tag_action_id                    :integer(2)
 #  transport_protocol_id            :integer(2)
 #
@@ -80,6 +85,7 @@
 #  customers_auth_external_id_external_type_key_uniq  (external_id,external_type) UNIQUE
 #  customers_auth_external_id_key_uniq                (external_id) UNIQUE WHERE (external_type IS NULL)
 #  customers_auth_name_key                            (name) UNIQUE
+#  customers_auth_scheduler_id_idx                    (scheduler_id)
 #  customers_auth_src_numberlist_id_idx               (src_numberlist_id)
 #
 # Foreign Keys
@@ -87,9 +93,7 @@
 #  customers_auth_account_id_fkey                    (account_id => accounts.id)
 #  customers_auth_cnam_database_id_fkey              (cnam_database_id => cnam_databases.id)
 #  customers_auth_customer_id_fkey                   (customer_id => contractors.id)
-#  customers_auth_diversion_policy_id_fkey           (diversion_policy_id => diversion_policy.id)
 #  customers_auth_dst_blacklist_id_fkey              (dst_numberlist_id => numberlists.id)
-#  customers_auth_dst_number_field_id_fkey           (dst_number_field_id => customers_auth_dst_number_fields.id)
 #  customers_auth_gateway_id_fkey                    (gateway_id => gateways.id)
 #  customers_auth_lua_script_id_fkey                 (lua_script_id => lua_scripts.id)
 #  customers_auth_pop_id_fkey                        (pop_id => pops.id)
@@ -97,25 +101,32 @@
 #  customers_auth_radius_auth_profile_id_fkey        (radius_auth_profile_id => radius_auth_profiles.id)
 #  customers_auth_rateplan_id_fkey                   (rateplan_id => rateplans.id)
 #  customers_auth_routing_plan_id_fkey               (routing_plan_id => routing_plans.id)
+#  customers_auth_scheduler_id_fkey                  (scheduler_id => schedulers.id)
 #  customers_auth_src_blacklist_id_fkey              (src_numberlist_id => numberlists.id)
-#  customers_auth_src_name_field_id_fkey             (src_name_field_id => customers_auth_src_name_fields.id)
-#  customers_auth_src_number_field_id_fkey           (src_number_field_id => customers_auth_src_number_fields.id)
 #  customers_auth_tag_action_id_fkey                 (tag_action_id => tag_actions.id)
-#  customers_auth_transport_protocol_id_fkey         (transport_protocol_id => transport_protocols.id)
 #
 
 class CustomersAuth < ApplicationRecord
   self.table_name = 'class4.customers_auth'
+
+  TRANSPORT_PROTOCOL_UDP = 1
+  TRANSPORT_PROTOCOL_TCP = 2
+  TRANSPORT_PROTOCOL_TLS = 3
+  TRANSPORT_PROTOCOLS = {
+    TRANSPORT_PROTOCOL_UDP => 'UDP',
+    TRANSPORT_PROTOCOL_TCP => 'TCP',
+    TRANSPORT_PROTOCOL_TLS => 'TLS'
+  }.freeze
 
   DUMP_LEVEL_DISABLED = 0
   DUMP_LEVEL_CAPTURE_SIP = 1
   DUMP_LEVEL_CAPTURE_RTP = 2
   DUMP_LEVEL_CAPTURE_ALL = 3
   DUMP_LEVELS = {
-    DUMP_LEVEL_DISABLED => 'Capture nothing',
-    DUMP_LEVEL_CAPTURE_SIP => 'Capture signaling traffic',
-    DUMP_LEVEL_CAPTURE_RTP => 'Capture RTP traffic',
-    DUMP_LEVEL_CAPTURE_ALL => 'Capture all traffic'
+    DUMP_LEVEL_DISABLED => 'Disabled',
+    DUMP_LEVEL_CAPTURE_SIP => 'SIP',
+    DUMP_LEVEL_CAPTURE_RTP => 'RTP',
+    DUMP_LEVEL_CAPTURE_ALL => 'SIP and RTP'
   }.freeze
 
   SS_MODE_DISABLE = 0
@@ -145,15 +156,6 @@ class CustomersAuth < ApplicationRecord
     SS_INVALID_IDENTITY_ACTION_REWRITE => 'Rewrite'
   }.freeze
 
-  SS_STATUS_A = 1
-  SS_STATUS_B = 2
-  SS_STATUS_C = 3
-  SS_STATUSES = {
-    SS_STATUS_A => 'Attestation A',
-    SS_STATUS_B => 'Attestation B',
-    SS_STATUS_C => 'Attestation C'
-  }.freeze
-
   PRIVACY_MODE_ALLOW = 1
   PRIVACY_MODE_REJECT = 2
   PRIVACY_MODE_REJECT_CRITICAL = 3
@@ -163,6 +165,49 @@ class CustomersAuth < ApplicationRecord
     PRIVACY_MODE_REJECT => 'Reject private calls',
     PRIVACY_MODE_REJECT_CRITICAL => 'Reject critical private calls',
     PRIVACY_MODE_REJECT_ANONYMOUS => 'Reject anonymous(no CLI/PAI/PPI)'
+  }.freeze
+
+  DIVERSION_POLICY_NOT_ACCEPT = 1
+  DIVERSION_POLICY_ACCEPT = 2
+  DIVERSION_POLICIES = {
+    DIVERSION_POLICY_NOT_ACCEPT => 'Do not accept',
+    DIVERSION_POLICY_ACCEPT => 'Accept'
+  }.freeze
+
+  PAI_POLICY_NOT_ACCEPT = 0
+  PAI_POLICY_ACCEPT = 1
+  PAI_POLICY_REQUIRE = 2
+  PAI_POLICIES = {
+    PAI_POLICY_NOT_ACCEPT => 'Do not accept',
+    PAI_POLICY_ACCEPT => 'Accept',
+    PAI_POLICY_REQUIRE => 'Require'
+  }.freeze
+
+  DST_NUMBER_FIELD_RURI_USERPART = 1
+  DST_NUMBER_FIELD_TO_USERPART = 2
+  DST_NUMBER_FIELD_DIVERSION_USERPART = 3
+  DST_NUMBER_FIELDS = {
+    DST_NUMBER_FIELD_RURI_USERPART => 'R-URI userpart',
+    DST_NUMBER_FIELD_TO_USERPART => 'To URI userpart',
+    DST_NUMBER_FIELD_DIVERSION_USERPART => 'Top Diversion header userpart'
+  }.freeze
+
+  SRC_NUMBER_FIELD_FROM_USERPART = 1
+  SRC_NUMBER_FIELD_FROM_DSP = 2
+  SRC_NUMBER_FIELD_RURI_USERPART = 3
+  SRC_NUMBER_FIELD_TO_USERPART = 4
+  SRC_NUMBER_FIELDS = {
+    SRC_NUMBER_FIELD_FROM_USERPART => 'From URI userpart',
+    SRC_NUMBER_FIELD_FROM_DSP => 'From URI display name',
+    SRC_NUMBER_FIELD_RURI_USERPART => 'R-URI userpart',
+    SRC_NUMBER_FIELD_TO_USERPART => 'To URI userpart'
+  }.freeze
+
+  SRC_NAME_FIELD_FROM_DSP = 1
+  SRC_NAME_FIELD_FROM_USERPART = 2
+  SRC_NAME_FIELDS = {
+    SRC_NAME_FIELD_FROM_DSP => 'From URI display name',
+    SRC_NAME_FIELD_FROM_USERPART => 'From URI userpart'
   }.freeze
 
   module CONST
@@ -189,28 +234,25 @@ class CustomersAuth < ApplicationRecord
   belongs_to :gateway
   belongs_to :account, optional: true
   belongs_to :pop, optional: true
-  belongs_to :diversion_policy
   belongs_to :dst_numberlist, class_name: 'Routing::Numberlist', foreign_key: :dst_numberlist_id, optional: true
   belongs_to :src_numberlist, class_name: 'Routing::Numberlist', foreign_key: :src_numberlist_id, optional: true
   belongs_to :radius_auth_profile, class_name: 'Equipment::Radius::AuthProfile', foreign_key: :radius_auth_profile_id, optional: true
   belongs_to :radius_accounting_profile, class_name: 'Equipment::Radius::AccountingProfile', foreign_key: :radius_accounting_profile_id, optional: true
-  belongs_to :transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :transport_protocol_id, optional: true
 
   belongs_to :tag_action, class_name: 'Routing::TagAction', optional: true
   belongs_to :lua_script, class_name: 'System::LuaScript', foreign_key: :lua_script_id, optional: true
 
-  belongs_to :dst_number_field, class_name: 'Routing::CustomerAuthDstNumberField', foreign_key: :dst_number_field_id
-  belongs_to :src_number_field, class_name: 'Routing::CustomerAuthSrcNumberField', foreign_key: :src_number_field_id
-  belongs_to :src_name_field, class_name: 'Routing::CustomerAuthSrcNameField', foreign_key: :src_name_field_id
-
   belongs_to :cnam_database, class_name: 'Cnam::Database', foreign_key: :cnam_database_id, optional: true
+  belongs_to :stir_shaken_crt, class_name: 'Equipment::StirShaken::SigningCertificate', foreign_key: :stir_shaken_crt_id, optional: :true
 
   array_belongs_to :tag_action_values, class_name: 'Routing::RoutingTag', foreign_key: :tag_action_value
 
-  #  has_many :destinations, through: :rateplan
+  has_many :traffic_sampling_rules, class_name: 'Routing::TrafficSamplingRule', foreign_key: :customers_auth_id, dependent: :destroy
+
   has_many :normalized_copies, class_name: 'CustomersAuthNormalized', foreign_key: :customers_auth_id, dependent: :delete_all
 
   include WithPaperTrail
+  include Yeti::Scheduler
 
   # REDIRECT_METHODS = [
   #     301,
@@ -236,11 +278,9 @@ class CustomersAuth < ApplicationRecord
             uniqueness: { conditions: -> { where(external_type: nil) } },
             if: proc { external_id && !external_type }
 
-  validates :customer, :rateplan, :routing_plan, :gateway, :account, :diversion_policy, presence: true
+  validates :customer, :rateplan, :routing_plan, :gateway, :account, presence: true
   validate :validate_account
   validate :validate_gateway
-
-  validates :src_name_field, :src_number_field, :dst_number_field, presence: true
 
   validates :dst_number_min_length, :dst_number_max_length, :src_number_min_length, :src_number_max_length, presence: true
   validates :src_number_min_length, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100, allow_nil: false, only_integer: true }
@@ -254,19 +294,32 @@ class CustomersAuth < ApplicationRecord
   validate :ip_is_valid
   validate :gateway_supports_incoming_auth
 
-  validates :dump_level_id, presence: true
-  validates :dump_level_id, inclusion: { in: CustomersAuth::DUMP_LEVELS.keys }, allow_nil: true
-  validates :rewrite_ss_status_id, inclusion: { in: CustomersAuth::SS_STATUSES.keys }, allow_nil: true
+  validates :dump_level_id, :diversion_policy_id, :pai_policy_id, presence: true
+  validates :dump_level_id, inclusion: { in: CustomersAuth::DUMP_LEVELS.keys }, allow_nil: false
+  validates :diversion_policy_id, inclusion: { in: CustomersAuth::DIVERSION_POLICIES.keys }, allow_nil: false
+  validates :pai_policy_id, inclusion: { in: CustomersAuth::PAI_POLICIES.keys }, allow_nil: false
+
+  validates :rewrite_ss_status_id, inclusion: { in: Equipment::StirShaken::Attestation::ATTESTATIONS.keys }, allow_nil: true
   validate :validate_rewrite_ss_status
   validates :privacy_mode_id, inclusion: { in: PRIVACY_MODES.keys }, allow_nil: false
+
+  validates :src_name_field_id, :src_number_field_id, :dst_number_field_id, presence: true
+
+  validates :src_name_field_id, inclusion: { in: CustomersAuth::SRC_NAME_FIELDS.keys }, allow_nil: false
+  validates :src_number_field_id, inclusion: { in: CustomersAuth::SRC_NUMBER_FIELDS.keys }, allow_nil: false
+  validates :dst_number_field_id, inclusion: { in: CustomersAuth::DST_NUMBER_FIELDS.keys }, allow_nil: false
+
+  validates :transport_protocol_id, inclusion: { in: CustomersAuth::TRANSPORT_PROTOCOLS.keys }, allow_nil: true
 
   validates_with TagActionValueValidator
 
   include Yeti::StateUpdater
-  self.state_name = 'customers_auth'
+  self.state_names = ['customers_auth']
 
-  scope :with_radius, -> { where('radius_auth_profile_id is not null') }
-  scope :with_dump, -> { where('dump_level_id > 0') }
+  scope :with_radius, -> { where('class4.customers_auth.radius_auth_profile_id is not null') }
+  scope :with_dump, -> { where('class4.customers_auth.dump_level_id > 0') }
+  scope :with_recording, -> { where('class4.customers_auth.enable_audio_recording') }
+
   scope :ip_covers, lambda { |ip|
     begin
       IPAddr.new(ip)
@@ -301,12 +354,16 @@ class CustomersAuth < ApplicationRecord
     "#{name} | #{id}"
   end
 
+  def transport_protocol_name
+    transport_protocol_id.nil? ? 'Any' : TRANSPORT_PROTOCOLS[transport_protocol_id]
+  end
+
   def dump_level_name
     dump_level_id.nil? ? DUMP_LEVELS[0] : DUMP_LEVELS[dump_level_id]
   end
 
   def rewrite_ss_status_name
-    rewrite_ss_status_id.nil? ? nil : SS_STATUSES[rewrite_ss_status_id]
+    rewrite_ss_status_id.nil? ? nil : Equipment::StirShaken::Attestation::ATTESTATIONS[rewrite_ss_status_id]
   end
 
   def ss_mode_name
@@ -319,6 +376,26 @@ class CustomersAuth < ApplicationRecord
 
   def ss_no_identity_action_name
     ss_no_identity_action_id.nil? ? nil : SS_NO_IDENTITY_ACTIONS[ss_no_identity_action_id]
+  end
+
+  def pai_policy_name
+    PAI_POLICIES[pai_policy_id]
+  end
+
+  def diversion_policy_name
+    DIVERSION_POLICIES[diversion_policy_id]
+  end
+
+  def dst_number_field_name
+    DST_NUMBER_FIELDS[dst_number_field_id]
+  end
+
+  def src_number_field_name
+    SRC_NUMBER_FIELDS[src_number_field_id]
+  end
+
+  def src_name_field_name
+    SRC_NAME_FIELDS[src_name_field_id]
   end
 
   def privacy_mode_name
@@ -394,7 +471,7 @@ class CustomersAuth < ApplicationRecord
   end
 
   def gateway_supports_incoming_auth
-    if gateway.try(:incoming_auth_username).blank? && require_incoming_auth
+    if gateway.try(:incoming_auth_username).blank? && gateway.try(:incoming_auth_allow_jwt) == false && require_incoming_auth
       errors.add(:gateway, I18n.t('activerecord.errors.models.customers_auth.attributes.gateway.incoming_auth_required'))
       errors.add(:require_incoming_auth, I18n.t('activerecord.errors.models.customers_auth.attributes.require_incoming_auth.gateway_with_auth_reqired'))
     end

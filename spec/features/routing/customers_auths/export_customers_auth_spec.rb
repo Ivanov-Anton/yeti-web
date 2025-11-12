@@ -9,7 +9,7 @@ RSpec.describe 'Export Customers Auth', type: :feature do
 
   let!(:item) do
     create(:customers_auth,
-           transport_protocol: Equipment::TransportProtocol.take,
+           transport_protocol_id: CustomersAuth::TRANSPORT_PROTOCOL_TCP,
            pop: create(:pop),
            dst_numberlist: create(:numberlist),
            src_numberlist: create(:numberlist),
@@ -26,7 +26,9 @@ RSpec.describe 'Export Customers Auth', type: :feature do
            tag_action: Routing::TagAction.take,
            tag_action_value: [tag_us.id, tag_emergency.id],
            cnam_database: create(:cnam_database),
-           rewrite_ss_status_id: CustomersAuth::SS_STATUS_A)
+           rewrite_ss_status_id: Equipment::StirShaken::Attestation::ATTESTATION_A,
+           stir_shaken_crt: create(:stir_shaken_signing_certificate),
+           scheduler: create(:scheduler))
   end
 
   before do
@@ -44,7 +46,7 @@ RSpec.describe 'Export Customers Auth', type: :feature do
         ['Enabled', item.enabled.to_s, anything],
         ['Reject calls', item.reject_calls.to_s, anything],
         ['Name', item.name, anything],
-        ['Transport protocol name', item.transport_protocol.name, anything],
+        ['Transport protocol name', item.transport_protocol_name, anything],
         ['IP', item.ip.join(', '), anything],
         ['Pop name', item.pop.name, anything],
         ['SRC Prefix', item.src_prefix.join(', '), anything],
@@ -67,22 +69,24 @@ RSpec.describe 'Export Customers Auth', type: :feature do
         ['Routing plan name', item.routing_plan.name, anything],
         ['Dst numberlist name', item.dst_numberlist.name, anything],
         ['Src numberlist name', item.src_numberlist.name, anything],
-        ['Dump level name', item.dump_level_name, anything],
-        ['Enable audio recording', item.enable_audio_recording.to_s, anything],
+        ['Privacy mode name', item.decorate.privacy_mode_name, item.decorate.privacy_mode_name],
         ['Capacity', item.capacity.to_s, anything],
         ['Cps limit', item.cps_limit.to_s, anything],
         ['Allow receive rate limit', item.allow_receive_rate_limit.to_s, anything],
         ['Send billing information', item.send_billing_information.to_s, anything],
-        ['Diversion policy name', item.diversion_policy.name, anything],
+        ['Diversion policy name', item.diversion_policy_name, anything],
         ['Diversion rewrite rule', item.diversion_rewrite_rule.to_s, anything],
         ['Diversion rewrite result', item.diversion_rewrite_result.to_s, anything],
-        ['Src name field name', item.src_name_field.name, anything],
+        ['Pai policy name', item.pai_policy_name, anything],
+        ['Pai rewrite rule', item.pai_rewrite_rule.to_s, anything],
+        ['Pai rewrite result', item.pai_rewrite_result.to_s, anything],
+        ['Src name field name', item.src_name_field_name, anything],
         ['Src name rewrite rule', item.src_name_rewrite_rule.to_s, anything],
         ['Src name rewrite result', item.src_name_rewrite_result.to_s, anything],
-        ['Src number field name', item.src_number_field.name, anything],
+        ['Src number field name', item.src_number_field_name, anything],
         ['Src rewrite rule', item.src_rewrite_rule.to_s, anything],
         ['Src rewrite result', item.src_rewrite_result.to_s, anything],
-        ['Dst number field name', item.dst_number_field.name, anything],
+        ['Dst number field name', item.dst_number_field_name, anything],
         ['Dst rewrite rule', item.dst_rewrite_rule.to_s, anything],
         ['Dst rewrite result', item.dst_rewrite_result.to_s, anything],
         ['Lua script name', item.lua_script.name, anything],
@@ -102,7 +106,9 @@ RSpec.describe 'Export Customers Auth', type: :feature do
         ['Ss src rewrite rule', item.ss_src_rewrite_rule.to_s, anything],
         ['Ss src rewrite result', item.ss_src_rewrite_result.to_s, anything],
         ['Ss dst rewrite rule', item.ss_dst_rewrite_rule.to_s, anything],
-        ['Ss dst rewrite result', item.ss_dst_rewrite_result.to_s, anything]
+        ['Ss dst rewrite result', item.ss_dst_rewrite_result.to_s, anything],
+        ['Stir shaken crt name', item.stir_shaken_crt.name, anything],
+        ['Scheduler name', item.scheduler.name, anything]
       ]
     )
   end

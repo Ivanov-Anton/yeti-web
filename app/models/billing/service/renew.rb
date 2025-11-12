@@ -4,6 +4,12 @@ class Billing::Service::Renew
   Error = Class.new(StandardError)
   DESCRIPTION = 'Renew service'
 
+  class << self
+    def perform(service)
+      new(service).perform
+    end
+  end
+
   attr_reader :service
   delegate :account, to: :service
 
@@ -20,29 +26,31 @@ class Billing::Service::Renew
         service.update!(state_id: Billing::Service::STATE_ID_SUSPENDED)
         provisioning_object.after_failed_renew
         provisioning_object.after_renew
-        return
+        Rails.logger.info { "Not enough balance to renew billing service ##{service.id}" }
+        nil
+      else
+        service.update!(state_id: Billing::Service::STATE_ID_ACTIVE, renew_at: next_renew_at)
+        create_transaction unless service.renew_price.zero?
+        provisioning_object.after_success_renew
+        provisioning_object.after_renew
+        Rails.logger.info { "Success renew billing service ##{service.id}" }
       end
-
-      service.update!(
-        state_id: Billing::Service::STATE_ID_ACTIVE,
-        renew_at: next_renew_at
-      )
-
-      transaction = Billing::Transaction.new(
-        service:,
-        account:,
-        amount: service.renew_price,
-        description: DESCRIPTION
-      )
-      raise Error, "Failed to create transaction: #{transaction.errors.full_messages.to_sentence}" unless transaction.save
-
-      provisioning_object.after_success_renew
-      provisioning_object.after_renew
-      transaction
     end
   end
 
   private
+
+  def create_transaction
+    transaction = Billing::Transaction.new(
+      service:,
+      account:,
+      amount: service.renew_price,
+      description: DESCRIPTION
+    )
+    raise Error, "Failed to create transaction: #{transaction.errors.full_messages.to_sentence}" unless transaction.save
+
+    transaction
+  end
 
   def provisioning_object
     @provisioning_object ||= service.build_provisioning_object
@@ -57,6 +65,12 @@ class Billing::Service::Renew
   end
 
   def enough_balance?
-    account.balance - account.min_balance >= service.renew_price
+    if service.renew_price.positive?
+      account.balance - service.renew_price >= account.min_balance
+    elsif service.renew_price.negative?
+      account.balance - service.renew_price <= account.max_balance
+    else # service.renew_price.zero?
+      true
+    end
   end
 end

@@ -7,7 +7,10 @@
 #  id                              :bigint(8)        not null, primary key
 #  audio_recorded                  :boolean
 #  auth_orig_ip                    :inet
+#  auth_orig_lat                   :float(24)
+#  auth_orig_lon                   :float(24)
 #  auth_orig_port                  :integer(4)
+#  cdo                             :integer(2)
 #  core_version                    :string
 #  customer_acc_vat                :decimal(, )
 #  customer_account_check_balance  :boolean
@@ -117,6 +120,7 @@
 #  dst_area_id                     :integer(4)
 #  dst_country_id                  :integer(4)
 #  dst_network_id                  :integer(4)
+#  dst_network_type_id             :integer(2)
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
@@ -138,6 +142,7 @@
 #  src_area_id                     :integer(4)
 #  src_country_id                  :integer(4)
 #  src_network_id                  :integer(4)
+#  src_network_type_id             :integer(2)
 #  term_call_id                    :string
 #  term_gw_external_id             :bigint(8)
 #  term_gw_id                      :integer(4)
@@ -201,13 +206,18 @@ class Cdr::Cdr < Cdr::Base
   ADMIN_PRELOAD_LIST = %i[
     dialpeer routing_group destination
     auth_orig_transport_protocol sign_orig_transport_protocol
-    src_network src_country
-    dst_network dst_country
+    src_network src_country src_network_type
+    dst_network dst_country dst_network_type
     routing_plan vendor
     term_gw orig_gw customer_auth vendor_acc customer_acc
     dst_area customer rateplan pop src_area lnp_database
     node sign_term_transport_protocol package_counter
   ].freeze
+
+  MASK_PHONE_NUMBER_REGEXP = /([0-9]{3})(?=@)/
+
+  # Used to adjust their format while create CDR Export.
+  TIME_SPECIFIC_FIELDS = %w[time_start time_end time_connect].freeze
 
   include Partitionable
   self.pg_partition_name = 'PgPartition::Cdr'
@@ -234,10 +244,14 @@ class Cdr::Cdr < Cdr::Base
   belongs_to :node, class_name: 'Node', foreign_key: :node_id, optional: true
   belongs_to :pop, class_name: 'Pop', foreign_key: :pop_id, optional: true
   belongs_to :pop, class_name: 'Pop', foreign_key: :pop_id, optional: true
+
   belongs_to :src_network, class_name: 'System::Network', foreign_key: :src_network_id, optional: true
+  belongs_to :src_network_type, class_name: 'System::NetworkType', foreign_key: :src_network_type_id, optional: true
   belongs_to :src_country, class_name: 'System::Country', foreign_key: :src_country_id, optional: true
   belongs_to :dst_network, class_name: 'System::Network', foreign_key: :dst_network_id, optional: true
+  belongs_to :dst_network_type, class_name: 'System::NetworkType', foreign_key: :dst_network_type_id, optional: true
   belongs_to :dst_country, class_name: 'System::Country', foreign_key: :dst_country_id, optional: true
+
   belongs_to :lnp_database, class_name: 'Lnp::Database', foreign_key: :lnp_database_id, optional: true
   belongs_to :auth_orig_transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :auth_orig_transport_protocol_id, optional: true
   belongs_to :sign_orig_transport_protocol, class_name: 'Equipment::TransportProtocol', foreign_key: :sign_orig_transport_protocol_id, optional: true
@@ -272,6 +286,7 @@ class Cdr::Cdr < Cdr::Base
   scope :not_authorized, -> { where('customer_auth_id is null') }
   scope :bad_routing, -> { where('customer_auth_id is not null AND disconnect_initiator_id=0') }
   scope :with_trace, -> { where('dump_level_id > 0') }
+  scope :with_recording, -> { where('audio_recorded and duration > 0 and local_tag is not null') }
   scope :package_billing, -> { where('package_counter_id is not null') }
 
   scope :account_id_eq, ->(account_id) { where('vendor_acc_id =? OR customer_acc_id =?', account_id, account_id) }
@@ -351,19 +366,33 @@ class Cdr::Cdr < Cdr::Base
     dump_level_id.nil? ? DUMP_LEVELS[0] : DUMP_LEVELS[dump_level_id]
   end
 
-  def dump_filename
-    if local_tag.present? && node_id.present?
-      "/dump/#{local_tag}_#{node_id}.pcap"
-    end
+  def dump_file_path
+    return unless (name = dump_file_name)
+
+    "/dump/#{name}"
+  end
+
+  def dump_file_name
+    return if local_tag.blank? || node_id.blank?
+
+    "#{local_tag}_#{node_id}.pcap"
   end
 
   def has_recording?
     audio_recorded? and local_tag.present? and duration > 0
   end
 
-  def call_record_filename
+  def call_record_file_path
+    return unless (name = call_record_file_name)
+
+    "/record/#{name}"
+  end
+
+  def call_record_file_name
+    return unless has_recording?
+
     fmt = YetiConfig.rec_format == 'wav' ? 'wav' : 'mp3'
-    "/record/#{local_tag}.#{fmt}" if has_recording?
+    "#{local_tag}.#{fmt}"
   end
 
   def call_record_ct

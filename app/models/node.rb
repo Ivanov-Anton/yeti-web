@@ -27,7 +27,6 @@ class Node < ApplicationRecord
   validates :id, :pop, :rpc_endpoint, :name, presence: true
   validates :id, :name, :rpc_endpoint, uniqueness: true
 
-  has_many :events, dependent: :destroy
   has_many :registrations, class_name: 'Equipment::Registration', dependent: :restrict_with_error
 
   def self.random_node
@@ -65,7 +64,7 @@ class Node < ApplicationRecord
     api.call_disconnect(id)
   end
 
-  # jsonrpc call 'yeti.show.aors'
+  # jsonrpc call 'registrar.show.aors'
   # @param auth_id [Integer] - filter by gateway.id (nil to show all data)
   def incoming_registrations(auth_id: nil, empty_on_error: false)
     params = auth_id.nil? ? [] : [auth_id]

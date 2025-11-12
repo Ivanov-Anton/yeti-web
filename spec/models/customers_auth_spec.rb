@@ -25,6 +25,8 @@
 #  interface                        :string           default([]), not null, is an Array
 #  ip                               :inet             default(["\"127.0.0.0/8\""]), is an Array
 #  name                             :string           not null
+#  pai_rewrite_result               :string
+#  pai_rewrite_rule                 :string
 #  reject_calls                     :boolean          default(FALSE), not null
 #  require_incoming_auth            :boolean          default(FALSE), not null
 #  send_billing_information         :boolean          default(FALSE), not null
@@ -49,13 +51,14 @@
 #  account_id                       :integer(4)
 #  cnam_database_id                 :integer(2)
 #  customer_id                      :integer(4)       not null
-#  diversion_policy_id              :integer(4)       default(1), not null
+#  diversion_policy_id              :integer(2)       default(1), not null
 #  dst_number_field_id              :integer(2)       default(1), not null
-#  dst_numberlist_id                :integer(2)
+#  dst_numberlist_id                :integer(4)
 #  dump_level_id                    :integer(2)       default(0), not null
 #  external_id                      :bigint(8)
 #  gateway_id                       :integer(4)       not null
 #  lua_script_id                    :integer(2)
+#  pai_policy_id                    :integer(2)       default(1), not null
 #  pop_id                           :integer(4)
 #  privacy_mode_id                  :integer(2)       default(1), not null
 #  radius_accounting_profile_id     :integer(2)
@@ -63,12 +66,14 @@
 #  rateplan_id                      :integer(4)       not null
 #  rewrite_ss_status_id             :integer(2)
 #  routing_plan_id                  :integer(4)       not null
+#  scheduler_id                     :integer(2)
 #  src_name_field_id                :integer(2)       default(1), not null
 #  src_number_field_id              :integer(2)       default(1), not null
-#  src_numberlist_id                :integer(2)
+#  src_numberlist_id                :integer(4)
 #  ss_invalid_identity_action_id    :integer(2)       default(0), not null
 #  ss_mode_id                       :integer(2)       default(0), not null
 #  ss_no_identity_action_id         :integer(2)       default(0), not null
+#  stir_shaken_crt_id               :integer(2)
 #  tag_action_id                    :integer(2)
 #  transport_protocol_id            :integer(2)
 #
@@ -80,6 +85,7 @@
 #  customers_auth_external_id_external_type_key_uniq  (external_id,external_type) UNIQUE
 #  customers_auth_external_id_key_uniq                (external_id) UNIQUE WHERE (external_type IS NULL)
 #  customers_auth_name_key                            (name) UNIQUE
+#  customers_auth_scheduler_id_idx                    (scheduler_id)
 #  customers_auth_src_numberlist_id_idx               (src_numberlist_id)
 #
 # Foreign Keys
@@ -87,9 +93,7 @@
 #  customers_auth_account_id_fkey                    (account_id => accounts.id)
 #  customers_auth_cnam_database_id_fkey              (cnam_database_id => cnam_databases.id)
 #  customers_auth_customer_id_fkey                   (customer_id => contractors.id)
-#  customers_auth_diversion_policy_id_fkey           (diversion_policy_id => diversion_policy.id)
 #  customers_auth_dst_blacklist_id_fkey              (dst_numberlist_id => numberlists.id)
-#  customers_auth_dst_number_field_id_fkey           (dst_number_field_id => customers_auth_dst_number_fields.id)
 #  customers_auth_gateway_id_fkey                    (gateway_id => gateways.id)
 #  customers_auth_lua_script_id_fkey                 (lua_script_id => lua_scripts.id)
 #  customers_auth_pop_id_fkey                        (pop_id => pops.id)
@@ -97,11 +101,9 @@
 #  customers_auth_radius_auth_profile_id_fkey        (radius_auth_profile_id => radius_auth_profiles.id)
 #  customers_auth_rateplan_id_fkey                   (rateplan_id => rateplans.id)
 #  customers_auth_routing_plan_id_fkey               (routing_plan_id => routing_plans.id)
+#  customers_auth_scheduler_id_fkey                  (scheduler_id => schedulers.id)
 #  customers_auth_src_blacklist_id_fkey              (src_numberlist_id => numberlists.id)
-#  customers_auth_src_name_field_id_fkey             (src_name_field_id => customers_auth_src_name_fields.id)
-#  customers_auth_src_number_field_id_fkey           (src_number_field_id => customers_auth_src_number_fields.id)
 #  customers_auth_tag_action_id_fkey                 (tag_action_id => tag_actions.id)
-#  customers_auth_transport_protocol_id_fkey         (transport_protocol_id => transport_protocols.id)
 #
 
 RSpec.describe CustomersAuth, type: :model do
@@ -238,7 +240,7 @@ RSpec.describe CustomersAuth, type: :model do
 
       context 'when customers_auth with external_id=123,external_type=null exists' do
         before do
-          create(:customers_auth, external_id: 123)
+          create(:customers_auth, external_id: 123, external_type: nil)
         end
 
         include_examples :does_not_create_record, errors: {
@@ -262,7 +264,7 @@ RSpec.describe CustomersAuth, type: :model do
 
     context 'with external_type="bar"' do
       let(:create_params) do
-        super().merge external_type: 'bar'
+        super().merge external_id: nil, external_type: 'bar'
       end
 
       include_examples :does_not_create_record, errors: {

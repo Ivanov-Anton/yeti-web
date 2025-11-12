@@ -1,0 +1,532 @@
+country_id: &ga 77
+networks:
+# Fixed Networks
+  - id: &ga_intelligent_network 21336
+    name: GA Intelligent Network
+    uuid: 1687650f-186d-4478-a9ff-c45efa3113a0
+    type_id: 13
+  - id: &ga_special_services 21402
+    name: GA Special Services
+    uuid: fe3c3d7f-138e-4bb1-b100-d7d7f68b03d3
+    type_id: 13
+  - id: &ga_fixed 21563
+    name: GA Fixed
+    uuid: bd0e277d-8515-467b-a604-7f27ccebd04b
+    type_id: 2
+  - id: &ga_kango_region 21602
+    name: GA Kango Region
+    uuid: c3d9257a-8203-4c44-8071-275c856bc988
+    type_id: 2
+  - id: &ga_ntoum_region 21603
+    name: GA Ntoum Region
+    uuid: 0f813fd6-3316-4559-93f0-2d5f606bdf4b
+    type_id: 2
+  - id: &ga_cocobeach_region 21604
+    name: GA Cocobeach Region
+    uuid: 775d125c-0019-4ce5-acb5-fdabc09130cb
+    type_id: 2
+  - id: &ga_gros_bouquet_region 21605
+    name: GA Gros Bouquet Region
+    uuid: 1c901744-6f3a-4147-b156-4e153e66278e
+    type_id: 2
+  - id: &ga_angondje_region 21606
+    name: GA Angondje Region
+    uuid: 75c808aa-7ed5-4b41-815c-bde8e3d2c075
+    type_id: 2
+  - id: &ga_mindoube_region 21607
+    name: GA Mindoube Region
+    uuid: 6dd07aee-23f3-4fa2-8cbf-509ddc576016
+    type_id: 2
+  - id: &ga_libreville_prepaid_region 21608
+    name: GA Libreville Prepaid Region
+    uuid: b4e5eb5f-aa7f-4c9c-87d1-6d2bfcb53e00
+    type_id: 2
+  - id: &ga_moov_africa_satellite 21609
+    name: GA Moov Africa Satellite
+    uuid: b8233159-c13b-46ae-bfea-49abe531db66
+    type_id: 15
+  - id: &ga_gamba_region 21612
+    name: GA Gamba Region
+    uuid: aac1e3b5-6694-4147-9534-5f07f0de5ced
+    type_id: 2
+  - id: &ga_omboue_region 21613
+    name: GA Omboue Region
+    uuid: e8ad9a49-a86f-4c35-879d-5ba7d92f790d
+    type_id: 2
+  - id: &ga_port_gentil_region 21614
+    name: GA Port Gentil Region
+    uuid: 5290ee85-5192-48ef-96a3-f7de9f8b5f59
+    type_id: 2
+  - id: &ga_lambarene_region 21615
+    name: GA Lambarene Region
+    uuid: 04317fed-6187-4b28-902c-7525f1f2e575
+    type_id: 2
+  - id: &ga_ndjole_region 21616
+    name: GA Ndjole Region
+    uuid: 7e792cbc-e09f-4e23-aa04-f0685f17968c
+    type_id: 2
+  - id: &ga_ngouoni_region 21652
+    name: GA Ngouoni Region
+    uuid: d086587a-1fc6-418c-8cda-7fca022e570d
+    type_id: 2
+  - id: &ga_mounana_region 21653
+    name: GA Mounana Region
+    uuid: 684f1c62-0f3a-4e33-9743-c51355d026b4
+    type_id: 2
+  - id: &ga_lastourville_region 21654
+    name: GA Lastourville Region
+    uuid: 1fbff361-285c-4fc6-90e0-cb5e5609454c
+    type_id: 2
+  - id: &ga_koulamoutou_region 21655
+    name: GA Koulamoutou Region
+    uuid: 82ea5f05-35e3-42e4-b555-0ab5201adb29
+    type_id: 2
+  - id: &ga_moanda_region 21656
+    name: GA Moanda Region
+    uuid: 803e27ea-ef81-4fac-9da8-1c924ec2f0be
+    type_id: 2
+  - id: &ga_franceville_region 21657
+    name: GA Franceville Region
+    uuid: 0dbdf6dd-c05a-4710-ba25-ce41a4085bdb
+    type_id: 2
+  - id: &ga_okondja_region 21658
+    name: GA Okondja Region
+    uuid: b7dec480-232a-4e2d-8f56-6bfc30b9af3d
+    type_id: 2
+  - id: &ga_akieni_region 21659
+    name: GA Akieni Region
+    uuid: 766aa5aa-d239-4f59-a805-cf16bc16a283
+    type_id: 2
+  - id: &ga_leconi_region 21660
+    name: GA Leconi Region
+    uuid: 88124deb-8b26-4868-8c1f-43d5ae452776
+    type_id: 2
+  - id: &ga_owendo_region 21661
+    name: GA Owendo Region
+    uuid: 15612791-0bb5-464a-a2e3-49f2b2521b39
+    type_id: 2
+  - id: &ga_nzeng_ayong_region 21662
+    name: GA Nzeng Ayong Region
+    uuid: f35eb4d1-307e-4cf6-afb1-98325c18293c
+    type_id: 2
+  - id: &ga_libreville_centre_region 21663
+    name: GA Libreville Centre Region
+    uuid: 38822f1d-f822-49ba-a669-d7cc58b2a0c4
+    type_id: 2
+  - id: &ga_delta_postal_region 21664
+    name: GA Delta Postal Region
+    uuid: f3d0ef7b-7ec5-4af0-bf36-56ea359e6f10
+    type_id: 2
+  - id: &ga_tchibanga_region 21698
+    name: GA Tchibanga Region
+    uuid: 3be59873-d84e-46d5-b339-56a4c33181c4
+    type_id: 2
+  - id: &ga_mayumba_region 21699
+    name: GA Mayumba Region
+    uuid: c5e38b92-84b3-42fc-a3a5-a45a00bf2238
+    type_id: 2
+  - id: &ga_mouila_region 21700
+    name: GA Mouila Region
+    uuid: f3040ffd-8999-4c20-8e62-b890562765e8
+    type_id: 2
+  - id: &ga_makokou_region 21701
+    name: GA Makokou Region
+    uuid: 44d159da-fc73-46bb-b8de-e5f1e7ece93f
+    type_id: 2
+  - id: &ga_mekambo_region 21702
+    name: GA Mekambo Region
+    uuid: 226b4e77-b523-4572-a880-3a5973f5003d
+    type_id: 2
+# Supplementary services Networks
+  - id: &ga_booue_region 21703
+    name: GA Booue Region
+    uuid: 850ca148-c79b-4b1b-b89c-fd9182a71441
+    type_id: 2
+  - id: &ga_bitam_region 21704
+    name: GA Bitam Region
+    uuid: 6a82a18a-7e2e-4fc4-8d92-dcd7d6f6144c
+    type_id: 2
+  - id: &ga_oyem_region 21705
+    name: GA Oyem Region
+    uuid: 08c5879f-44b3-4882-bf44-1fe2114c5775
+    type_id: 2
+  - id: &ga_moov_africa_mobile 23507
+    name: GA Moov Africa Mobile
+    uuid: a0bcf905-5bfd-46b1-a40a-5d38d864ac58
+    type_id: 3
+# Satellite Networks
+  - id: &ga_airtel_mobile 23630
+    name: GA Airtel Mobile
+    uuid: 0af0a1bd-9c4b-4930-ab27-1a2833b18047
+    type_id: 3
+# Mobile Networks
+  - id: &ga_value_added_services 23790
+    name: GA Value Added Services
+    uuid: 1ea00dd5-322c-4b9d-88ec-ca1456374634
+    type_id: 13
+  - id: &ga_gabonese_administration_rag 24394
+    name: GA Gabonese Administration Rag
+    uuid: d6079e59-faf0-48de-ad05-4025f11c5d3b
+    type_id: 13
+network_prefixes:
+# Fixed Prefixes
+  - id: 241997
+    prefix: '241'
+    number_min_length: 4
+    number_max_length: 100
+    uuid: fddd1340-a902-40b5-b0bb-dda80ae3bab2
+    country_id: *ga
+    network_id: *ga_fixed
+  - id: 242317
+    prefix: '241080'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 8e27bb8c-af09-4fef-9ede-87138f8e1cb1
+    country_id: *ga
+    network_id: *ga_intelligent_network
+  - id: 242398
+    prefix: '2411'
+    number_min_length: 5
+    number_max_length: 7
+    uuid: 1f0539a3-089a-484b-a89f-55e0299d4a77
+    country_id: *ga
+    network_id: *ga_special_services
+  - id: 507007
+    prefix: '24111'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 156146a4-343b-47af-b129-70ec786789bd
+    country_id: *ga
+    network_id: *ga_fixed
+  - id: 507009
+    prefix: '2411140'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 1f099c38-a5aa-4c98-8a64-9acc031a4d0a
+    country_id: *ga
+    network_id: *ga_kango_region
+  - id: 507010
+    prefix: '24111420'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 37622e1b-23ae-43c8-9d98-000b453ecb02
+    country_id: *ga
+    network_id: *ga_ntoum_region
+  - id: 507011
+    prefix: '24111424'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: c7bae183-088c-44d4-abbc-12a602c8c6dd
+    country_id: *ga
+    network_id: *ga_cocobeach_region
+  - id: 507012
+    prefix: '2411144'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: e7dc1536-2ff6-421f-8fed-df849094447f
+    country_id: *ga
+    network_id: *ga_gros_bouquet_region
+  - id: 507013
+    prefix: '2411145'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 7dec8e79-caed-4fb8-b3c3-26ca17a05e9d
+    country_id: *ga
+    network_id: *ga_angondje_region
+  - id: 507014
+    prefix: '2411146'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 91b6ce10-7ba1-41be-bfc6-483376a2f406
+    country_id: *ga
+    network_id: *ga_mindoube_region
+  - id: 507015
+    prefix: '2411147'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 02d0d5f3-206e-459b-b015-3d284869c423
+    country_id: *ga
+    network_id: *ga_libreville_prepaid_region
+  - id: 507016
+    prefix: '2411149'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 397b1882-4eb9-4617-aaa6-7b34f08f5fac
+    country_id: *ga
+    network_id: *ga_moov_africa_satellite
+  - id: 507017
+    prefix: '2411150'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 9fa47b44-568e-4845-b7ee-43ea5dc324f7
+    country_id: *ga
+    network_id: *ga_gamba_region
+  - id: 507018
+    prefix: '2411154'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: ee5a43ba-30df-4e93-8f67-69cd59819495
+    country_id: *ga
+    network_id: *ga_omboue_region
+  - id: 507019
+    prefix: '2411155'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 3f657c6c-a4eb-42a5-bb50-da90dfcf4b2b
+    country_id: *ga
+    network_id: *ga_port_gentil_region
+  - id: 507020
+    prefix: '2411156'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 5b192f7d-adc7-40a5-8567-241de612508a
+    country_id: *ga
+    network_id: *ga_port_gentil_region
+  - id: 507021
+    prefix: '2411158'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 0e6222dc-0038-4313-a67d-0a7e3f8b3de2
+    country_id: *ga
+    network_id: *ga_lambarene_region
+  - id: 507022
+    prefix: '2411159'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: cb9c148a-ebf9-4cac-bc9b-f7ed6a042159
+    country_id: *ga
+    network_id: *ga_ndjole_region
+  - id: 507023
+    prefix: '2411160'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: ee04b164-b2ef-49cc-b196-7d3dbd1bdc69
+    country_id: *ga
+    network_id: *ga_ngouoni_region
+  - id: 507024
+    prefix: '2411162'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 956ab322-7724-4ca0-ad38-b36f03139ec0
+    country_id: *ga
+    network_id: *ga_mounana_region
+  - id: 507025
+    prefix: '2411164'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 52c4f9e9-c1bb-416a-8a17-dbc2b9547677
+    country_id: *ga
+    network_id: *ga_lastourville_region
+  - id: 507026
+    prefix: '2411165'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 2a6b1924-6c02-4fdb-8864-419b3b397502
+    country_id: *ga
+    network_id: *ga_koulamoutou_region
+  - id: 507027
+    prefix: '2411166'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 39f7a49a-b440-40ae-9bff-11493424551d
+    country_id: *ga
+    network_id: *ga_moanda_region
+  - id: 507028
+    prefix: '2411167'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 1f5f1a36-c9dc-4e66-aa0e-d37070c1adb0
+    country_id: *ga
+    network_id: *ga_franceville_region
+  - id: 507029
+    prefix: '24111693'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 906dba5f-dca1-4d59-aa9b-185eccd1975d
+    country_id: *ga
+    network_id: *ga_okondja_region
+  - id: 507030
+    prefix: '24111696'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 84cdc80c-a4a2-4990-aaa0-5a15da5344e8
+    country_id: *ga
+    network_id: *ga_akieni_region
+  - id: 507031
+    prefix: '24111699'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: e713a2f4-5ae7-4c42-be6a-e42dbdc10b63
+    country_id: *ga
+    network_id: *ga_leconi_region
+  - id: 507032
+    prefix: '2411170'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: f9cf943d-48cb-4649-80c2-f14bdb189e27
+    country_id: *ga
+    network_id: *ga_owendo_region
+  - id: 507033
+    prefix: '2411171'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: b33bfb6c-ea19-40c3-8599-2d25ca8e47f7
+    country_id: *ga
+    network_id: *ga_nzeng_ayong_region
+  - id: 507034
+    prefix: '2411172'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 907ccb68-ccee-43c0-acf8-956691fefaf9
+    country_id: *ga
+    network_id: *ga_libreville_centre_region
+  - id: 507035
+    prefix: '2411173'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: b3d58ecf-a3c4-4d6a-b505-b5e6b430df0c
+    country_id: *ga
+    network_id: *ga_gros_bouquet_region
+  - id: 507036
+    prefix: '2411174'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 9a46cbb1-201c-4da0-8686-0f519bfd2baf
+    country_id: *ga
+    network_id: *ga_libreville_centre_region
+  - id: 507037
+    prefix: '2411176'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 0e6f6b2f-e6be-4169-adf8-0bfcd4e314e3
+    country_id: *ga
+    network_id: *ga_libreville_centre_region
+  - id: 507038
+    prefix: '2411177'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 523a8fc1-99f4-47b1-85b5-59f09b1dda98
+    country_id: *ga
+    network_id: *ga_libreville_centre_region
+  - id: 507039
+    prefix: '2411178'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: bec8e09c-99de-441d-a9fc-57fec198d850
+    country_id: *ga
+    network_id: *ga_delta_postal_region
+  - id: 507040
+    prefix: '2411179'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: fb3c227b-2458-41e4-9a7f-0744e786d815
+    country_id: *ga
+    network_id: *ga_libreville_centre_region
+  - id: 507042
+    prefix: '2411182'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: d20dae0e-86ee-4b38-a8f3-25ef3e0c160f
+    country_id: *ga
+    network_id: *ga_tchibanga_region
+  - id: 507043
+    prefix: '2411183'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: dd5f1a8c-acca-4d00-8915-119b784115de
+    country_id: *ga
+    network_id: *ga_mayumba_region
+  - id: 507044
+    prefix: '2411186'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 24cedb28-2f2a-42a9-8ff3-10d37082e8ea
+    country_id: *ga
+    network_id: *ga_mouila_region
+  - id: 507045
+    prefix: '2411190'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 6b4092a1-6a22-4701-9d42-1b76085dfddf
+    country_id: *ga
+    network_id: *ga_makokou_region
+  - id: 507046
+    prefix: '2411192'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 063e36bb-50d3-4bf4-a84d-747e4f26f031
+    country_id: *ga
+    network_id: *ga_mekambo_region
+# Supplementary services Prefixes
+  - id: 507047
+    prefix: '2411193'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: a98c14ad-cdc5-467d-a158-1f4660c657b3
+    country_id: *ga
+    network_id: *ga_booue_region
+  - id: 507048
+    prefix: '2411196'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 99b1cae5-2aa6-4e48-a8d6-925b8ad4ef33
+    country_id: *ga
+    network_id: *ga_bitam_region
+  - id: 507049
+    prefix: '2411198'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 5e699ec4-3dea-4888-899d-bc812cd3a25c
+    country_id: *ga
+    network_id: *ga_oyem_region
+  - id: 507366
+    prefix: '24162'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 7d503374-6d9e-4346-9743-6e07ac821fd9
+    country_id: *ga
+    network_id: *ga_moov_africa_mobile
+# Satellite Prefixes
+  - id: 509628
+    prefix: '24165'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 1f73b85f-3656-4cf4-b428-acc764685a4d
+    country_id: *ga
+    network_id: *ga_moov_africa_mobile
+# Mobile Prefixes
+  - id: 509721
+    prefix: '24166'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: f27b327d-3460-4628-a1a1-60bbb76f9584
+    country_id: *ga
+    network_id: *ga_moov_africa_mobile
+  - id: 507571
+    prefix: '24174'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: e15c8756-119c-4f92-8e42-785b686ee9d5
+    country_id: *ga
+    network_id: *ga_airtel_mobile
+  - id: 510286
+    prefix: '24177'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: de8fe5ea-89c2-4719-9177-f30ca2630825
+    country_id: *ga
+    network_id: *ga_airtel_mobile
+  - id: 510851
+    prefix: '2418'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 6095ea89-3db3-4723-8813-3187f93793ee
+    country_id: *ga
+    network_id: *ga_value_added_services
+  - id: 508380
+    prefix: '2419'
+    number_min_length: 11
+    number_max_length: 11
+    uuid: 08fecde7-0d2f-480c-a21d-3fa83709568b
+    country_id: *ga
+    network_id: *ga_gabonese_administration_rag

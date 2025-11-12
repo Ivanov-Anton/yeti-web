@@ -116,7 +116,7 @@ class Billing::Invoice < Cdr::Base
   has_many :terminated_destinations, class_name: 'Billing::InvoiceTerminatedDestination', foreign_key: :invoice_id, dependent: :delete_all
   has_many :originated_networks, class_name: 'Billing::InvoiceOriginatedNetwork', foreign_key: :invoice_id, dependent: :delete_all
   has_many :terminated_networks, class_name: 'Billing::InvoiceTerminatedNetwork', foreign_key: :invoice_id, dependent: :delete_all
-  has_many :services_data, class_name: 'Billing::InvoiceServiceData', foreign_key: :invoice_id, dependent: :delete_all
+  has_many :service_data, class_name: 'Billing::InvoiceServiceData', foreign_key: :invoice_id, dependent: :delete_all
 
   validates :contractor,
             :account,
@@ -158,14 +158,6 @@ class Billing::Invoice < Cdr::Base
     "Invoice #{id}"
   end
 
-  # todo service
-  def approve
-    transaction do
-      update!(state_id: Billing::InvoiceState::APPROVED)
-      send_email
-    end
-  end
-
   def approvable?
     state.pending?
   end
@@ -194,12 +186,6 @@ class Billing::Invoice < Cdr::Base
 
   def subject
     display_name
-  end
-
-  # FIX this copy paste
-  # todo service
-  def send_email
-    invoice_document&.send_invoice
   end
 
   private

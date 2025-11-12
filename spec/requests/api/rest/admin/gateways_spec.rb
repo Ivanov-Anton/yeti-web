@@ -8,6 +8,7 @@ RSpec.describe Api::Rest::Admin::GatewaysController, type: :request do
     session-refresh-method
     sdp-alines-filter-type
     term-disconnect-policy
+    orig-disconnect-policy
     gateway-group
     diversion-send-mode
     pop
@@ -468,6 +469,7 @@ RSpec.describe Api::Rest::Admin::GatewaysController, type: :request do
 
     let!(:gateway_response_attributes) do
       {
+        'external-id': gateway.external_id,
         name: gateway.name,
         enabled: gateway.enabled,
         priority: gateway.priority,
@@ -501,6 +503,8 @@ RSpec.describe Api::Rest::Admin::GatewaysController, type: :request do
         'term-next-hop-for-replies': gateway.term_next_hop_for_replies,
         'term-next-hop': gateway.term_next_hop,
         'term-append-headers-req': gateway.term_append_headers_req,
+        'orig-append-headers-req': gateway.orig_append_headers_req,
+        'orig-append-headers-reply': gateway.orig_append_headers_reply,
         'sdp-alines-filter-list': gateway.sdp_alines_filter_list,
         'ringing-timeout': gateway.ringing_timeout,
         'relay-options': gateway.relay_options,

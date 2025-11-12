@@ -34,14 +34,22 @@ Warden.test_mode!
 RSpec::Matchers.define_negated_matcher :not_eq, :eq
 
 RSpec.configure do |config|
+  # allows to run ldap tests on CI separately
+  if ENV['CI_RUN_LDAP'].present?
+    config.filter_run_including :ldap
+  else
+    config.filter_run_excluding :ldap
+  end
+
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
-  config.fixture_path = Rails.root.join 'spec/fixtures'
+  config.fixture_paths = [Rails.root.join('spec/fixtures')]
 
   # If you're not using ActiveRecord, or you'd prefer not to run each of your
   # examples within a transaction, remove the following line or assign false
   # instead of true.
   config.use_transactional_fixtures = true
   config.disable_monkey_patching!
+  config.raise_errors_for_deprecations!
 
   if Bullet.enable?
     # bullet bug https://github.com/flyerhzm/bullet/issues/586
@@ -67,13 +75,9 @@ RSpec.configure do |config|
     'sys.sensor_levels',
     :disconnect_policy,
     :disconnect_code_namespace,
-    :diversion_policy,
     :filter_types,
     :sdp_c_location,
     :codecs,
-    'class4.customers_auth_dst_number_fields',
-    'class4.customers_auth_src_number_fields',
-    'class4.customers_auth_src_name_fields',
     'class4.dtmf_send_modes',
     'class4.dtmf_receive_modes',
     'class4.gateway_rel100_modes',
@@ -84,10 +88,10 @@ RSpec.configure do |config|
     'class4.transport_protocols',
     'class4.tag_actions',
     'class4.routing_tag_modes',
-    'class4.gateway_group_balancing_modes',
     'sys.timezones',
     'sys.jobs',
-    'sys.states'
+    'sys.states',
+    'sys.customer_portal_access_profiles'
   ]
 
   # RSpec Rails can automatically mix in different behaviours to your tests

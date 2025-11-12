@@ -5,11 +5,11 @@
 # Table name: class4.gateways
 #
 #  id                               :integer(4)       not null, primary key
-#  acd_limit                        :float            default(0.0), not null
+#  acd_limit                        :float(24)        default(0.0), not null
 #  allow_1xx_without_to_tag         :boolean          default(FALSE), not null
 #  allow_origination                :boolean          default(TRUE), not null
 #  allow_termination                :boolean          default(TRUE), not null
-#  asr_limit                        :float            default(0.0), not null
+#  asr_limit                        :float(24)        default(0.0), not null
 #  auth_enabled                     :boolean          default(FALSE), not null
 #  auth_from_domain                 :string
 #  auth_from_user                   :string
@@ -32,6 +32,7 @@
 #  force_one_way_early_media        :boolean          default(FALSE), not null
 #  force_symmetric_rtp              :boolean          default(TRUE), not null
 #  host                             :string
+#  incoming_auth_allow_jwt          :boolean          default(FALSE), not null
 #  incoming_auth_password           :string
 #  incoming_auth_username           :string
 #  is_shared                        :boolean          default(FALSE), not null
@@ -39,8 +40,8 @@
 #  max_30x_redirects                :integer(2)       default(0), not null
 #  max_transfers                    :integer(2)       default(0), not null
 #  name                             :string           not null
-#  orig_append_headers_reply        :string           is an Array
-#  orig_append_headers_req          :string
+#  orig_append_headers_reply        :string           default([]), not null, is an Array
+#  orig_append_headers_req          :string           default([]), not null, is an Array
 #  orig_force_outbound_proxy        :boolean          default(FALSE), not null
 #  orig_next_hop                    :string
 #  orig_outbound_proxy              :string
@@ -67,7 +68,7 @@
 #  rtp_timeout                      :integer(4)       default(30), not null
 #  sdp_alines_filter_list           :string
 #  send_lnp_information             :boolean          default(FALSE), not null
-#  short_calls_limit                :float            default(1.0), not null
+#  short_calls_limit                :float(24)        default(1.0), not null
 #  single_codec_in_200ok            :boolean          default(FALSE), not null
 #  sip_interface_name               :string
 #  sip_timer_b                      :integer(4)       default(8000), not null
@@ -82,24 +83,33 @@
 #  sst_session_expires              :integer(4)       default(50)
 #  suppress_early_media             :boolean          default(FALSE), not null
 #  symmetric_rtp_nonstop            :boolean          default(FALSE), not null
-#  term_append_headers_req          :string
+#  term_append_headers_req          :string           default([]), not null, is an Array
 #  term_force_outbound_proxy        :boolean          default(FALSE), not null
 #  term_next_hop                    :string
 #  term_next_hop_for_replies        :boolean          default(FALSE), not null
 #  term_outbound_proxy              :string
 #  term_use_outbound_proxy          :boolean          default(FALSE), not null
 #  termination_capacity             :integer(2)
+#  termination_cps_limit            :integer(2)
+#  termination_cps_wsize            :integer(2)       default(1), not null
+#  termination_subscriber_capacity  :integer(2)
+#  termination_subscriber_cps_limit :integer(2)
+#  termination_subscriber_cps_wsize :integer(2)       default(1), not null
 #  to_rewrite_result                :string
 #  to_rewrite_rule                  :string
+#  transfer_append_headers_req      :string           default([]), not null, is an Array
+#  transfer_tel_uri_host            :string
 #  transit_headers_from_origination :string
 #  transit_headers_from_termination :string
 #  try_avoid_transcoding            :boolean          default(FALSE), not null
+#  uuid                             :uuid             not null
 #  weight                           :integer(2)       default(100), not null
 #  codec_group_id                   :integer(4)       default(1), not null
 #  contractor_id                    :integer(4)       not null
 #  diversion_send_mode_id           :integer(2)       default(1), not null
 #  dtmf_receive_mode_id             :integer(2)       default(1), not null
 #  dtmf_send_mode_id                :integer(2)       default(1), not null
+#  dump_level_id                    :integer(2)       default(0), not null
 #  external_id                      :bigint(8)
 #  gateway_group_id                 :integer(4)
 #  lua_script_id                    :integer(2)
@@ -114,6 +124,7 @@
 #  registered_aor_mode_id           :integer(2)       default(0), not null
 #  rel100_mode_id                   :integer(2)       default(4), not null
 #  rx_inband_dtmf_filtering_mode_id :integer(2)       default(1), not null
+#  scheduler_id                     :integer(2)
 #  sdp_alines_filter_type_id        :integer(4)       default(0), not null
 #  sdp_c_location_id                :integer(4)       default(2), not null
 #  sensor_id                        :integer(2)
@@ -124,18 +135,21 @@
 #  stir_shaken_mode_id              :integer(2)       default(0), not null
 #  term_disconnect_policy_id        :integer(4)
 #  term_proxy_transport_protocol_id :integer(2)       default(1), not null
-#  termination_dst_numberlist_id    :integer(2)
-#  termination_src_numberlist_id    :integer(2)
+#  termination_dst_numberlist_id    :integer(4)
+#  termination_src_numberlist_id    :integer(4)
+#  throttling_profile_id            :integer(2)
 #  transparent_dialog_id            :boolean          default(FALSE), not null
 #  transport_protocol_id            :integer(2)       default(1), not null
 #  tx_inband_dtmf_filtering_mode_id :integer(2)       default(1), not null
 #
 # Indexes
 #
-#  gateways_contractor_id_idx      (contractor_id)
-#  gateways_dst_numberlist_id_idx  (termination_dst_numberlist_id)
-#  gateways_name_unique            (name) UNIQUE
-#  gateways_src_numberlist_id_idx  (termination_src_numberlist_id)
+#  gateways_contractor_id_idx          (contractor_id)
+#  gateways_dst_numberlist_id_idx      (termination_dst_numberlist_id)
+#  gateways_name_unique                (name) UNIQUE
+#  gateways_scheduler_id_idx           (scheduler_id)
+#  gateways_src_numberlist_id_idx      (termination_src_numberlist_id)
+#  gateways_throttling_profile_id_idx  (throttling_profile_id)
 #
 # Foreign Keys
 #
@@ -154,6 +168,7 @@
 #  gateways_radius_accounting_profile_id_fkey      (radius_accounting_profile_id => radius_accounting_profiles.id)
 #  gateways_rel100_mode_id_fkey                    (rel100_mode_id => gateway_rel100_modes.id)
 #  gateways_rx_inband_dtmf_filtering_mode_id_fkey  (rx_inband_dtmf_filtering_mode_id => gateway_inband_dtmf_filtering_modes.id)
+#  gateways_scheduler_id_fkey                      (scheduler_id => schedulers.id)
 #  gateways_sdp_alines_filter_type_id_fkey         (sdp_alines_filter_type_id => filter_types.id)
 #  gateways_sdp_c_location_id_fkey                 (sdp_c_location_id => sdp_c_location.id)
 #  gateways_sensor_id_fkey                         (sensor_id => sensors.id)
@@ -162,6 +177,9 @@
 #  gateways_stir_shaken_crt_id_fkey                (stir_shaken_crt_id => stir_shaken_signing_certificates.id)
 #  gateways_term_disconnect_policy_id_fkey         (term_disconnect_policy_id => disconnect_policy.id)
 #  gateways_term_proxy_transport_protocol_id_fkey  (term_proxy_transport_protocol_id => transport_protocols.id)
+#  gateways_termination_dst_numberlist_id_fkey     (termination_dst_numberlist_id => numberlists.id)
+#  gateways_termination_src_numberlist_id_fkey     (termination_src_numberlist_id => numberlists.id)
+#  gateways_throttling_profile_id_fkey             (throttling_profile_id => gateway_throttling_profiles.id)
 #  gateways_transport_protocol_id_fkey             (transport_protocol_id => transport_protocols.id)
 #  gateways_tx_inband_dtmf_filtering_mode_id_fkey  (tx_inband_dtmf_filtering_mode_id => gateway_inband_dtmf_filtering_modes.id)
 #
@@ -265,14 +283,12 @@ RSpec.describe Gateway, type: :model do
       }
     end
 
-    include_examples :does_not_call_event_with, :reload_incoming_auth
     include_examples :creates_record
     include_examples :changes_records_qty_of, described_class, by: 1
 
     context 'with auth credentials' do
       let(:create_params) { super().merge(incoming_auth_username: 'qwe', incoming_auth_password: 'asd') }
 
-      include_examples :calls_event_with, :reload_incoming_auth
       include_examples :creates_record
       include_examples :changes_records_qty_of, described_class, by: 1
     end
@@ -324,7 +340,6 @@ RSpec.describe Gateway, type: :model do
         let(:update_params) { { enabled: true } }
 
         include_examples :updates_record
-        include_examples :does_not_call_event_with, :reload_incoming_auth
       end
 
       context 'when change enable true->false' do
@@ -332,7 +347,6 @@ RSpec.describe Gateway, type: :model do
         let(:update_params) { { enabled: false } }
 
         include_examples :updates_record
-        include_examples :does_not_call_event_with, :reload_incoming_auth
       end
 
       context 'when change incoming_auth_username to something' do
@@ -341,7 +355,6 @@ RSpec.describe Gateway, type: :model do
         include_examples :does_not_update_record, errors: {
           incoming_auth_password: "can't be blank"
         }
-        include_examples :does_not_call_event_with, :reload_incoming_auth
       end
 
       context 'when change incoming_auth_password to something' do
@@ -350,14 +363,12 @@ RSpec.describe Gateway, type: :model do
         include_examples :does_not_update_record, errors: {
           incoming_auth_username: "can't be blank"
         }
-        include_examples :does_not_call_event_with, :reload_incoming_auth
       end
 
       context 'when change incoming_auth_username and incoming_auth_password to something' do
         let(:update_params) { { incoming_auth_username: 'qwe', incoming_auth_password: 'asd' } }
 
         include_examples :updates_record
-        include_examples :calls_event_with, :reload_incoming_auth
       end
     end
 
@@ -369,7 +380,6 @@ RSpec.describe Gateway, type: :model do
         let(:update_params) { { enabled: true } }
 
         include_examples :updates_record
-        include_examples :calls_event_with, :reload_incoming_auth
       end
 
       context 'when change enable true->false' do
@@ -377,7 +387,6 @@ RSpec.describe Gateway, type: :model do
         let(:update_params) { { enabled: false } }
 
         include_examples :updates_record
-        include_examples :calls_event_with, :reload_incoming_auth
       end
 
       context 'when clear incoming_auth_username and incoming_auth_password' do
@@ -385,13 +394,11 @@ RSpec.describe Gateway, type: :model do
         before { record.customers_auths.where(require_incoming_auth: true).delete_all }
 
         include_examples :updates_record
-        include_examples :calls_event_with, :reload_incoming_auth
 
         context 'when was enabled' do
           let(:record_attrs) { super().merge(enabled: true) }
 
           include_examples :updates_record
-          include_examples :calls_event_with, :reload_incoming_auth
         end
       end
     end
@@ -408,7 +415,6 @@ RSpec.describe Gateway, type: :model do
     context 'without incoming_auth' do
       include_examples :changes_records_qty_of, described_class, by: -1
       include_examples :destroys_record
-      include_examples :does_not_call_event_with, :reload_incoming_auth
     end
 
     context 'with incoming_auth' do
@@ -416,7 +422,6 @@ RSpec.describe Gateway, type: :model do
 
       include_examples :changes_records_qty_of, described_class, by: -1
       include_examples :destroys_record
-      include_examples :calls_event_with, :reload_incoming_auth
     end
 
     context 'when Gateway is linked to RateManagement Project' do

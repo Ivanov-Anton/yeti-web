@@ -4,10 +4,13 @@
 #
 # Table name: cdr.cdr
 #
-#  id                              :bigint(8)        not null
+#  id                              :bigint(8)        not null, primary key
 #  audio_recorded                  :boolean
 #  auth_orig_ip                    :inet
+#  auth_orig_lat                   :float(24)
+#  auth_orig_lon                   :float(24)
 #  auth_orig_port                  :integer(4)
+#  cdo                             :integer(2)
 #  core_version                    :string
 #  customer_acc_vat                :decimal(, )
 #  customer_account_check_balance  :boolean
@@ -117,6 +120,7 @@
 #  dst_area_id                     :integer(4)
 #  dst_country_id                  :integer(4)
 #  dst_network_id                  :integer(4)
+#  dst_network_type_id             :integer(2)
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
@@ -138,6 +142,7 @@
 #  src_area_id                     :integer(4)
 #  src_country_id                  :integer(4)
 #  src_network_id                  :integer(4)
+#  src_network_type_id             :integer(2)
 #  term_call_id                    :string
 #  term_gw_external_id             :bigint(8)
 #  term_gw_id                      :integer(4)

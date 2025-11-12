@@ -10,6 +10,8 @@
 #  filters             :json             not null
 #  rows_count          :integer(4)
 #  status              :string           not null
+#  time_format         :string           default("with_timezone"), not null
+#  time_zone_name      :string
 #  type                :string           not null
 #  uuid                :uuid             not null
 #  created_at          :datetime
@@ -110,6 +112,18 @@ class CdrExport < ApplicationRecord
     dst_country_iso_in
   ].freeze
 
+  WITH_TIMEZONE_TIME_FORMAT = 'with_timezone'
+  WITHOUT_TIMEZONE_TIME_FORMAT = 'without_timezone'
+  ROUND_TO_SECONDS_TIME_FORMAT = 'round_to_seconds'
+
+  ALLOWED_TIME_FORMATS = [
+    WITH_TIMEZONE_TIME_FORMAT,
+    WITHOUT_TIMEZONE_TIME_FORMAT,
+    ROUND_TO_SECONDS_TIME_FORMAT
+  ].freeze
+
+  TYPE_BASE = 'Base'
+
   alias_attribute :export_type, :type
 
   # need for activeadmin form
@@ -124,9 +138,11 @@ class CdrExport < ApplicationRecord
   validate :validate_fields
   validate :validate_customer_account
 
+  validates :time_zone_name, inclusion: { in: proc { Yeti::TimeZoneHelper.all } }, allow_nil: true, allow_blank: true
+
   before_validation(on: :create) do
     self.status ||= STATUS_PENDING
-    self.type ||= 'Base'
+    self.type ||= TYPE_BASE
   end
 
   after_create :enqueue_export_job
@@ -170,6 +186,18 @@ class CdrExport < ApplicationRecord
   end
 
   define_memoizable :filters_json, apply: -> { filters.as_json.symbolize_keys }
+
+  def self.s3_storage_configured?
+    YetiConfig.s3_storage&.cdr_export&.bucket.present?
+  end
+
+  def filename
+    "#{id}.csv.gz"
+  end
+
+  def public_filename
+    "#{uuid}.csv.gz"
+  end
 
   private
 
@@ -220,6 +248,8 @@ class CdrExport < ApplicationRecord
       case f
       when 'id'
         'cdr.cdr.id AS "ID"'
+      when 'uuid'
+        'cdr.cdr.uuid AS "UUID"'
       when 'src_country_name'
         'src_c.name AS "Src Country Name"'
       when 'dst_country_name'
@@ -228,9 +258,28 @@ class CdrExport < ApplicationRecord
         'src_n.name AS "Src Network Name"'
       when 'dst_network_name'
         'dst_n.name AS "Dst Network Name"'
+      when *Cdr::Cdr::TIME_SPECIFIC_FIELDS
+        format_time_field(f)
       else
         "#{f} AS \"#{f.titleize}\""
       end
+    end
+  end
+
+  def format_time_field(column)
+    case time_format
+    when WITH_TIMEZONE_TIME_FORMAT
+      # With timezone: e.g. 2025-02-03 20:21:32.118457+00
+      "cdr.cdr.#{column} AS \"#{column.titleize}\""
+    when WITHOUT_TIMEZONE_TIME_FORMAT
+      # Without timezone: e.g. 2025-02-03 20:21:32.118457
+      "cdr.cdr.#{column}::timestamp AS \"#{column.titleize}\""
+    when ROUND_TO_SECONDS_TIME_FORMAT
+      # Round to seconds: e.g. 2025-02-03 20:21:32
+      %(to_char(cdr.cdr.#{column}, 'YYYY-MM-DD HH24:MI:SS') AS "#{column.titleize}")
+    else
+      # Fallback to default (with timezone)
+      "#{column} AS \"#{column.titleize}\""
     end
   end
 

@@ -1,3 +1,5 @@
+inherit_from: .rubocop_todo.yml
+
 require:
   - rubocop-rails
   - rubocop-performance
@@ -6,7 +8,7 @@ require:
 AllCops:
   DisplayCopNames: true
   DisabledByDefault: true
-  TargetRubyVersion: 3.2
+  TargetRubyVersion: 3.3
   Exclude:
     - 'db/migrate/**/*'
     - 'db/cdr_migrate/**/*'

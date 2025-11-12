@@ -256,4 +256,53 @@ RSpec.describe 'Filter Destination records', :js do
       end
     end
   end
+
+  context 'filter by Rateplan', js: false do
+    subject { click_button :Filter }
+
+    let!(:rate_group) { FactoryBot.create(:rate_group) }
+    let!(:rate_group_second) { FactoryBot.create(:rate_group) }
+    let!(:rateplan) { FactoryBot.create(:rateplan, rate_groups: [rate_group, rate_group_second]) }
+    let!(:record) { FactoryBot.create(:destination, rate_group:) }
+
+    before do
+      visit destinations_path
+      select rateplan.name, from: 'Rateplan'
+    end
+
+    it 'should render filtered records only' do
+      subject
+
+      expect(page).to have_table_row count: 1
+      expect(page).to have_table_cell column: 'Id', exact_text: record.id.to_s
+    end
+  end
+
+  describe 'filter by network type' do
+    let(:filter_records) do
+      within_filters do
+        fill_in_chosen 'Network Type', with: network_type.name
+      end
+    end
+
+    let!(:network_type) { FactoryBot.create(:network_type) }
+    let!(:network) { FactoryBot.create(:network, network_type:) }
+    let!(:network_prefix) { FactoryBot.create(:network_prefix, prefix: '892715892', network:) }
+    let!(:record) { FactoryBot.create(:destination, prefix: '892715892') }
+
+    before do
+      FactoryBot.create_list(:destination, 3)
+    end
+
+    it 'should be return filtered record' do
+      subject
+
+      expect(page).to have_table_row(count: 1)
+      expect(page).to have_table_row(id: record.id)
+
+      within_filters do
+        expect(page).to have_field_chosen('Network Type', with: network_type.name)
+      end
+    end
+  end
 end

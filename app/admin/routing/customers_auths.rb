@@ -18,7 +18,8 @@ ActiveAdmin.register CustomersAuth do
   decorate_with CustomersAuthDecorator
 
   acts_as_export :id, :enabled, :reject_calls, :name,
-                 [:transport_protocol_name, proc { |row| row.transport_protocol.try(:name) || '' }],
+                 [:scheduler_name, proc { |row| row.scheduler.try(:name) }],
+                 :transport_protocol_name,
                  :ip,
                  [:pop_name, proc { |row| row.pop.try(:name) || '' }],
                  :src_prefix,
@@ -36,17 +37,17 @@ ActiveAdmin.register CustomersAuth do
                  [:routing_plan_name, proc { |row| row.routing_plan.try(:name) || '' }],
                  [:dst_numberlist_name, proc { |row| row.dst_numberlist.try(:name) || '' }],
                  [:src_numberlist_name, proc { |row| row.src_numberlist.try(:name) || '' }],
-                 :dump_level_name,
-                 :enable_audio_recording,
+                 :privacy_mode_name,
                  :capacity,
                  :cps_limit,
                  :allow_receive_rate_limit,
                  :send_billing_information,
-                 [:diversion_policy_name, proc { |row| row.diversion_policy.try(:name) || '' }],
+                 :diversion_policy_name,
                  :diversion_rewrite_rule, :diversion_rewrite_result,
-                 [:src_number_field_name, proc { |row| row.src_number_field.try(:name) }],
-                 [:src_name_field_name, proc { |row| row.src_name_field.try(:name) }],
-                 [:dst_number_field_name, proc { |row| row.dst_number_field.try(:name) }],
+                 :pai_policy_name, :pai_rewrite_rule, :pai_rewrite_result,
+                 :src_number_field_name,
+                 :src_name_field_name,
+                 :dst_number_field_name,
                  :src_name_rewrite_rule, :src_name_rewrite_result,
                  :src_rewrite_rule, :src_rewrite_result,
                  :dst_rewrite_rule, :dst_rewrite_result,
@@ -65,18 +66,20 @@ ActiveAdmin.register CustomersAuth do
                  :ss_src_rewrite_rule,
                  :ss_src_rewrite_result,
                  :ss_dst_rewrite_rule,
-                 :ss_dst_rewrite_result
+                 :ss_dst_rewrite_result,
+                 [:stir_shaken_crt_name, proc { |row| row.stir_shaken_crt.try(:name) }]
 
   acts_as_import resource_class: Importing::CustomersAuth, skip_columns: [:tag_action_value]
 
   permit_params :name, :enabled, :reject_calls, :customer_id, :rateplan_id, :routing_plan_id,
-                :gateway_id, :require_incoming_auth, :account_id, :check_account_balance, :diversion_policy_id,
-                :diversion_rewrite_rule, :diversion_rewrite_result,
+                :gateway_id, :require_incoming_auth, :account_id, :check_account_balance,
+                :diversion_policy_id, :diversion_rewrite_rule, :diversion_rewrite_result,
+                :pai_policy_id, :pai_rewrite_rule, :pai_rewrite_result,
                 :src_name_rewrite_rule, :src_name_rewrite_result,
                 :src_rewrite_rule, :src_rewrite_result, :dst_rewrite_rule,
                 :dst_rewrite_result,
                 :dst_numberlist_id, :src_numberlist_id,
-                :dump_level_id, :capacity, :cps_limit, :allow_receive_rate_limit,
+                :dump_level_id, :privacy_mode_id, :capacity, :cps_limit, :allow_receive_rate_limit,
                 :send_billing_information,
                 :ip, :pop_id,
                 :src_prefix, :src_number_min_length, :src_number_max_length,
@@ -93,12 +96,12 @@ ActiveAdmin.register CustomersAuth do
                 :cnam_database_id, :src_numberlist_use_diversion, :rewrite_ss_status_id,
                 :ss_mode_id, :ss_invalid_identity_action_id, :ss_no_identity_action_id,
                 :ss_src_rewrite_rule, :ss_src_rewrite_result, :ss_dst_rewrite_rule, :ss_dst_rewrite_result,
+                :stir_shaken_crt_id, :scheduler_id,
                 tag_action_value: []
-  # , :enable_redirect, :redirect_method, :redirect_to
 
   includes :tag_action, :rateplan, :routing_plan, :gateway, :src_numberlist, :dst_numberlist,
-           :pop, :diversion_policy, :radius_auth_profile, :radius_accounting_profile, :customer, :transport_protocol,
-           :lua_script, :src_name_field, :src_number_field, :dst_number_field, :cnam_database,
+           :pop, :radius_auth_profile, :radius_accounting_profile, :customer,
+           :lua_script, :cnam_database, :scheduler,
            account: :contractor
 
   controller do
@@ -111,7 +114,9 @@ ActiveAdmin.register CustomersAuth do
   end
 
   scope :with_radius
-  scope :with_dump
+  scope :with_dump, if: proc { authorized?(:pcap) }
+  scope :with_recording, if: proc { authorized?(:recording) }
+  scope :scheduled
 
   sidebar :normalized_copies, only: :show do
     ul do
@@ -125,10 +130,8 @@ ActiveAdmin.register CustomersAuth do
     id_column
     actions
     column :name
-    column :enabled
-    column :reject_calls
-    column :transport_protocol
-    column :ip
+    column :enabled, &:decorated_enabled
+    column :ip, &:decorated_ip
     column :pop
     column :src_prefix
     column :src_number_length do |c|
@@ -141,7 +144,6 @@ ActiveAdmin.register CustomersAuth do
     column :uri_domain
     column :from_domain
     column :to_domain
-    column :x_yeti_auth
     column :interface
 
     column :customer, sortable: 'contractors.name' do |row|
@@ -155,7 +157,6 @@ ActiveAdmin.register CustomersAuth do
     column :gateway, sortable: 'gateways.name' do |row|
       auto_link(row.gateway, row.gateway.decorated_origination_display_name)
     end
-    column :require_incoming_auth
 
     column :rateplan, sortable: 'rateplans.name'
     column :routing_plan, sortable: 'routing_plans.name' do |row|
@@ -165,26 +166,26 @@ ActiveAdmin.register CustomersAuth do
     column :dst_numberlist
     column :src_numberlist
 
-    column :dump_level, &:dump_level_name
-    column :enable_audio_recording
+    column :tracing, &:decorated_tracing
+
+    column :privacy_mode_id, &:privacy_mode_name
     column :capacity
     column :cps_limit
     column :allow_receive_rate_limit
     column :send_billing_information
 
-    column :diversion_policy
-    column :diversion_rewrite_rule
-    column :diversion_rewrite_result
+    column :diversion_policy, &:diversion_policy_name
+    column :pai_policy, &:pai_policy_name
 
-    column :src_name_field
+    column :src_name_field, &:src_name_field_name
     column :src_name_rewrite_rule
     column :src_name_rewrite_result
 
-    column :src_number_field
+    column :src_number_field, &:src_number_field_name
     column :src_rewrite_rule
     column :src_rewrite_result
 
-    column :dst_number_field
+    column :dst_number_field, &:dst_number_field_name
     column :dst_rewrite_rule
     column :dst_rewrite_result
 
@@ -224,9 +225,21 @@ ActiveAdmin.register CustomersAuth do
 
   filter :rateplan, input_html: { class: 'chosen' }
   filter :routing_plan, input_html: { class: 'chosen' }
-  filter :dump_level_id_eq, label: 'Dump Level', as: :select, collection: CustomersAuth::DUMP_LEVELS.invert
-  filter :enable_audio_recording, as: :select, collection: [['Yes', true], ['No', false]]
-  filter :transport_protocol
+  filter :dump_level_id_eq,
+         label: 'Dump Level',
+         as: :select,
+         collection: CustomersAuth::DUMP_LEVELS.invert,
+         if: proc { authorized?(:pcap) }
+
+  filter :diversion_policy_id_eq, label: 'Diversion policy', as: :select, collection: CustomersAuth::DIVERSION_POLICIES.invert
+  filter :pai_policy_id_eq, label: 'PAI policy', as: :select, collection: CustomersAuth::PAI_POLICIES.invert
+  filter :privacy_mode_id_eq, label: 'Privacy mode', as: :select, collection: CustomersAuth::PRIVACY_MODES.invert, input_html: { class: 'chosen' }
+  filter :enable_audio_recording,
+         as: :select,
+         collection: [['Yes', true], ['No', false]],
+         if: proc { authorized?(:recording) }
+
+  filter :transport_protocol_id_eq, label: 'Transport protocol', as: :select, collection: CustomersAuth::TRANSPORT_PROTOCOLS.invert
   filter :ip_covers,
          as: :string,
          input_html: { class: 'search_filter_string' },
@@ -259,6 +272,14 @@ ActiveAdmin.register CustomersAuth do
                           label: 'DST Numberlist',
                           scope: -> { Routing::Numberlist.order(:name) },
                           path: '/numberlists/search'
+
+  filter :stir_shaken_crt, as: :select, input_html: { class: 'chosen' }
+  filter :rewrite_ss_status_id_eq,
+         label: 'Rewrite SS status',
+         as: :select,
+         collection: Equipment::StirShaken::Attestation::ATTESTATIONS.invert
+
+  filter :scheduler, as: :select, input_html: { class: 'chosen' }
 
   form do |f|
     f.semantic_errors *f.object.errors.attribute_names
@@ -293,8 +314,6 @@ ActiveAdmin.register CustomersAuth do
                                      'data-required-param': 'q[origination_contractor_id_eq]'
                                    }
 
-          f.input :require_incoming_auth
-
           f.input :rateplan, input_html: { class: 'chosen' }
           f.input :routing_plan, input_html: { class: 'chosen' }
 
@@ -307,17 +326,32 @@ ActiveAdmin.register CustomersAuth do
                                   label: 'SRC Numberlist',
                                   scope: Routing::Numberlist.order(:name),
                                   path: '/numberlists/search'
-          f.input :dump_level_id, as: :select, include_blank: false, collection: CustomersAuth::DUMP_LEVELS.invert
-          f.input :enable_audio_recording
+          if authorized?(:pcap)
+            f.input :dump_level_id,
+                    as: :select,
+                    include_blank: false,
+                    collection: CustomersAuth::DUMP_LEVELS.invert
+          end
+          if authorized?(:recording)
+            f.input :enable_audio_recording
+          end
+
           f.input :capacity
           f.input :cps_limit
           f.input :allow_receive_rate_limit
           f.input :send_billing_information
+          f.input :scheduler, as: :select, input_html: { class: 'chosen' }
         end
 
         f.inputs 'Match conditions' do
-          f.input :transport_protocol, as: :select, include_blank: 'Any'
+          f.input :transport_protocol_id,
+                  as: :select,
+                  include_blank: 'Any',
+                  collection: CustomersAuth::TRANSPORT_PROTOCOLS.invert,
+                  input_html: { class: :chosen }
+
           f.input :ip, as: :array_of_strings
+          f.input :require_incoming_auth
           f.input :pop, as: :select, include_blank: 'Any', input_html: { class: 'chosen' }
           f.input :src_prefix, as: :array_of_strings
           f.input :src_number_min_length
@@ -335,22 +369,53 @@ ActiveAdmin.register CustomersAuth do
 
       tab :number_translation do
         f.inputs do
-          f.input :diversion_policy, as: :select, include_blank: false
+          f.input :privacy_mode_id,
+                  as: :select,
+                  include_blank: false,
+                  collection: CustomersAuth::PRIVACY_MODES.invert,
+                  input_html: { class: :chosen }
+
+          f.input :diversion_policy_id,
+                  as: :select,
+                  include_blank: false,
+                  collection: CustomersAuth::DIVERSION_POLICIES.invert,
+                  input_html: { class: :chosen }
           f.input :diversion_rewrite_rule
           f.input :diversion_rewrite_result
           f.input :src_numberlist_use_diversion
 
-          f.input :src_name_field
+          f.input :pai_policy_id,
+                  as: :select,
+                  include_blank: false,
+                  collection: CustomersAuth::PAI_POLICIES.invert,
+                  input_html: { class: :chosen }
+          f.input :pai_rewrite_rule
+          f.input :pai_rewrite_result
+
+          f.input :src_name_field_id,
+                  as: :select,
+                  include_blank: false,
+                  collection: CustomersAuth::SRC_NAME_FIELDS.invert,
+                  input_html: { class: :chosen }
           f.input :src_name_rewrite_rule
           f.input :src_name_rewrite_result
 
-          f.input :src_number_field
+          f.input :src_number_field_id,
+                  as: :select,
+                  include_blank: false,
+                  collection: CustomersAuth::SRC_NUMBER_FIELDS.invert,
+                  input_html: { class: :chosen }
           f.input :src_rewrite_rule
           f.input :src_rewrite_result
 
-          f.input :dst_number_field
+          f.input :dst_number_field_id,
+                  as: :select,
+                  include_blank: false,
+                  collection: CustomersAuth::DST_NUMBER_FIELDS.invert,
+                  input_html: { class: :chosen }
           f.input :dst_rewrite_rule
           f.input :dst_rewrite_result
+
           f.input :lua_script, input_html: { class: 'chosen' }, include_blank: 'None'
           f.input :cnam_database, input_html: { class: 'chosen' }, include_blank: 'None'
         end
@@ -383,11 +448,12 @@ ActiveAdmin.register CustomersAuth do
           f.input :ss_mode_id, as: :select, include_blank: false, collection: CustomersAuth::SS_MODES.invert
           f.input :ss_invalid_identity_action_id, as: :select, include_blank: false, collection: CustomersAuth::SS_INVALID_IDENTITY_ACTIONS.invert
           f.input :ss_no_identity_action_id, as: :select, include_blank: false, collection: CustomersAuth::SS_NO_IDENTITY_ACTIONS.invert
-          f.input :rewrite_ss_status_id, as: :select, include_blank: true, collection: CustomersAuth::SS_STATUSES.invert
+          f.input :rewrite_ss_status_id, as: :select, include_blank: true, collection: Equipment::StirShaken::Attestation::ATTESTATIONS.invert
           f.input :ss_src_rewrite_rule
           f.input :ss_src_rewrite_result
           f.input :ss_dst_rewrite_rule
           f.input :ss_dst_rewrite_result
+          f.input :stir_shaken_crt, as: :select, input_html: { class: 'chosen' }
         end
       end
     end
@@ -407,11 +473,6 @@ ActiveAdmin.register CustomersAuth do
           row :account
           row :check_account_balance
           row :gateway
-          row :require_incoming_auth
-
-          # row :enable_redirect
-          # row :redirect_method
-          # row :redirect_to
 
           row :rateplan
           row :routing_plan do
@@ -421,17 +482,25 @@ ActiveAdmin.register CustomersAuth do
           row :dst_numberlist
           row :src_numberlist
 
-          row :dump_level, &:dump_level_name
-          row :enable_audio_recording
+          if authorized?(:pcap)
+            row :dump_level, &:dump_level_name
+          end
+          if authorized?(:recording)
+            row :enable_audio_recording
+          end
           row :capacity
           row :cps_limit
           row :allow_receive_rate_limit
           row :send_billing_information
+          row :scheduler do |row|
+            row.scheduler.try(:decorated_display_name)
+          end
         end
         panel 'Match conditions' do
           attributes_table_for s do
-            row :transport_protocol
+            row :transport_protocol, &:transport_protocol_name
             row :ip
+            row :require_incoming_auth
             row :pop
             row :src_prefix
             row :src_number_min_length
@@ -449,20 +518,25 @@ ActiveAdmin.register CustomersAuth do
       end
       tab :number_translation do
         attributes_table do
-          row :diversion_policy
+          row :privacy_mode_id, &:privacy_mode_name
+          row :diversion_policy, &:diversion_policy_name
           row :diversion_rewrite_rule
           row :diversion_rewrite_result
           row :src_numberlist_use_diversion
 
-          row :src_name_field
+          row :pai_policy, &:pai_policy_name
+          row :pai_rewrite_rule
+          row :pai_rewrite_result
+
+          row :src_name_field, &:src_name_field_name
           row :src_name_rewrite_rule
           row :src_name_rewrite_result
 
-          row :src_number_field
+          row :src_number_field, &:src_number_field_name
           row :src_rewrite_rule
           row :src_rewrite_result
 
-          row :dst_number_field
+          row :dst_number_field, &:dst_number_field_name
           row :dst_rewrite_rule
           row :dst_rewrite_result
 
@@ -498,6 +572,7 @@ ActiveAdmin.register CustomersAuth do
           row :ss_src_rewrite_result
           row :ss_dst_rewrite_rule
           row :ss_dst_rewrite_result
+          row :stir_shaken_crt
         end
       end
     end

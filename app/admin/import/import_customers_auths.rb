@@ -8,6 +8,8 @@ ActiveAdmin.register Importing::CustomersAuth do
   filter :account_name
   boolean_filter :is_changed
 
+  decorate_with Importing::CustomersAuthDecorator
+
   acts_as_import_preview
 
   controller do
@@ -29,7 +31,8 @@ ActiveAdmin.register Importing::CustomersAuth do
     column :name
     column :enabled
     column :reject_calls
-    column :transport_protocol, sortable: :transport_protocol_name
+    column :scheduler
+    column :transport_protocol, &:transport_protocol_display_name
     column :ip
     column :pop, sortable: :pop_name
     column :src_prefix
@@ -56,6 +59,7 @@ ActiveAdmin.register Importing::CustomersAuth do
     column :dst_numberlist, sortable: :dst_numberlist_name
     column :src_numberlist, sortable: :src_numberlist_name
     column :dump_level, &:dump_level_display_name
+    column :privacy_mode_id, &:privacy_mode_name
 
     column :enable_audio_recording
     column :capacity
@@ -63,9 +67,11 @@ ActiveAdmin.register Importing::CustomersAuth do
     column :allow_receive_rate_limit
     column :send_billing_information
 
-    column :diversion_policy, sortable: :diversion_policy_name
+    column :diversion_policy, &:diversion_policy_display_name
     column :diversion_rewrite_rule
     column :diversion_rewrite_result
+
+    column :pai_policy, &:pai_policy_display_name
 
     column :src_rewrite_rule
     column :src_rewrite_result
@@ -84,5 +90,6 @@ ActiveAdmin.register Importing::CustomersAuth do
 
     column :tag_action
     column :tag_action_value
+    column :stir_shaken_crt, &:stir_shaken_crt_name
   end
 end

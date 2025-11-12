@@ -1,6 +1,12 @@
+\restrict FSgS5iss3QTfiWFDP8i5kqqXcL6NZaiT20iLmTGCOXgUSjKvbNGbLOOPAdnc0zGn
+
+-- Dumped from database version 18.0 (Debian 18.0-1.pgdg13+3)
+-- Dumped by pg_dump version 18.0 (Debian 18.0-1.pgdg14+3)
+
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -286,7 +292,10 @@ CREATE TYPE switch.dynamic_cdr_data_ty AS (
 	legb_ss_status_id smallint,
 	metadata character varying,
 	customer_auth_external_type character varying,
-	package_counter_id bigint
+	package_counter_id bigint,
+	src_network_type_id smallint,
+	dst_network_type_id smallint,
+	destination_cdo smallint
 );
 
 
@@ -312,11 +321,56 @@ CREATE TYPE switch.lega_headers_ty AS (
 
 
 --
+-- Name: lega_request_headers_ty; Type: TYPE; Schema: switch; Owner: -
+--
+
+CREATE TYPE switch.lega_request_headers_ty AS (
+	p_charge_info character varying,
+	reason switch.reason_ty,
+	diversion character varying[],
+	p_asserted_identity character varying[],
+	p_preferred_identity character varying,
+	privacy character varying[],
+	remote_party_id character varying[],
+	rpid_privacy character varying[],
+	x_yeti_auth character varying,
+	x_orig_ip character varying,
+	x_orig_port character varying,
+	x_orig_proto character varying,
+	x_orig_lat real,
+	x_orig_lon real
+);
+
+
+--
 -- Name: legb_headers_ty; Type: TYPE; Schema: switch; Owner: -
 --
 
 CREATE TYPE switch.legb_headers_ty AS (
 	reason switch.reason_ty
+);
+
+
+--
+-- Name: legb_reply_headers_ty; Type: TYPE; Schema: switch; Owner: -
+--
+
+CREATE TYPE switch.legb_reply_headers_ty AS (
+	reason switch.reason_ty
+);
+
+
+--
+-- Name: legb_request_headers_ty; Type: TYPE; Schema: switch; Owner: -
+--
+
+CREATE TYPE switch.legb_request_headers_ty AS (
+	diversion character varying[],
+	p_asserted_identity character varying[],
+	p_preferred_identity character varying,
+	privacy character varying[],
+	remote_party_id character varying[],
+	rpid_privacy character varying[]
 );
 
 
@@ -517,7 +571,12 @@ CREATE TABLE cdr.cdr (
     legb_q850_cause smallint,
     legb_q850_params character varying,
     internal_disconnect_code_id smallint,
-    package_counter_id bigint
+    package_counter_id bigint,
+    src_network_type_id smallint,
+    dst_network_type_id smallint,
+    auth_orig_lat real,
+    auth_orig_lon real,
+    cdo smallint
 )
 PARTITION BY RANGE (time_start);
 
@@ -531,12 +590,15 @@ CREATE FUNCTION billing.bill_cdr(i_cdr cdr.cdr) RETURNS cdr.cdr
     AS $$
 DECLARE
     _v billing.interval_billing_data%rowtype;
+    _v_customer_duration integer;
 BEGIN
     if i_cdr.duration>0 and i_cdr.success then  -- run billing.
+        _v_customer_duration = i_cdr.duration + COALESCE(i_cdr.cdo, 0);
+
         if i_cdr.package_counter_id is not null then
           -- running billing with fake rates to calculate duration
           _v=billing.interval_billing(
-            i_cdr.duration,
+            _v_customer_duration,
             '1.0'::numeric,
             '1.0'::numeric,
             '1.0'::numeric,
@@ -548,7 +610,7 @@ BEGIN
          i_cdr.customer_duration=_v.duration;
         else
           _v=billing.interval_billing(
-            i_cdr.duration,
+            _v_customer_duration,
             i_cdr.destination_fee,
             i_cdr.destination_initial_rate,
             i_cdr.destination_next_rate,
@@ -724,6 +786,7 @@ CREATE TABLE sys.config (
     vendor_amount_round_mode_id smallint DEFAULT 1 NOT NULL,
     vendor_amount_round_precision smallint DEFAULT 5 NOT NULL,
     disable_realtime_statistics boolean DEFAULT false NOT NULL,
+    cdo boolean DEFAULT false NOT NULL,
     CONSTRAINT config_customer_amount_round_precision_check CHECK (((customer_amount_round_precision >= 0) AND (customer_amount_round_precision <= 10))),
     CONSTRAINT config_vendor_amount_round_precision_check CHECK (((vendor_amount_round_precision >= 0) AND (vendor_amount_round_precision <= 10)))
 );
@@ -932,6 +995,65 @@ CREATE FUNCTION switch.vendor_price_round(i_config sys.config, i_amount numeric)
 
 
 --
+-- Name: write_auth_log(boolean, integer, integer, double precision, smallint, inet, integer, inet, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, boolean, smallint, character varying, character varying, character varying, character varying, integer, json); Type: FUNCTION; Schema: switch; Owner: -
+--
+
+CREATE FUNCTION switch.write_auth_log(i_is_master boolean, i_node_id integer, i_pop_id integer, i_request_time double precision, i_transport_proto_id smallint, i_transport_remote_ip inet, i_transport_remote_port integer, i_transport_local_ip inet, i_transport_local_port integer, i_username character varying, i_realm character varying, i_method character varying, i_ruri character varying, i_from_uri character varying, i_to_uri character varying, i_call_id character varying, i_success boolean, i_code smallint, i_reason character varying, i_internal_reason character varying, i_nonce character varying, i_response character varying, i_gateway_id integer, i_lega_request_headers json) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER COST 10
+    AS $$
+DECLARE
+    v_lega_request_headers switch.lega_request_headers_ty;
+    v_log auth_log.auth_log%rowtype;
+BEGIN
+
+  v_log.node_id = i_node_id;
+  v_log.pop_id = i_pop_id;
+  v_log.request_time = to_timestamp(i_request_time);
+  v_log.transport_proto_id = i_transport_proto_id;
+  v_log.transport_remote_ip = i_transport_remote_ip;
+  v_log.transport_remote_port = i_transport_remote_port;
+  v_log.transport_local_ip = i_transport_local_ip;
+  v_log.transport_local_port = i_transport_local_port;
+
+  v_log.username = i_username;
+  v_log.realm = i_realm;
+  v_log.request_method = i_method;
+  v_log.ruri = i_ruri;
+  v_log.from_uri = i_from_uri;
+  v_log.to_uri = i_to_uri;
+  v_log.call_id = i_call_id;
+  v_log.success = i_success;
+  v_log.code = i_code;
+  v_log.reason = i_reason;
+  v_log.internal_reason = i_internal_reason;
+  v_log.nonce = i_nonce;
+  v_log.response = i_response;
+  v_log.gateway_id = i_gateway_id;
+
+  v_lega_request_headers = json_populate_record(null::switch.lega_request_headers_ty, i_lega_request_headers);
+
+  v_log.origination_ip = v_lega_request_headers.x_orig_ip::inet;
+  v_log.origination_port = v_lega_request_headers.x_orig_port::integer;
+  v_log.origination_proto_id = v_lega_request_headers.x_orig_proto::smallint;
+
+  v_log.x_yeti_auth = v_lega_request_headers.x_yeti_auth;
+  v_log.diversion = array_to_string(v_lega_request_headers.diversion, ',');
+  v_log.pai = array_to_string(v_lega_request_headers.p_asserted_identity, ',');
+  v_log.ppi = v_lega_request_headers.p_preferred_identity;
+  v_log.privacy = array_to_string(v_lega_request_headers.privacy, ',');
+  v_log.rpid = array_to_string(v_lega_request_headers.remote_party_id, ',');
+  v_log.rpid_privacy = array_to_string(v_lega_request_headers.rpid_privacy, ',');
+
+  v_log.id = nextval('auth_log.auth_log_id_seq');
+
+  insert into auth_log.auth_log values(v_log.*);
+
+  RETURN 0;
+END;
+$$;
+
+
+--
 -- Name: write_auth_log(boolean, integer, integer, double precision, smallint, character varying, integer, character varying, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, boolean, smallint, character varying, character varying, character varying, character varying, integer, character varying, character varying, character varying, integer, smallint, character varying, character varying, character varying, character varying, character varying); Type: FUNCTION; Schema: switch; Owner: -
 --
 
@@ -1102,10 +1224,10 @@ $$;
 
 
 --
--- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, character varying, integer, character varying, integer, smallint, character varying, integer, character varying, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
+-- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, inet, integer, inet, integer, smallint, inet, integer, inet, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
 --
 
-CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip character varying, i_lega_local_port integer, i_lega_remote_ip character varying, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip character varying, i_legb_local_port integer, i_legb_remote_ip character varying, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_headers json, i_legb_headers json, i_lega_identity json) RETURNS integer
+CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip inet, i_lega_local_port integer, i_lega_remote_ip inet, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip inet, i_legb_local_port integer, i_legb_remote_ip inet, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_headers json, i_legb_headers json, i_lega_identity json) RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER COST 10
     AS $$
 DECLARE
@@ -1219,17 +1341,17 @@ BEGIN
   v_cdr.dialpeer_reverse_billing=v_dynamic.dialpeer_reverse_billing;
 
   /* sockets addresses */
-  v_cdr.sign_orig_transport_protocol_id=i_lega_transport_protocol_id;
-  v_cdr.sign_orig_ip=i_lega_remote_ip;
-  v_cdr.sign_orig_port=NULLIF(i_lega_remote_port,0);
-  v_cdr.sign_orig_local_ip=i_lega_local_ip;
-  v_cdr.sign_orig_local_port=NULLIF(i_lega_local_port,0);
+  v_cdr.sign_orig_transport_protocol_id = i_lega_transport_protocol_id;
+  v_cdr.sign_orig_ip = host(i_lega_remote_ip);
+  v_cdr.sign_orig_port = NULLIF(i_lega_remote_port,0);
+  v_cdr.sign_orig_local_ip = host(i_lega_local_ip);
+  v_cdr.sign_orig_local_port = NULLIF(i_lega_local_port,0);
 
-  v_cdr.sign_term_transport_protocol_id=i_legb_transport_protocol_id;
-  v_cdr.sign_term_ip=i_legb_remote_ip;
-  v_cdr.sign_term_port=NULLIF(i_legb_remote_port,0);
-  v_cdr.sign_term_local_ip=i_legb_local_ip;
-  v_cdr.sign_term_local_port=NULLIF(i_legb_local_port,0);
+  v_cdr.sign_term_transport_protocol_id = i_legb_transport_protocol_id;
+  v_cdr.sign_term_ip = host(i_legb_remote_ip);
+  v_cdr.sign_term_port = NULLIF(i_legb_remote_port,0);
+  v_cdr.sign_term_local_ip = host(i_legb_local_ip);
+  v_cdr.sign_term_local_port = NULLIF(i_legb_local_port,0);
 
   v_cdr.local_tag=i_local_tag;
   v_cdr.legb_local_tag=i_legb_local_tag;
@@ -1359,10 +1481,10 @@ $$;
 
 
 --
--- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, character varying, integer, character varying, integer, smallint, character varying, integer, character varying, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, smallint, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
+-- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, inet, integer, inet, integer, smallint, inet, integer, inet, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, smallint, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
 --
 
-CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip character varying, i_lega_local_port integer, i_lega_remote_ip character varying, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip character varying, i_legb_local_port integer, i_legb_remote_ip character varying, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_internal_disconnect_code_id smallint, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_headers json, i_legb_headers json, i_lega_identity json) RETURNS integer
+CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip inet, i_lega_local_port integer, i_lega_remote_ip inet, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip inet, i_legb_local_port integer, i_legb_remote_ip inet, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_internal_disconnect_code_id smallint, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_headers json, i_legb_headers json, i_lega_identity json) RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER COST 10
     AS $$
 DECLARE
@@ -1476,17 +1598,17 @@ BEGIN
   v_cdr.dialpeer_reverse_billing=v_dynamic.dialpeer_reverse_billing;
 
   /* sockets addresses */
-  v_cdr.sign_orig_transport_protocol_id=i_lega_transport_protocol_id;
-  v_cdr.sign_orig_ip=i_lega_remote_ip;
-  v_cdr.sign_orig_port=NULLIF(i_lega_remote_port,0);
-  v_cdr.sign_orig_local_ip=i_lega_local_ip;
-  v_cdr.sign_orig_local_port=NULLIF(i_lega_local_port,0);
+  v_cdr.sign_orig_transport_protocol_id = i_lega_transport_protocol_id;
+  v_cdr.sign_orig_ip = host(i_lega_remote_ip);
+  v_cdr.sign_orig_port = NULLIF(i_lega_remote_port,0);
+  v_cdr.sign_orig_local_ip = host(i_lega_local_ip);
+  v_cdr.sign_orig_local_port = NULLIF(i_lega_local_port,0);
 
-  v_cdr.sign_term_transport_protocol_id=i_legb_transport_protocol_id;
-  v_cdr.sign_term_ip=i_legb_remote_ip;
-  v_cdr.sign_term_port=NULLIF(i_legb_remote_port,0);
-  v_cdr.sign_term_local_ip=i_legb_local_ip;
-  v_cdr.sign_term_local_port=NULLIF(i_legb_local_port,0);
+  v_cdr.sign_term_transport_protocol_id = i_legb_transport_protocol_id;
+  v_cdr.sign_term_ip = host(i_legb_remote_ip);
+  v_cdr.sign_term_port = NULLIF(i_legb_remote_port,0);
+  v_cdr.sign_term_local_ip = host(i_legb_local_ip);
+  v_cdr.sign_term_local_port = NULLIF(i_legb_local_port,0);
 
   v_cdr.local_tag=i_local_tag;
   v_cdr.legb_local_tag=i_legb_local_tag;
@@ -1617,33 +1739,282 @@ $$;
 
 
 --
--- Name: cdr_export_data(character varying); Type: FUNCTION; Schema: sys; Owner: -
+-- Name: writecdr(boolean, integer, integer, integer, boolean, smallint, inet, integer, inet, integer, smallint, inet, integer, inet, integer, character varying, character varying, json, boolean, integer, character varying, integer, integer, character varying, integer, character varying, smallint, character varying, character varying, character varying, character varying, character varying, smallint, boolean, json, json, character varying, character varying, json, smallint, bigint, json, json, boolean, json, json, json, json, json); Type: FUNCTION; Schema: switch; Owner: -
 --
 
-CREATE FUNCTION sys.cdr_export_data(i_tbname character varying) RETURNS void
-    LANGUAGE plpgsql
+CREATE FUNCTION switch.writecdr(i_is_master boolean, i_node_id integer, i_pop_id integer, i_routing_attempt integer, i_is_last_cdr boolean, i_lega_transport_protocol_id smallint, i_lega_local_ip inet, i_lega_local_port integer, i_lega_remote_ip inet, i_lega_remote_port integer, i_legb_transport_protocol_id smallint, i_legb_local_ip inet, i_legb_local_port integer, i_legb_remote_ip inet, i_legb_remote_port integer, i_legb_ruri character varying, i_legb_outbound_proxy character varying, i_time_data json, i_early_media_present boolean, i_legb_disconnect_code integer, i_legb_disconnect_reason character varying, i_disconnect_initiator integer, i_internal_disconnect_code integer, i_internal_disconnect_reason character varying, i_lega_disconnect_code integer, i_lega_disconnect_reason character varying, i_internal_disconnect_code_id smallint, i_orig_call_id character varying, i_term_call_id character varying, i_local_tag character varying, i_legb_local_tag character varying, i_msg_logger_path character varying, i_dump_level_id smallint, i_audio_recorded boolean, i_rtp_stats_data json, i_rtp_statistics json, i_global_tag character varying, i_resources character varying, i_active_resources json, i_failed_resource_type_id smallint, i_failed_resource_id bigint, i_dtmf_events json, i_versions json, i_is_redirected boolean, i_dynamic json, i_lega_request_headers json, i_legb_request_headers json, i_legb_reply_headers json, i_lega_identity json) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER COST 10
     AS $$
 DECLARE
-    v_file varchar:='/var/spool/yeti-rs/';
+  v_cdr cdr.cdr%rowtype;
+
+  v_time_data switch.time_data_ty;
+  v_version_data switch.versions_ty;
+  v_dynamic switch.dynamic_cdr_data_ty;
+
+  v_nozerolen boolean;
+  v_config sys.config%rowtype;
+
+  v_rtp_rx_stream_data rtp_statistics.rx_streams%rowtype;
+  v_rtp_tx_stream_data rtp_statistics.tx_streams%rowtype;
+
+  v_lega_request_headers switch.lega_request_headers_ty;
+  v_legb_request_headers switch.legb_request_headers_ty;
+  v_legb_reply_headers switch.legb_reply_headers_ty;
+  v_lega_reason switch.reason_ty;
+  v_legb_reason switch.reason_ty;
 BEGIN
-    v_file:=v_file||i_tbname||'-'||now()::varchar;
-    execute 'COPY '||i_tbname||' TO '''||v_file||''' WITH CSV HEADER QUOTE AS ''"'' FORCE QUOTE *';
-END;
-$$;
+  --  raise warning 'type: % id: %', i_failed_resource_type_id, i_failed_resource_id;
+  --  RAISE warning 'DTMF: %', i_dtmf_events;
+
+  v_time_data:=json_populate_record(null::switch.time_data_ty, i_time_data);
+  v_version_data:=json_populate_record(null::switch.versions_ty, i_versions);
+  v_dynamic:=json_populate_record(null::switch.dynamic_cdr_data_ty, i_dynamic);
+
+  v_lega_request_headers = json_populate_record(null::switch.lega_request_headers_ty, i_lega_request_headers);
+  v_legb_request_headers = json_populate_record(null::switch.legb_request_headers_ty, i_legb_request_headers);
+  v_legb_reply_headers = json_populate_record(null::switch.legb_reply_headers_ty, i_legb_reply_headers);
+
+  v_cdr.p_charge_info_in = v_lega_request_headers.p_charge_info;
+
+  v_lega_reason = v_lega_request_headers.reason;
+  v_cdr.lega_q850_cause = v_lega_reason.q850_cause;
+  v_cdr.lega_q850_text = v_lega_reason.q850_text;
+  v_cdr.lega_q850_params = v_lega_reason.q850_params;
+
+  v_legb_reason = v_legb_reply_headers.reason;
+  v_cdr.legb_q850_cause = v_legb_reason.q850_cause;
+  v_cdr.legb_q850_text = v_legb_reason.q850_text;
+  v_cdr.legb_q850_params = v_legb_reason.q850_params;
+
+  v_cdr.diversion_in = array_to_string(v_lega_request_headers.diversion, ',');
+  v_cdr.pai_in = array_to_string(v_lega_request_headers.p_asserted_identity, ',');
+  v_cdr.ppi_in = v_lega_request_headers.p_preferred_identity;
+  v_cdr.privacy_in = array_to_string(v_lega_request_headers.privacy, ',');
+  v_cdr.rpid_in = array_to_string(v_lega_request_headers.remote_party_id, ',');
+  v_cdr.rpid_privacy_in = array_to_string(v_lega_request_headers.rpid_privacy, ',');
+
+  v_cdr.diversion_out = array_to_string(v_legb_request_headers.diversion, ',');
+  v_cdr.pai_out = array_to_string(v_legb_request_headers.p_asserted_identity, ',');
+  v_cdr.ppi_out = v_legb_request_headers.p_preferred_identity;
+  v_cdr.privacy_out = array_to_string(v_legb_request_headers.privacy, ',');
+  v_cdr.rpid_out = array_to_string(v_legb_request_headers.remote_party_id, ',');
+  v_cdr.rpid_privacy_out = array_to_string(v_legb_request_headers.rpid_privacy, ',');
+
+  v_cdr.lega_identity = i_lega_identity;
+  v_cdr.lega_ss_status_id = v_dynamic.lega_ss_status_id;
+  v_cdr.legb_ss_status_id = v_dynamic.legb_ss_status_id;
+
+  v_cdr.metadata = v_dynamic.metadata::jsonb;
+
+  v_cdr.core_version=v_version_data.core;
+  v_cdr.yeti_version=v_version_data.yeti;
+  v_cdr.lega_user_agent=v_version_data.aleg;
+  v_cdr.legb_user_agent=v_version_data.bleg;
+
+  v_cdr.pop_id=i_pop_id;
+  v_cdr.node_id=i_node_id;
+
+  v_cdr.src_name_in:=v_dynamic.src_name_in;
+  v_cdr.src_name_out:=v_dynamic.src_name_out;
+
+  v_cdr.customer_id:=v_dynamic.customer_id;
+  v_cdr.customer_external_id:=v_dynamic.customer_external_id;
+
+  v_cdr.customer_acc_id:=v_dynamic.customer_acc_id;
+  v_cdr.customer_account_check_balance=v_dynamic.customer_acc_check_balance;
+  v_cdr.customer_acc_external_id=v_dynamic.customer_acc_external_id;
+  v_cdr.customer_acc_vat:=v_dynamic.customer_acc_vat;
+
+  v_cdr.customer_auth_id:=v_dynamic.customer_auth_id;
+  v_cdr.customer_auth_external_id:=v_dynamic.customer_auth_external_id;
+  v_cdr.customer_auth_external_type:=v_dynamic.customer_auth_external_type;
+  v_cdr.customer_auth_name:=v_dynamic.customer_auth_name;
+
+  v_cdr.vendor_id:=v_dynamic.vendor_id;
+  v_cdr.vendor_external_id:=v_dynamic.vendor_external_id;
+  v_cdr.vendor_acc_id:=v_dynamic.vendor_acc_id;
+  v_cdr.vendor_acc_external_id:=v_dynamic.vendor_acc_external_id;
+
+  v_cdr.package_counter_id = v_dynamic.package_counter_id;
+
+  v_cdr.dialpeer_id:=v_dynamic.dialpeer_id;
+  v_cdr.dialpeer_prefix:=v_dynamic.dialpeer_prefix;
+
+  v_cdr.orig_gw_id:=v_dynamic.orig_gw_id;
+  v_cdr.orig_gw_external_id:=v_dynamic.orig_gw_external_id;
+  v_cdr.term_gw_id:=v_dynamic.term_gw_id;
+  v_cdr.term_gw_external_id:=v_dynamic.term_gw_external_id;
+
+  v_cdr.routing_group_id:=v_dynamic.routing_group_id;
+  v_cdr.rateplan_id:=v_dynamic.rateplan_id;
+
+  v_cdr.routing_attempt=i_routing_attempt;
+  v_cdr.is_last_cdr=i_is_last_cdr;
+
+  v_cdr.destination_id:=v_dynamic.destination_id;
+  v_cdr.destination_prefix:=v_dynamic.destination_prefix;
+  v_cdr.destination_initial_rate:=v_dynamic.destination_initial_rate::numeric;
+  v_cdr.destination_next_rate:=v_dynamic.destination_next_rate::numeric;
+  v_cdr.destination_initial_interval:=v_dynamic.destination_initial_interval;
+  v_cdr.destination_next_interval:=v_dynamic.destination_next_interval;
+  v_cdr.destination_fee:=v_dynamic.destination_fee;
+  v_cdr.destination_rate_policy_id:=v_dynamic.destination_rate_policy_id;
+  v_cdr.destination_reverse_billing=COALESCE(v_dynamic.destination_reverse_billing, false);
+
+  v_cdr.dialpeer_initial_rate:=v_dynamic.dialpeer_initial_rate::numeric;
+  v_cdr.dialpeer_next_rate:=v_dynamic.dialpeer_next_rate::numeric;
+  v_cdr.dialpeer_initial_interval:=v_dynamic.dialpeer_initial_interval;
+  v_cdr.dialpeer_next_interval:=v_dynamic.dialpeer_next_interval;
+  v_cdr.dialpeer_fee:=v_dynamic.dialpeer_fee;
+  v_cdr.dialpeer_reverse_billing=COALESCE(v_dynamic.dialpeer_reverse_billing, false);
+
+  /* sockets addresses */
+  v_cdr.sign_orig_transport_protocol_id = i_lega_transport_protocol_id;
+  v_cdr.sign_orig_ip = host(i_lega_remote_ip);
+  v_cdr.sign_orig_port = NULLIF(i_lega_remote_port,0);
+  v_cdr.sign_orig_local_ip = host(i_lega_local_ip);
+  v_cdr.sign_orig_local_port = NULLIF(i_lega_local_port,0);
+
+  v_cdr.sign_term_transport_protocol_id = i_legb_transport_protocol_id;
+  v_cdr.sign_term_ip = host(i_legb_remote_ip);
+  v_cdr.sign_term_port = NULLIF(i_legb_remote_port,0);
+  v_cdr.sign_term_local_ip = host(i_legb_local_ip);
+  v_cdr.sign_term_local_port = NULLIF(i_legb_local_port,0);
+
+  v_cdr.local_tag = i_local_tag;
+  v_cdr.legb_local_tag = i_legb_local_tag;
+  v_cdr.legb_ruri = i_legb_ruri;
+  v_cdr.legb_outbound_proxy = i_legb_outbound_proxy;
+
+  v_cdr.is_redirected = i_is_redirected;
+
+  /* Call time data */
+  v_cdr.time_start = to_timestamp(v_time_data.time_start);
+
+  select into strict v_config * from sys.config;
+
+  if v_time_data.time_connect is not null then
+    v_cdr.time_connect = to_timestamp(v_time_data.time_connect);
+    v_cdr.duration = switch.duration_round(v_config, v_time_data.time_end-v_time_data.time_connect); -- rounding
+    v_nozerolen = true;
+    v_cdr.success = true;
+    if v_config.cdo and v_dynamic.destination_cdo is not null and v_dynamic.destination_cdo !=0 and v_cdr.duration + v_dynamic.destination_cdo > 0 then
+      v_cdr.cdo = v_dynamic.destination_cdo;
+    end if;
+  else
+    v_cdr.time_connect = NULL;
+    v_cdr.duration = 0;
+    v_nozerolen = false;
+    v_cdr.success = false;
+  end if;
+  v_cdr.routing_delay = (v_time_data.leg_b_time-v_time_data.time_start)::real;
+  v_cdr.pdd = (coalesce(v_time_data.time_18x,v_time_data.time_connect)-v_time_data.time_start)::real;
+  v_cdr.rtt = (coalesce(v_time_data.time_1xx,v_time_data.time_18x,v_time_data.time_connect)-v_time_data.leg_b_time)::real;
+  v_cdr.early_media_present = i_early_media_present;
+
+  v_cdr.time_end = to_timestamp(v_time_data.time_end);
+
+  -- DC processing
+  v_cdr.legb_disconnect_code = i_legb_disconnect_code;
+  v_cdr.legb_disconnect_reason = i_legb_disconnect_reason;
+  v_cdr.disconnect_initiator_id = i_disconnect_initiator;
+  v_cdr.internal_disconnect_code_id = i_internal_disconnect_code_id;
+  v_cdr.internal_disconnect_code = i_internal_disconnect_code;
+  v_cdr.internal_disconnect_reason = i_internal_disconnect_reason;
+  v_cdr.lega_disconnect_code = i_lega_disconnect_code;
+  v_cdr.lega_disconnect_reason = i_lega_disconnect_reason;
+
+  v_cdr.src_prefix_in = v_dynamic.src_prefix_in;
+  v_cdr.src_prefix_out = v_dynamic.src_prefix_out;
+  v_cdr.dst_prefix_in = v_dynamic.dst_prefix_in;
+  v_cdr.dst_prefix_out = v_dynamic.dst_prefix_out;
+
+  v_cdr.orig_call_id = i_orig_call_id;
+  v_cdr.term_call_id = i_term_call_id;
+
+  /* removed */
+  --v_cdr.dump_file = i_msg_logger_path;
+
+  v_cdr.dump_level_id = i_dump_level_id;
+  v_cdr.audio_recorded = i_audio_recorded;
+
+  v_cdr.auth_orig_transport_protocol_id = v_dynamic.auth_orig_protocol_id;
+  v_cdr.auth_orig_ip = v_dynamic.auth_orig_ip;
+  v_cdr.auth_orig_ip = v_dynamic.auth_orig_ip;
+  v_cdr.auth_orig_port = v_dynamic.auth_orig_port;
+  v_cdr.auth_orig_lat = v_lega_request_headers.x_orig_lat;
+  v_cdr.auth_orig_lon = v_lega_request_headers.x_orig_lon;
+
+  perform switch.write_rtp_statistics(
+    i_rtp_statistics,
+    i_pop_id,
+    i_node_id,
+    v_dynamic.orig_gw_id,
+    v_dynamic.orig_gw_external_id,
+    v_dynamic.term_gw_id,
+    v_dynamic.term_gw_external_id,
+    i_local_tag,
+    i_legb_local_tag
+  );
+
+  v_cdr.global_tag = i_global_tag;
+
+  v_cdr.src_country_id = v_dynamic.src_country_id;
+  v_cdr.src_network_id = v_dynamic.src_network_id;
+  v_cdr.src_network_type_id = v_dynamic.src_network_type_id;
+  v_cdr.dst_country_id = v_dynamic.dst_country_id;
+  v_cdr.dst_network_id = v_dynamic.dst_network_id;
+  v_cdr.dst_network_type_id = v_dynamic.dst_network_type_id;
+
+  v_cdr.dst_prefix_routing = v_dynamic.dst_prefix_routing;
+  v_cdr.src_prefix_routing = v_dynamic.src_prefix_routing;
+  v_cdr.routing_plan_id = v_dynamic.routing_plan_id;
+  v_cdr.lrn = v_dynamic.lrn;
+  v_cdr.lnp_database_id = v_dynamic.lnp_database_id;
+
+  v_cdr.ruri_domain = v_dynamic.ruri_domain;
+  v_cdr.to_domain = v_dynamic.to_domain;
+  v_cdr.from_domain = v_dynamic.from_domain;
+
+  v_cdr.src_area_id = v_dynamic.src_area_id;
+  v_cdr.dst_area_id = v_dynamic.dst_area_id;
+  v_cdr.routing_tag_ids = v_dynamic.routing_tag_ids;
 
 
---
--- Name: cdr_export_data(character varying, character varying); Type: FUNCTION; Schema: sys; Owner: -
---
+  v_cdr.id = nextval('cdr.cdr_id_seq'::regclass);
+  v_cdr.uuid = public.uuid_generate_v1();
 
-CREATE FUNCTION sys.cdr_export_data(i_tbname character varying, i_dir character varying) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_file varchar;
-BEGIN
-    v_file:=i_dir||'/'||i_tbname||'-'||now()::varchar;
-    execute 'COPY '||i_tbname||' TO '''||v_file||''' WITH CSV HEADER QUOTE AS ''"'' FORCE QUOTE *';
+  v_cdr.failed_resource_type_id = i_failed_resource_type_id;
+  v_cdr.failed_resource_id = i_failed_resource_id;
+
+  v_cdr = billing.bill_cdr(v_cdr);
+
+  if not v_config.disable_realtime_statistics then
+    perform stats.update_rt_stats(v_cdr);
+  end if;
+
+  v_cdr.customer_price = switch.customer_price_round(v_config, v_cdr.customer_price);
+  v_cdr.customer_price_no_vat = switch.customer_price_round(v_config, v_cdr.customer_price_no_vat);
+  v_cdr.vendor_price = switch.vendor_price_round(v_config, v_cdr.vendor_price);
+
+  if v_cdr.destination_reverse_billing THEN
+    v_cdr.profit = - v_cdr.customer_price;
+  else
+    v_cdr.profit = v_cdr.customer_price;
+  end if;
+
+  if v_cdr.dialpeer_reverse_billing THEN
+    v_cdr.profit = v_cdr.profit + v_cdr.vendor_price;
+  else
+    v_cdr.profit = v_cdr.profit - v_cdr.vendor_price;
+  end if;
+
+  -- generate event to billing engine
+  perform event.billing_insert_event('cdr_full',v_cdr);
+  perform event.streaming_insert_event(v_cdr);
+  INSERT INTO cdr.cdr VALUES( v_cdr.*);
+  RETURN 0;
 END;
 $$;
 
@@ -1658,11 +2029,11 @@ CREATE TABLE auth_log.auth_log (
     pop_id smallint,
     request_time timestamp with time zone NOT NULL,
     transport_proto_id smallint,
-    transport_remote_ip character varying,
+    transport_remote_ip inet,
     transport_remote_port integer,
-    transport_local_ip character varying,
+    transport_local_ip inet,
     transport_local_port integer,
-    origination_ip character varying,
+    origination_ip inet,
     origination_port integer,
     origination_proto_id smallint,
     username character varying,
@@ -2277,7 +2648,7 @@ CREATE TABLE reports.cdr_interval_report (
     date_start timestamp with time zone NOT NULL,
     date_end timestamp with time zone NOT NULL,
     filter character varying,
-    group_by character varying[],
+    group_by character varying[] DEFAULT '{}'::character varying[] NOT NULL,
     created_at timestamp with time zone NOT NULL,
     interval_length integer NOT NULL,
     aggregator_id integer NOT NULL,
@@ -2292,7 +2663,7 @@ CREATE TABLE reports.cdr_interval_report (
 --
 
 CREATE TABLE reports.cdr_interval_report_aggregator (
-    id integer NOT NULL,
+    id integer CONSTRAINT cdr_interval_report_aggregator_id_not_null1 NOT NULL,
     name character varying NOT NULL
 );
 
@@ -2480,8 +2851,8 @@ CREATE TABLE reports.customer_traffic_report_data_by_destination (
     destination_prefix character varying,
     dst_country_id integer,
     dst_network_id integer,
-    calls_count bigint NOT NULL,
-    calls_duration bigint NOT NULL,
+    calls_count bigint CONSTRAINT customer_traffic_report_data_by_destinatio_calls_count_not_null NOT NULL,
+    calls_duration bigint CONSTRAINT customer_traffic_report_data_by_destina_calls_duration_not_null NOT NULL,
     acd real,
     asr real,
     origination_cost numeric,
@@ -2490,9 +2861,9 @@ CREATE TABLE reports.customer_traffic_report_data_by_destination (
     success_calls_count bigint,
     first_call_at timestamp with time zone,
     last_call_at timestamp with time zone,
-    short_calls_count bigint NOT NULL,
-    customer_calls_duration bigint NOT NULL,
-    vendor_calls_duration bigint NOT NULL
+    short_calls_count bigint CONSTRAINT customer_traffic_report_data_by_dest_short_calls_count_not_null NOT NULL,
+    customer_calls_duration bigint CONSTRAINT customer_traffic_report_data_b_customer_calls_duration_not_null NOT NULL,
+    vendor_calls_duration bigint CONSTRAINT customer_traffic_report_data_by__vendor_calls_duration_not_null NOT NULL
 );
 
 
@@ -2561,8 +2932,8 @@ CREATE TABLE reports.customer_traffic_report_data_full (
     first_call_at timestamp with time zone,
     last_call_at timestamp with time zone,
     short_calls_count bigint NOT NULL,
-    customer_calls_duration bigint NOT NULL,
-    vendor_calls_duration bigint NOT NULL
+    customer_calls_duration bigint CONSTRAINT customer_traffic_report_data_f_customer_calls_duration_not_null NOT NULL,
+    vendor_calls_duration bigint CONSTRAINT customer_traffic_report_data_ful_vendor_calls_duration_not_null NOT NULL
 );
 
 
@@ -3319,6 +3690,37 @@ CREATE TABLE sys.call_duration_round_modes (
 
 
 --
+-- Name: cdr_compacted_tables; Type: TABLE; Schema: sys; Owner: -
+--
+
+CREATE TABLE sys.cdr_compacted_tables (
+    id bigint NOT NULL,
+    table_name character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: cdr_compacted_tables_id_seq; Type: SEQUENCE; Schema: sys; Owner: -
+--
+
+CREATE SEQUENCE sys.cdr_compacted_tables_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cdr_compacted_tables_id_seq; Type: SEQUENCE OWNED BY; Schema: sys; Owner: -
+--
+
+ALTER SEQUENCE sys.cdr_compacted_tables_id_seq OWNED BY sys.cdr_compacted_tables.id;
+
+
+--
 -- Name: auth_log id; Type: DEFAULT; Schema: auth_log; Owner: -
 --
 
@@ -3575,6 +3977,13 @@ ALTER TABLE ONLY stats.traffic_customer_accounts ALTER COLUMN id SET DEFAULT nex
 --
 
 ALTER TABLE ONLY stats.traffic_vendor_accounts ALTER COLUMN id SET DEFAULT nextval('stats.traffic_vendor_accounts_id_seq'::regclass);
+
+
+--
+-- Name: cdr_compacted_tables id; Type: DEFAULT; Schema: sys; Owner: -
+--
+
+ALTER TABLE ONLY sys.cdr_compacted_tables ALTER COLUMN id SET DEFAULT nextval('sys.cdr_compacted_tables_id_seq'::regclass);
 
 
 --
@@ -3978,6 +4387,14 @@ ALTER TABLE ONLY sys.call_duration_round_modes
 
 
 --
+-- Name: cdr_compacted_tables cdr_compacted_tables_pkey; Type: CONSTRAINT; Schema: sys; Owner: -
+--
+
+ALTER TABLE ONLY sys.cdr_compacted_tables
+    ADD CONSTRAINT cdr_compacted_tables_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: config config_pkey; Type: CONSTRAINT; Schema: sys; Owner: -
 --
 
@@ -4182,6 +4599,13 @@ CREATE UNIQUE INDEX traffic_vendor_accounts_account_id_timestamp_idx ON stats.tr
 
 
 --
+-- Name: index_cdr_compacted_tables_on_table_name; Type: INDEX; Schema: sys; Owner: -
+--
+
+CREATE UNIQUE INDEX index_cdr_compacted_tables_on_table_name ON sys.cdr_compacted_tables USING btree (table_name);
+
+
+--
 -- Name: invoice_documents invoice_documents_invoice_id_fkey; Type: FK CONSTRAINT; Schema: billing; Owner: -
 --
 
@@ -4329,78 +4753,90 @@ ALTER TABLE ONLY sys.config
 -- PostgreSQL database dump complete
 --
 
+\unrestrict FSgS5iss3QTfiWFDP8i5kqqXcL6NZaiT20iLmTGCOXgUSjKvbNGbLOOPAdnc0zGn
+
 SET search_path TO cdr, reports, billing, public;
 
 INSERT INTO "public"."schema_migrations" (version) VALUES
-('20170907204350'),
-('20170911172650'),
-('20171104162958'),
-('20180228200703'),
-('20180307142909'),
-('20180312211714'),
-('20180312215122'),
-('20180328123622'),
-('20180328170352'),
-('20180425200716'),
-('20180427194936'),
-('20180607135226'),
-('20180611140540'),
-('20180619091111'),
-('20180621130107'),
-('20180911180345'),
-('20181105175206'),
-('20190604064015'),
-('20190629185813'),
-('20190707214813'),
-('20200105230734'),
-('20200106104136'),
-('20200120195529'),
-('20200120200605'),
-('20200220113109'),
-('20200221080918'),
-('20200514153523'),
-('20200527173737'),
-('20200803201602'),
-('20201128134302'),
-('20210116150950'),
-('20210212102105'),
-('20210218095038'),
-('20210223125543'),
-('20210307170219'),
-('20210614110059'),
-('20211005183259'),
-('20220221142459'),
-('20220317170217'),
-('20220317180321'),
-('20220317180333'),
-('20220426100841'),
-('20220503094804'),
-('20220509203319'),
-('20220625185940'),
-('20220709123408'),
-('20220803115423'),
-('20221105191015'),
-('20230321124900'),
-('20230518150839'),
-('20230524185032'),
-('20230602123903'),
-('20230708183812'),
-('20230828175949'),
-('20230913210707'),
-('20230916152534'),
-('20230929081324'),
-('20231007121159'),
-('20231007123320'),
-('20231027110359'),
-('20231101165858'),
-('20231106100135'),
-('20231106125344'),
-('20231212213111'),
-('20231231115209'),
-('20240122201619'),
-('20240405165010'),
-('20240411092931'),
+('20251011175010'),
+('20250917140033'),
+('20250821154607'),
+('20250730191727'),
+('20250321212727'),
+('20241219145036'),
+('20241219142219'),
+('20241217212213'),
+('20241216143200'),
+('20241006123022'),
+('20241006113650'),
+('20240617084103'),
 ('20240609092136'),
-('20240617084103');
-
+('20240411092931'),
+('20240405165010'),
+('20240122201619'),
+('20231231115209'),
+('20231212213111'),
+('20231106125344'),
+('20231106100135'),
+('20231101165858'),
+('20231027110359'),
+('20231007123320'),
+('20231007121159'),
+('20230929081324'),
+('20230916152534'),
+('20230913210707'),
+('20230828175949'),
+('20230708183812'),
+('20230602123903'),
+('20230524185032'),
+('20230518150839'),
+('20230321124900'),
+('20221105191015'),
+('20220803115423'),
+('20220709123408'),
+('20220625185940'),
+('20220509203319'),
+('20220503094804'),
+('20220426100841'),
+('20220317180333'),
+('20220317180321'),
+('20220317170217'),
+('20220221142459'),
+('20211005183259'),
+('20210614110059'),
+('20210307170219'),
+('20210223125543'),
+('20210218095038'),
+('20210212102105'),
+('20210116150950'),
+('20201128134302'),
+('20200803201602'),
+('20200527173737'),
+('20200514153523'),
+('20200221080918'),
+('20200220113109'),
+('20200120200605'),
+('20200120195529'),
+('20200106104136'),
+('20200105230734'),
+('20190707214813'),
+('20190629185813'),
+('20190604064015'),
+('20181105175206'),
+('20180911180345'),
+('20180621130107'),
+('20180619091111'),
+('20180611140540'),
+('20180607135226'),
+('20180427194936'),
+('20180425200716'),
+('20180328170352'),
+('20180328123622'),
+('20180312215122'),
+('20180312211714'),
+('20180307142909'),
+('20180228200703'),
+('20171104162958'),
+('20170911172650'),
+('20170907204350');
 

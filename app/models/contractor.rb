@@ -6,12 +6,12 @@
 #
 #  id                 :integer(4)       not null, primary key
 #  address            :string
-#  customer           :boolean
+#  customer           :boolean          not null
 #  description        :string
-#  enabled            :boolean
-#  name               :string
+#  enabled            :boolean          not null
+#  name               :string           not null
 #  phones             :string
-#  vendor             :boolean
+#  vendor             :boolean          not null
 #  external_id        :bigint(8)
 #  smtp_connection_id :integer(4)
 #
@@ -42,6 +42,9 @@ class Contractor < ApplicationRecord
            class_name: 'RateManagement::PricelistItem',
            dependent: :nullify,
            foreign_key: :vendor_id
+
+  has_many :traffic_sampling_rules, class_name: 'Routing::TrafficSamplingRule', foreign_key: :customer_id, dependent: :destroy
+
   belongs_to :smtp_connection, class_name: 'System::SmtpConnection', optional: true
 
   include WithPaperTrail

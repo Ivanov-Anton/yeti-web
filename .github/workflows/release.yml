@@ -5,49 +5,13 @@ on:
     types: [ published ]
 
 jobs:
-  deb11:
-    name: Debian 11 release package building
-    runs-on: ubuntu-latest
-    container: ghcr.io/yeti-switch/yeti-web/build-image:bullseye
-    services:
-      db:
-        image: ghcr.io/yeti-switch/yeti-web/pgsql:13
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: set git safe directory
-        run: git config --global --add safe.directory '*'
-
-      - name: Build package
-        run: make package
-        env:
-          YETI_DB_HOST: db
-          YETI_DB_PORT: 5432
-          CDR_DB_HOST: db
-          CDR_DB_PORT: 5432
-
-      - name: Save deb package as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: deb11-package
-          path: /__w/yeti-web/*.deb
-
-      - name: Upload package to ${{github.ref}} repo
-        env:
-          PKG_API_BASE: ${{secrets.PKG_API_BASE}}
-          PKG_TAG: ${{github.ref}} 
-        run: v=${PKG_TAG##*/};major_version=${v%\.[0-9]*};ci/deploy.sh bullseye $major_version main ../*.deb
-
   deb12:
     name: Debian 12 release package building
     runs-on: ubuntu-latest
     container: ghcr.io/yeti-switch/yeti-web/build-image:bookworm
     services:
       db:
-        image: ghcr.io/yeti-switch/yeti-web/pgsql:16
+        image: ghcr.io/yeti-switch/yeti-web/pgsql:18
 
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +28,7 @@ jobs:
           YETI_DB_PORT: 5432
           CDR_DB_HOST: db
           CDR_DB_PORT: 5432
+          SECRET_KEY_BASE: SFIVgccCTnlVm8Z244b07T0EGu8QM7BsLe1UMmXYBEZGYTUwYJzXdhwtvEL1nmui
 
       - name: Save deb package as artifact
         uses: actions/upload-artifact@v4
@@ -71,16 +36,90 @@ jobs:
           name: deb12-package
           path: /__w/yeti-web/*.deb
 
-      - name: Upload package to ${{github.ref}} repo
+      - name: Calculate version from ${{github.ref}}
         env:
-          PKG_API_BASE: ${{secrets.PKG_API_BASE}}
           PKG_TAG: ${{github.ref}}
-        run: v=${PKG_TAG##*/};major_version=${v%\.[0-9]*};ci/deploy.sh bookworm $major_version main ../*.deb
+        shell: bash
+        run: echo "tag=$(echo ${PKG_TAG#refs/tags/})" >> $GITHUB_OUTPUT
+        id: extract_tag
 
+      - name: calculate repo branch
+        env:
+          PKG_TAG: ${{github.ref}}
+        shell: bash
+        run: echo "tag=$(v=${PKG_TAG##*/};major_version=${v%\.[0-9]*};echo $major_version)" >> $GITHUB_OUTPUT
+        id: extract_branch
 
-  deb12_container:
-    name: Debian 12 release container
-    needs: deb12
+      - uses: yeti-switch/upload-debian-pkg-action@v2
+        with:
+          pkgs: '../*.deb'
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          s3_codename: bookworm
+          s3_prefix: ${{steps.extract_branch.outputs.tag}}
+          s3_access_key_id: ${{ secrets.DEB_AWS_ACCESS_KEY_ID }}
+          s3_secret_access_key: ${{ secrets.DEB_AWS_SECRET_ACCESS_KEY }}
+          s3_endpoint_url: ${{ secrets.DEB_AWS_ENDPOINT }}
+
+  deb13:
+    name: Debian 13 release package building
+    runs-on: ubuntu-latest
+    container: ghcr.io/yeti-switch/yeti-web/build-image:trixie
+    services:
+      db:
+        image: ghcr.io/yeti-switch/yeti-web/pgsql:18
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: set git safe directory
+        run: git config --global --add safe.directory '*'
+
+      - name: Build package
+        run: make package
+        env:
+          YETI_DB_HOST: db
+          YETI_DB_PORT: 5432
+          CDR_DB_HOST: db
+          CDR_DB_PORT: 5432
+          SECRET_KEY_BASE: SFIVgccCTnlVm8Z244b07T0EGu8QM7BsLe1UMmXYBEZGYTUwYJzXdhwtvEL1nmui
+
+      - name: Save deb package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb13-package
+          path: /__w/yeti-web/*.deb
+
+      - name: Calculate version from ${{github.ref}}
+        env:
+          PKG_TAG: ${{github.ref}}
+        shell: bash
+        run: echo "tag=$(echo ${PKG_TAG#refs/tags/})" >> $GITHUB_OUTPUT
+        id: extract_tag
+
+      - name: calculate repo branch
+        env:
+          PKG_TAG: ${{github.ref}}
+        shell: bash
+        run: echo "tag=$(v=${PKG_TAG##*/};major_version=${v%\.[0-9]*};echo $major_version)" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - uses: yeti-switch/upload-debian-pkg-action@v2
+        with:
+          pkgs: '../*.deb'
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          s3_codename: trixie
+          s3_prefix: ${{steps.extract_branch.outputs.tag}}
+          s3_access_key_id: ${{ secrets.DEB_AWS_ACCESS_KEY_ID }}
+          s3_secret_access_key: ${{ secrets.DEB_AWS_SECRET_ACCESS_KEY }}
+          s3_endpoint_url: ${{ secrets.DEB_AWS_ENDPOINT }}        
+
+  deb13_container:
+    name: Debian 13 release container
+    needs: deb13
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +129,7 @@ jobs:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
-          name: deb12-package
+          name: deb13-package
 
       - name: Display structure of downloaded files
         run: ls -la
@@ -102,7 +141,7 @@ jobs:
         env:
           PKG_TAG: ${{github.ref}}
         shell: bash
-        run: echo "##[set-output name=tag;]$(echo ${PKG_TAG#refs/tags/})"
+        run: echo "tag=$(echo ${PKG_TAG#refs/tags/})" >> $GITHUB_OUTPUT
         id: extract_tag
 
       - name: Login to GitHub Container Registry
@@ -116,7 +155,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ci/stable-package.Dockerfile
+          file: ci/trixie-package.Dockerfile
           push: true
           tags: ghcr.io/yeti-switch/yeti-web:${{steps.extract_tag.outputs.tag}}
-

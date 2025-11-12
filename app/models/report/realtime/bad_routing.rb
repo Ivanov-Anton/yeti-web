@@ -4,10 +4,13 @@
 #
 # Table name: cdr.cdr
 #
-#  id                              :bigint(8)        not null
+#  id                              :bigint(8)        not null, primary key
 #  audio_recorded                  :boolean
 #  auth_orig_ip                    :inet
+#  auth_orig_lat                   :float(24)
+#  auth_orig_lon                   :float(24)
 #  auth_orig_port                  :integer(4)
+#  cdo                             :integer(2)
 #  core_version                    :string
 #  customer_acc_vat                :decimal(, )
 #  customer_account_check_balance  :boolean
@@ -117,6 +120,7 @@
 #  dst_area_id                     :integer(4)
 #  dst_country_id                  :integer(4)
 #  dst_network_id                  :integer(4)
+#  dst_network_type_id             :integer(2)
 #  dump_level_id                   :integer(2)
 #  failed_resource_id              :bigint(8)
 #  failed_resource_type_id         :integer(2)
@@ -138,6 +142,7 @@
 #  src_area_id                     :integer(4)
 #  src_country_id                  :integer(4)
 #  src_network_id                  :integer(4)
+#  src_network_type_id             :integer(2)
 #  term_call_id                    :string
 #  term_gw_external_id             :bigint(8)
 #  term_gw_id                      :integer(4)
@@ -158,6 +163,8 @@
 #
 
 class Report::Realtime::BadRouting < Report::Realtime::Base
+  self.primary_key = :id
+
   scope :detailed_scope, lambda {
     select("
       row_number() over (partition by customer_id, customer_auth_id, rateplan_id, routing_plan_id, internal_disconnect_code, internal_disconnect_reason) AS id,
@@ -186,7 +193,11 @@ class Report::Realtime::BadRouting < Report::Realtime::Base
   }
 
   scope :time_interval_eq, lambda { |value|
-    where('time_start >=(now()-\'? seconds\'::interval) and time_start < (now()-\'? seconds\'::interval)', 2 * value.to_i, value.to_i)
+    where(
+      "time_start >= (now()-(?::varchar||' seconds')::interval) AND time_start < (now()-(?::varchar||' seconds')::interval)",
+      2 * value.to_i,
+      value.to_i
+    )
   }
 
   private

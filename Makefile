@@ -24,6 +24,7 @@ app_files :=	bin \
 
 exclude_files :=	config/database.yml \
 			config/yeti_web.yml \
+			config/policy_roles.yml \
 			config/secrets.yml \
 			*.o \
 			*.a
@@ -123,7 +124,7 @@ ruby: $(RBENV_ROOT)/versions/$(rbenv_version)
 .PHONY: bundler
 bundler: ruby
 	$(info:msg=Install bundler)
-	gem install --no-document --install-dir $(gems) bundler
+	gem install --no-document --install-dir $(gems) bundler --version 2.7.1
 	$(bundle_bin) config --local clean 'true'
 	$(bundle_bin) config --local jobs 4
 	$(bundle_bin) config --local deployment 'true'
@@ -175,12 +176,6 @@ pgq-processors-gems:
 	$(MAKE) -C pgq-processors
 
 
-.PHONY: swagger
-swagger: debian/changelog
-	$(info:msg=call swagger processing)
-	$(MAKE) -C swagger version=${version}
-
-
 .PHONY: prepare-test-db
 prepare-test-db: gems-test config/database.yml config/yeti_web.yml config/policy_roles.yml
 	$(info:msg=Preparing test database)
@@ -190,10 +185,19 @@ prepare-test-db: gems-test config/database.yml config/yeti_web.yml config/policy
 	@# https://github.com/pgq/pgq/blob/master/functions/pgq.upgrade_schema.sql
 	psql -h "$(YETI_DB_HOST)" -U postgres -c '$(pgq_drop_roles)'
 	psql -h "$(YETI_DB_HOST)" -U postgres -c '$(pgq_create_roles)'
+ifdef CI
+	$(info:msg=CI detected. Preparing single test database)
+	RAILS_ENV=test $(bundle_bin) exec rake db:create
+	RAILS_ENV=test $(bundle_bin) exec rake db:schema:load
+	RAILS_ENV=test $(bundle_bin) exec rake db:seed
+	RAILS_ENV=test $(bundle_bin) exec rake custom_seeds[network_prefixes]
+else
+	$(info:msg=Preparing multiple test databases)
 	RAILS_ENV=test $(bundle_bin) exec rake parallel:create
 	RAILS_ENV=test $(bundle_bin) exec rake parallel:load_schema
 	RAILS_ENV=test $(bundle_bin) exec rake parallel:rake[db:seed]
 	RAILS_ENV=test $(bundle_bin) exec rake parallel:rake[custom_seeds[network_prefixes]]
+endif
 
 
 .PHONY: test
@@ -232,7 +236,7 @@ brakeman: gems-test config/database.yml config/yeti_web.yml config/secrets.yml
 	RAILS_ENV=test $(bundle_bin) exec brakeman
 
 .PHONY: coverage_report
-coverage_report: gems-test
+coverage_report: gems-test config/database.yml config/yeti_web.yml config/secrets.yml
 	$(info:msg=Generate coverage report)
 	$(bundle_bin) exec rake coverage:report
 
@@ -269,7 +273,6 @@ install: $(app_files)
 .PHONY: clean
 clean:
 	$(info:msg=Cleaning)
-	$(MAKE) -C swagger clean
 	$(MAKE) -C pgq-processors clean
 	rm -rf 	public/assets \
 		.bundle \

@@ -1,14 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Api::Rest::Admin::BalanceController, type: :controller do
-  let(:user) { create :admin_user }
-  let(:auth_token) { ::Knock::AuthToken.new(payload: { sub: user.id }).token }
-
-  before do
-    request.accept = 'application/vnd.api+json'
-    request.headers['Content-Type'] = 'application/vnd.api+json'
-    request.headers['Authorization'] = auth_token
-  end
+  include_context :jsonapi_admin_headers
 
   describe 'PUT update', versioning: true do
     let(:external_id) do
@@ -30,9 +23,8 @@ RSpec.describe Api::Rest::Admin::BalanceController, type: :controller do
       it 'should change balance' do
         expect { subject }.to change { account.reload.balance }.from(balance).to(attributes[:balance])
       end
-      it 'should skip audit log' do
-        expect { subject }.not_to change { AuditLogItem.count }
-      end
+
+      include_examples :does_not_create_audit_log
 
       context 'response' do
         before { subject }

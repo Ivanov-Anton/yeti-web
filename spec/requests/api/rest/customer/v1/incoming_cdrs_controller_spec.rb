@@ -128,7 +128,12 @@ RSpec.describe Api::Rest::Customer::V1::IncomingCdrsController, type: :request d
       let(:pk) { :id }
 
       it_behaves_like :jsonapi_filters_by_number_field, :id
-      it_behaves_like :jsonapi_filters_by_datetime_field, :time_start
+      it_behaves_like :jsonapi_filters_by_datetime_field, :time_start do
+        # overrides default filter to avoid conflicts with tests
+        let(:json_api_request_query) do
+          { filter: { time_start_gteq: 50.days.ago.strftime('%F %T') } }
+        end
+      end
       it_behaves_like :jsonapi_filters_by_datetime_field, :time_connect
       it_behaves_like :jsonapi_filters_by_datetime_field, :time_end
       it_behaves_like :jsonapi_filters_by_number_field, :duration
@@ -249,6 +254,22 @@ RSpec.describe Api::Rest::Customer::V1::IncomingCdrsController, type: :request d
                                           rec: false
                                         }
                                       )
+    end
+
+    context 'when api.customer.incoming_cdr_hide_fields configured' do
+      before do
+        allow(YetiConfig.api.customer).to receive(:incoming_cdr_hide_fields).and_return(
+          %w[diversion_out legb_user_agent]
+        )
+      end
+
+      it 'returns record with expected attributes' do
+        subject
+        attribute_keys = response_json[:data][:attributes].keys
+        expect(attribute_keys).to include(:'src-name-out')
+        expect(attribute_keys).not_to include(:'diversion-out')
+        expect(attribute_keys).not_to include(:'legb-user-agent')
+      end
     end
 
     context 'with include account' do
@@ -417,11 +438,61 @@ RSpec.describe Api::Rest::Customer::V1::IncomingCdrsController, type: :request d
     end
 
     it 'responds with X-Accel-Redirect' do
+      expect(Cdr::DownloadCallRecord).to receive(:call).with(cdr:, response_object: be_present).and_call_original
+
       subject
       expect(response.status).to eq 200
       expect(response.body).to be_blank
-      expect(response.headers['X-Accel-Redirect']).to eq cdr.call_record_filename
+      expect(response.headers['X-Accel-Redirect']).to eq cdr.call_record_file_path
       expect(response.headers['Content-Type']).to eq cdr.call_record_ct
+    end
+
+    context 'when s3 storage configured' do
+      before do
+        allow(YetiConfig).to receive(:s3_storage).and_return(
+          OpenStruct.new(
+            endpoint: 'http::some_example_s3_storage_url',
+            pcap: OpenStruct.new(bucket: 'test-pcap-bucket'),
+            call_record: OpenStruct.new(bucket: 'test-call-record-bucket')
+          )
+        )
+
+        allow(S3AttachmentWrapper).to receive(:stream_to!).and_yield("dummy data\n").and_yield('dummy data2')
+      end
+
+      it 'responds with attachment' do
+        expect(Cdr::DownloadCallRecord).to receive(:call).with(cdr:, response_object: be_present).and_call_original
+
+        subject
+        expect(response.status).to eq(200)
+        expect(response.body).to eq("dummy data\ndummy data2")
+        expect(response.headers['Content-Disposition']).to eq("attachment; filename=\"#{cdr.call_record_file_name}\"")
+        expect(response.headers['Content-Type']).to eq('application/octet-stream')
+      end
+    end
+
+    context 'when Cdr::DownloadCallRecord raise Cdr::DownloadCallRecord::NotFoundError' do
+      before do
+        allow(Cdr::DownloadCallRecord).to receive(:call).and_raise(Cdr::DownloadCallRecord::NotFoundError, 'Test error')
+      end
+
+      include_examples :responds_404
+    end
+
+    context 'when Cdr::DownloadCallRecord raise Cdr::DownloadCallRecord::Error' do
+      before do
+        allow(Cdr::DownloadCallRecord).to receive(:call).and_raise(Cdr::DownloadCallRecord::Error, 'Test error')
+      end
+
+      include_examples :jsonapi_server_error
+    end
+
+    context 'when Cdr::DownloadCallRecord raise any other error' do
+      before do
+        allow(Cdr::DownloadCallRecord).to receive(:call).and_raise(StandardError, 'Test error')
+      end
+
+      include_examples :jsonapi_server_error
     end
 
     context 'when cdr audio not recorded' do

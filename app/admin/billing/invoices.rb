@@ -31,19 +31,24 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
   end
 
   batch_action :approve, confirm: 'Are you sure?', if: proc { authorized?(:approve) } do |selection|
-    active_admin_config.resource_class.find(selection).each(&:approve)
-    redirect_to collection_path, notice: "#{active_admin_config.resource_label.pluralize} are approved!"
+    active_admin_config.resource_class.find(selection).each do |record|
+      BillingInvoice::Approve.call(invoice: record)
+      flash[:notice] = "#{active_admin_config.resource_label.pluralize} are approved!"
+    rescue BillingInvoice::Approve::Error => e
+      flash[:error] = "##{record.id}, #{e.message}"
+      break
+    end
+
+    redirect_to collection_path
   end
 
   member_action :approve, method: :post do
-    if resource.approvable?
-      resource.approve
-      flash[:notice] = 'Invoice approved'
-      redirect_back fallback_location: root_path
-    else
-      flash[:notice] = 'Invoice can' 't be approved'
-      redirect_back fallback_location: root_path
-    end
+    BillingInvoice::Approve.call(invoice: resource)
+    flash[:notice] = 'Invoice was successful approved'
+  rescue BillingInvoice::Approve::Error => e
+    flash[:error] = e.message
+  ensure
+    redirect_back fallback_location: root_path
   end
 
   member_action :regenerate_document, method: :post do
@@ -490,7 +495,7 @@ ActiveAdmin.register Billing::Invoice, as: 'Invoice' do
           end
         end
         panel 'By service' do
-          table_for InvoiceServiceDataDecorator.decorate_collection(resource.services_data.preload(:service)) do
+          table_for InvoiceServiceDataDecorator.decorate_collection(resource.service_data.preload(:service)) do
             column :type, :type_badge
             column :service, :service_link
             column :amount do |r|
